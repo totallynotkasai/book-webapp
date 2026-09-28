@@ -1,0 +1,112 @@
+/*
+ * Design tokens (design doc §6.3).
+ * Themes are only token overrides, applied with data-theme on any element (usually <html>).
+ * Visual direction is still to be decided (§6.4), so colours and typefaces are placeholders.
+ */
+
+:root {
+	/* Colour (light theme is the default) */
+	--color-bg: #fbfaf7;
+	--color-surface: #ffffff;
+	--color-border: #e3e0d8;
+	--color-text: #1f1d1a;
+	--color-text-muted: #6b665d;
+	--color-accent: #3b5bdb;
+	--color-accent-contrast: #ffffff;
+	--color-highlight-1: #fff3a3;
+	--color-highlight-2: #c3f0c8;
+	--color-highlight-3: #bfe3ff;
+	--color-highlight-4: #ffd1dc;
+	--color-highlight-5: #e2d4ff;
+
+	/* Reader (overridden at runtime from the user's reader settings) */
+	--reader-font: var(--font-serif);
+	--reader-size: 1.125rem;
+	--reader-line-height: 1.6;
+	--reader-paragraph-spacing: 0.8em;
+	--reader-margin: 2rem;
+	--reader-align: start;
+
+	/* Font stacks. Bundled font files come later. */
+	--font-serif: 'Literata', Georgia, 'Times New Roman', serif;
+	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	--font-dyslexic: 'OpenDyslexic', 'Atkinson Hyperlegible', 'Comic Sans MS', sans-serif;
+
+	/* UI typography */
+	--font-ui: var(--font-sans);
+	--font-display: var(--font-serif);
+
+	/* Shape & spacing */
+	--radius-sm: 4px;
+	--radius-md: 8px;
+	--radius-lg: 16px;
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-5: 1.5rem;
+	--space-6: 2rem;
+	--space-7: 3rem;
+	--space-8: 4rem;
+
+	/* Touch: minimum hit area for interactive controls (WCAG 2.2 target size) */
+	--touch-target: 44px;
+
+	/* Device safe areas (notches, home indicators) for PWA and Capacitor */
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-right: env(safe-area-inset-right, 0px);
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-left: env(safe-area-inset-left, 0px);
+
+	/* Motion */
+	--duration-fast: 120ms;
+	--duration-base: 240ms;
+	--duration-slow: 480ms;
+
+	color-scheme: light;
+}
+
+[data-theme='sepia'] {
+	--color-bg: #f4ecd8;
+	--color-surface: #fbf5e6;
+	--color-border: #ddd0b0;
+	--color-text: #3b2f1e;
+	--color-text-muted: #7a6a50;
+	--color-accent: #8a5a1f;
+	color-scheme: light;
+}
+
+[data-theme='dark'] {
+	--color-bg: #121212;
+	--color-surface: #1d1d1f;
+	--color-border: #2e2e32;
+	--color-text: #e6e3dc;
+	--color-text-muted: #9a968e;
+	--color-accent: #8ea8ff;
+	--color-accent-contrast: #121212;
+	--color-highlight-1: #6b5f1a;
+	--color-highlight-2: #2f5b35;
+	--color-highlight-3: #24506f;
+	--color-highlight-4: #6d3342;
+	--color-highlight-5: #4b3b78;
+	color-scheme: dark;
+}
+
+[data-theme='high-contrast'] {
+	--color-bg: #000000;
+	--color-surface: #000000;
+	--color-border: #ffffff;
+	--color-text: #ffffff;
+	--color-text-muted: #ffffff;
+	--color-accent: #ffff00;
+	--color-accent-contrast: #000000;
+	color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--duration-fast: 0ms;
+		--duration-base: 0ms;
+		--duration-slow: 0ms;
+	}
+}

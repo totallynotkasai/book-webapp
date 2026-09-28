@@ -1,0 +1,13 @@
+{
+	"name": "@book/core",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Domain types and pure logic. No framework or platform dependencies.",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc -p ."
+	}
+}

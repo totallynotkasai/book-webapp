@@ -1,0 +1,17 @@
+{
+	"name": "@book/tokens",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Design tokens (CSS custom properties) and preset themes.",
+	"exports": {
+		".": "./src/index.ts",
+		"./tokens.css": "./src/tokens.css"
+	},
+	"scripts": {
+		"check": "tsc -p ."
+	},
+	"dependencies": {
+		"@book/core": "*"
+	}
+}

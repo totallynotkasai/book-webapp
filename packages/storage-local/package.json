@@ -1,0 +1,17 @@
+{
+	"name": "@book/storage-local",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Browser (IndexedDB) implementation of the @book/core storage interfaces.",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc -p ."
+	},
+	"dependencies": {
+		"@book/core": "*",
+		"idb": "^8.0.3"
+	}
+}
