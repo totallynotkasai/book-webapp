@@ -4,3 +4,10 @@
 *.jpg binary
 *.webp binary
 *.avif binary
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.jar binary
+*.m4a binary
+*.mp3 binary
+*.woff2 binary
+*.bin binary
