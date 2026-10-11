@@ -1,0 +1,106 @@
+/*
+ * The Lamplighter's Ledger: demo serial stylesheet. Our own work, CC0 1.0.
+ * Status windows use author colours on purpose (DESIGN.md §9.6); the reader re-maps them onto
+ * theme tokens at render time.
+ */
+
+body {
+	font-family: Georgia, serif;
+	line-height: 1.5;
+}
+
+h1 {
+	text-align: center;
+	margin: 1.5em 0 1em;
+}
+
+h1 .chapter-number {
+	display: block;
+	font-size: 0.6em;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+}
+
+.status-window {
+	border: 2px solid #8fd3ff;
+	border-radius: 4px;
+	background-color: #0a1124;
+	color: #e8eefc;
+	padding: 0.75em 1em;
+	margin: 1em 0;
+	font-family: 'Courier New', Courier, monospace;
+}
+
+.status-window h3 {
+	margin: 0 0 0.5em;
+	color: #8fd3ff;
+	text-align: center;
+	font-size: 1em;
+	letter-spacing: 0.1em;
+}
+
+.status-window p {
+	margin: 0.2em 0;
+	text-indent: 0;
+}
+
+.system-message {
+	border-left: 4px solid #f5d27a;
+	background: #fff7e0;
+	color: #3a2a00;
+	padding: 0.4em 0.8em;
+	margin: 0.8em 0;
+	font-family: monospace;
+	font-weight: bold;
+	text-indent: 0;
+}
+
+.system-message.warning {
+	border-left-color: #b23a3a;
+	background: #fde2e2;
+	color: #5a1010;
+}
+
+table.stats {
+	border-collapse: collapse;
+	width: 100%;
+	margin: 0.5em 0;
+}
+
+table.stats th,
+table.stats td {
+	border: 1px solid #8fd3ff;
+	padding: 0.2em 0.5em;
+	text-align: left;
+}
+
+table.stats td.num {
+	text-align: right;
+}
+
+.ledger-entry {
+	font-style: italic;
+	margin: 0.8em 2em;
+}
+
+.to-be-continued {
+	text-align: center;
+	font-style: italic;
+	margin-top: 2em;
+}
+
+.notice {
+	border: 1px solid #999;
+	padding: 1em;
+}
+
+.cover {
+	text-align: center;
+	margin: 0;
+	padding: 0;
+}
+
+.cover img {
+	max-width: 100%;
+	max-height: 100%;
+}

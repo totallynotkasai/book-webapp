@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	The Lamplighter's Ledger: a demo serial for the simulated store (DESIGN.md D-023).
+	Written by an AI (Claude) for a proof of concept and labelled AI-generated.
+	Our own work, dedicated to the public domain under CC0 1.0 Universal.
+	Built by `npm run fixtures:epubs` into apps/web/static/demo/books/the-lamplighters-ledger.epub.
+-->
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="en">
+	<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+		<dc:identifier id="uid">urn:uuid:9b1e7c42-3d5a-4f8e-b6c1-2a7d0e4f8c13</dc:identifier>
+		<dc:title>The Lamplighter's Ledger</dc:title>
+		<dc:creator id="author">Wren Ashdown</dc:creator>
+		<meta refines="#author" property="role" scheme="marc:relators">aut</meta>
+		<dc:language>en</dc:language>
+		<dc:subject>Fantasy</dc:subject>
+		<dc:subject>LitRPG</dc:subject>
+		<dc:rights>Dedicated to the public domain under CC0 1.0 Universal.</dc:rights>
+		<dc:description>AI-generated. This demo serial was written by an AI (Claude) for a proof of concept and is labelled AI-generated. Wren Ashdown is a fictional author. When the city's lamps start going dark, Tam Reed, the last apprentice lamplighter of Hollowmere, is given a class nobody wants and an old ledger that remembers every light ever lit. Chapters 1 to 6; to be continued.</dc:description>
+		<meta property="dcterms:modified">2026-10-11T00:00:00Z</meta>
+		<meta property="belongs-to-collection" id="series">The Lamplighter's Ledger</meta>
+		<meta refines="#series" property="collection-type">series</meta>
+		<meta name="cover" content="cover-image"/>
+	</metadata>
+	<manifest>
+		<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+		<item id="css" href="styles/book.css" media-type="text/css"/>
+		<item id="cover-image" href="images/cover.jpg" media-type="image/jpeg" properties="cover-image"/>
+		<item id="cover" href="text/cover.xhtml" media-type="application/xhtml+xml"/>
+		<item id="notice" href="text/notice.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter-1" href="text/chapter-1.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter-2" href="text/chapter-2.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter-3" href="text/chapter-3.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter-4" href="text/chapter-4.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter-5" href="text/chapter-5.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter-6" href="text/chapter-6.xhtml" media-type="application/xhtml+xml"/>
+	</manifest>
+	<spine>
+		<itemref idref="cover"/>
+		<itemref idref="notice"/>
+		<itemref idref="chapter-1"/>
+		<itemref idref="chapter-2"/>
+		<itemref idref="chapter-3"/>
+		<itemref idref="chapter-4"/>
+		<itemref idref="chapter-5"/>
+		<itemref idref="chapter-6"/>
+	</spine>
+</package>
