@@ -1,8 +1,9 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.2 · **Owner:** Kasai · **Last updated:** 11 October 2026
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 11 October 2026
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
+> **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
 > **Working name:** TBD (OPEN-07). Package scope: `@book/*` (already in the repo; rename when the product is named).
 
 ---
@@ -14,7 +15,7 @@ This is the source of truth for product scope, architecture, terminology and bui
 **Before starting any task, an agent MUST:**
 
 1. Read §2 Glossary and §3 Invariants. Use glossary terms exactly in code, comments, storage fields and (where sensible) UI copy.
-2. Find the task by its ID (e.g. `P1-RDR-04`) in §13 and check that everything in its `Depends on` list is done.
+2. Find the task by its ID (e.g. `P1-RDR-04`) in §13 and check that everything in its `Depends on` list is done. Its phase, UX notes and Try-it checklist are in `docs/IMPLEMENTATION-PLAN.md` §6.
 3. Check §17 for any `OPEN-xx` question the task touches. **Do not silently resolve an OPEN item.** Propose a resolution in the PR description, and stop if the choice is hard to reverse (stored data format, public API, storage layout).
 
 **While working:**
@@ -26,7 +27,7 @@ This is the source of truth for product scope, architecture, terminology and bui
 - If you change a decision, update §16 Decision log in the same PR.
 - A task is done only when it meets §12.5 Definition of Done **and** its own acceptance criteria.
 
-**Current stage:** Phase 0/1 — local-first proof of concept. There is **no backend**. Anything in this document marked *Proposed* (mainly the server stack) is a plan to confirm at the PoC review (§13.3), not a decision.
+**Current stage:** Phase 0/1 — local-first proof of concept. There is **no backend**. The server-side areas (store, Creator Studio, community, moderation) are built against a simulated backend that runs in the browser (§5.6), so the owner can try them before any hosting exists. The PoC targets web and Android; iOS is in `docs/BACKLOG.md` (D-024). Anything in this document marked *Proposed* (mainly the server stack) is a plan to confirm at the PoC review (§13.3), not a decision.
 
 ---
 
@@ -118,6 +119,9 @@ If narration and illustrations are already attached to the text, in the same rea
 | **Reading Progress** | A user's current position (PointAnchor + progression) and furthest position reached in a Book. |
 | **Reader Preferences** | Typography, layout, theme and playback settings (§9.4). Global, with optional per-Book overrides. |
 | **Stores** | The storage interfaces in `@book/core`. The app persists data only through them (§6.3). |
+| **Backend** | The interface in `@book/core` for server-authoritative operations: catalogue, Entitlements, checkout, Tips and subscriptions, Layers, publishing, community, moderation and sessions. Implemented in the browser by `backend-local` in the PoC and by an HTTP client from Phase 2 (§5.6). |
+| **Persona** | A seeded user (Reader, Author, Illustrator, Moderator) that the owner switches between in development builds. Stands in for sign-in until Phase 2. |
+| **Simulated** | Built against `backend-local`: it works end to end, but with no real accounts, servers or money. Simulated UI that involves money is labelled as such. |
 
 Don't use "page" to mean a stored position. Don't say "bookmark" without saying whether you mean a Bookmark Design or a Placed Bookmark. In UI copy, use the words readers use: "Narration", "Illustrations", "Bookmarks", not "Layers" or "Sync Maps".
 
@@ -133,7 +137,7 @@ These are non-negotiable. Code that violates them is rejected.
 4. **Order comes from Ordinals, never from WordIds.** Ordinals are only compared within the same Revision.
 5. **Selections snap to whole Words.** A RangeAnchor always starts and ends on a Word.
 6. **Nothing appears ahead of the reader.** Illustration panels, previews, recaps and glossary entries only use content anchored at or before the reader's visible range (or furthest position, for recaps and glossary). Store-page previews only use Illustrations marked `spoilerSafe`.
-7. **The app touches storage only through `Stores`** (`@book/core`). The implementation is chosen in one file (`apps/web/src/lib/services.ts`).
+7. **The app touches storage only through `Stores`, and server-authoritative operations only through `Backend`** (both in `@book/core`). The implementations are chosen in one file (`apps/web/src/lib/services.ts`).
 8. **App code never imports the reader engine directly.** Only `packages/reader-core` adapters may import foliate-js / Readium.
 9. **`@book/core` stays platform-neutral.** No framework, DOM or Node imports. (Zod is allowed once schemas are needed.) Shared types and schemas live there; never duplicate a type or DTO elsewhere.
 10. **Book content is untrusted.** EPUB scripts are stripped, CSS is allowlisted, images are re-encoded, audio is transcoded (§7, §10). Chapters render in a sandboxed iframe.
@@ -142,7 +146,7 @@ These are non-negotiable. Code that violates them is rejected.
 13. **Svelte 5 runes only** (`$state`, `$derived`, `$effect`, `$props`). Shared reactive state lives in `.svelte.ts` modules.
 14. **TypeScript strict everywhere.** No `any` without an explaining comment.
 
-From Phase 2, when the backend exists:
+The next five govern the backend. 15, 17 and 19 are enforced inside the simulated backend (`backend-local`) from Phase 1 and in the API from Phase 2. 16 and 18 start in Phase 2:
 
 15. **All access checks go through the Entitlements module.** No other code decides ownership. Free Products still need an Entitlement (created by "Add to library").
 16. **Paid or gated content is never publicly readable.** It is served only through short-lived content access tokens (§10.3).
@@ -154,7 +158,7 @@ From Phase 2, when the backend exists:
 
 ## 4. Features
 
-Every feature has a home phase so the vision and the roadmap are the same list. ★ marks the features most likely to prove the core bet.
+Every feature has a home phase so the vision and the roadmap are the same list. ★ marks the features most likely to prove the core bet. "1 (simulated)" means a working version in the PoC against the simulated backend (§5.6, D-021); the later phase is when it becomes real.
 
 ### 4.1 Reader
 
@@ -219,7 +223,7 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 | Notes panel | All notes and highlights for the Book, grouped by chapter, filterable by colour, jump to, edit, delete | 1 |
 | Export | Markdown (with chapter headings) and plain text | 1 |
 | Placed Bookmarks | Free and unlimited; optional label; shown as a ribbon on the page edge; listed with notes; `B` shortcut | 1 |
-| Bookmark Designs | Cosmetic Products. Everyone gets a default design; bought designs work in every Book | 1 (default), 4 (store) |
+| Bookmark Designs | Cosmetic Products. Everyone gets a default design; bought designs work in every Book | 1 (default; simulated store), 4 (store) |
 | Orphan handling | If an author's edit deletes the text an Annotation or bookmark pointed to, it is kept and shown as "orphaned", never silently dropped | 2 |
 
 ### 4.6 Library and import
@@ -235,23 +239,23 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 
 | Feature | Detail | Phase |
 |---|---|---|
-| Upload and publish | EPUB upload, ingest report, preview, publish | 2 |
-| New Revisions | Edit or append chapters; reader data migrates automatically (§6.2) | 2 |
-| Illustration placement tool | Select text in Creator mode → "Attach illustration" → image, placement, alt text | 1 (local prototype), 3 |
-| Narration upload and review | Per-chapter audio, automatic alignment, review screen for low-confidence parts | 3 |
+| Upload and publish | EPUB upload, ingest report, preview, publish | 1 (simulated), 2 |
+| New Revisions | Edit or append chapters; reader data migrates automatically (§6.2) | 1 (simulated), 2 |
+| Illustration placement tool | Select text in Creator mode → "Attach illustration" → image, placement, alt text | 1 (simulated Studio pack builder), 3 |
+| Narration upload and review | Per-chapter audio, automatic alignment, review screen for low-confidence parts | 1 (simulated; Sync Maps from `tools/align`), 3 |
 | Serial publishing | Scheduled chapter releases with follower notifications | 6 |
 | Author analytics | Reads, completion, drop-off by chapter, Layer usage | 6 |
-| Monetisation | Paid Books, Bundles, early-access chapters, Tips, Creator Subscriptions, revenue share on Layers and cosmetics linked to their Books (§6.5) | 4 |
-| Curation tools | Review queue for the author's own Books: approve, hide or remove community Layers; see flags and reports (§10.6) | 2 (own uploads), 5 (community) |
+| Monetisation | Paid Books, Bundles, early-access chapters, Tips, Creator Subscriptions, revenue share on Layers and cosmetics linked to their Books (§6.5) | 1 (simulated), 4 |
+| Curation tools | Review queue for the author's own Books: approve, hide or remove community Layers; see flags and reports (§10.6) | 1 (simulated), 2 (own uploads), 5 (community) |
 | DOCX / Markdown import | Via Pandoc into the EPUB pipeline | 3 (stretch) |
 
 ### 4.8 Community
 
 | Feature | Detail | Phase |
 |---|---|---|
-| Community Layers | Packs and narration by other creators, subject to the author's policy (§6.6) | 5 |
-| Per-Book hub | Browse, rate and enable community Layers, free or paid; "Author-endorsed" badge; top-rated first | 5 |
-| Creator profiles | Portfolio across Books, follow, tip, subscribe | 5 |
+| Community Layers | Packs and narration by other creators, subject to the author's policy (§6.6) | 1 (simulated), 5 |
+| Per-Book hub | Browse, rate and enable community Layers, free or paid; "Author-endorsed" badge; top-rated first | 1 (simulated), 5 |
+| Creator profiles | Portfolio across Books, follow, tip, subscribe | 1 (simulated), 5 |
 | Paragraph comments | Comments on passages, hidden by default behind a count indicator | 6 |
 | Popular highlights | Optionally show passages many readers highlighted | 6 |
 | Reviews | Showing how far the reviewer read; wishlists and sale alerts | 6 |
@@ -287,7 +291,7 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 
 The architecture grows in two stages. Code is structured for the second stage from day one, so moving to it means adding implementations, not rewriting.
 
-**Stage 1 — local-first proof of concept (now).** Everything runs in the browser or the Capacitor WebView. Books are imported or bundled, processed client-side by `text-pipeline`, and stored in IndexedDB with all reader data. Sample Layers (illustrations, narration Sync Maps) are prepared offline with developer tools and served as static files.
+**Stage 1 — local-first proof of concept (now).** Everything runs in the browser or the Capacitor WebView. Imported Books are processed client-side by `text-pipeline` and stored in IndexedDB with all reader data. Server-authoritative operations (catalogue, Entitlements, checkout, publishing, community, moderation) go through the `Backend` interface to `backend-local`, a simulated backend with its own IndexedDB database and seeded demo Books and Layers (§5.6). Sample Layers (illustrations, narration Sync Maps) are prepared offline with developer tools and served as static files.
 
 ```mermaid
 flowchart LR
@@ -297,19 +301,24 @@ flowchart LR
     TP["text-pipeline<br/>(EPUB import)"]
     Stores["Stores interface<br/>(@book/core)"]
     IDB[("IndexedDB<br/>(storage-local)")]
+    Backend["Backend interface<br/>(@book/core)"]
+    BL["backend-local<br/>(simulated backend)"]
+    IDB2[("IndexedDB<br/>(backend-local)")]
   end
-  Static[("Static files<br/>sample book + demo Layers")]
+  Static[("Static files<br/>seed data, demo Books and Layers")]
   Tools["Dev tools (offline)<br/>tools/align: ffmpeg + whisper.cpp"]
 
   UI --> RC
   UI --> TP
   UI --> Stores --> IDB
   TP --> Stores
-  RC --> Static
+  UI --> Backend --> BL --> IDB2
+  BL --> TP
+  BL --> Static
   Tools -. "writes Sync Maps" .-> Static
 ```
 
-**Stage 2 — platform (Phase 2 onwards; *Proposed*, confirm at PoC review).** An API owns accounts, Entitlements and content delivery; a worker runs the same `text-pipeline` and `alignment` packages server-side; the app swaps its local Stores for synced ones.
+**Stage 2 — platform (Phase 2 onwards; *Proposed*, confirm at PoC review).** An API owns accounts, Entitlements and content delivery; a worker runs the same `text-pipeline` and `alignment` packages server-side; the app swaps `backend-local` for an HTTP client and its local Stores for synced ones (§5.6).
 
 ```mermaid
 flowchart LR
@@ -344,7 +353,8 @@ Status: **In repo** = already set up. **Phase n** = adopt when that phase starts
 | Language | TypeScript (strict) | In repo | Everywhere, including tools |
 | Package manager | npm workspaces | In repo | Owner's preference. Add Turborepo only if builds get slow (it works with npm) |
 | UI framework | Svelte 5 + SvelteKit, built as an SPA (`adapter-static`, `fallback: 'index.html'`) | In repo | One build runs on the web and in Capacitor. Server-rendered store pages come in Phase 6 (§5.5) |
-| Mobile | Capacitor (iOS + Android) | Phase 0 | Native plugins only where web APIs fall short: background audio, deep links, filesystem |
+| Mobile | Capacitor: Android now, iOS from the backlog (D-024) | Phase 0 | Native plugins only where web APIs fall short: background audio, deep links, filesystem |
+| Simulated backend | `backend-local`: IndexedDB via `idb`, seed data validated with Zod | Phase 0 | §5.6. Replaced by `backend-http` in Phase 2 |
 | Reader engine | foliate-js **or** Readium ts-toolkit | Spike P0-04 (OPEN-01) | Always behind the `ReaderEngine` interface (§9.1) |
 | Local storage | IndexedDB via `idb` | In repo | `@book/storage-local` |
 | Validation | Zod | Phase 1 | For imported data, stored data and (later) API contracts |
@@ -362,7 +372,7 @@ Status: **In repo** = already set up. **Phase n** = adopt when that phase starts
 | Object storage | Cloudflare R2 (prod), MinIO (local) | Proposed (Phase 2) | S3 API; no egress fees for audio |
 | Payments | Stripe Checkout; Stripe Connect for payouts | Phase 4 | Merchant-of-record question is OPEN-04 |
 | Search | Postgres full-text, then Meilisearch if the catalogue grows | Phase 6 | In-book search uses the word index |
-| Testing | Vitest, @testing-library/svelte, Playwright (Chromium + WebKit) | Vitest in repo | WebKit matters: iOS runs WKWebView |
+| Testing | Vitest, @testing-library/svelte, Playwright (Chromium + WebKit) | Vitest in repo | WebKit matters: iOS runs WKWebView, and WebKit is the only iOS coverage until the backlog item is picked up |
 | Lint / format | ESLint + eslint-plugin-svelte, Prettier + prettier-plugin-svelte, svelte-check | In repo | |
 | Errors | Sentry (web, Capacitor, and later API and worker) | Phase 2 | Not needed for the local PoC |
 | Analytics | Privacy-preserving, cookie-less, first-party (e.g. self-hosted Plausible plus a few documented events) | Phase 2 | §10.5 |
@@ -376,37 +386,46 @@ Existing folders are kept. New ones are added when their phase starts.
 ├─ AGENTS.md                    # short pointer to this doc + commands (Appendix C)   [Phase 0]
 ├─ docs/
 │  ├─ DESIGN.md                 # this document
+│  ├─ IMPLEMENTATION-PLAN.md    # phases 0.1–1.9: order, UX notes, Try-it checklists     [in repo]
+│  ├─ BACKLOG.md                # deferred work and what brings it back (e.g. iOS)       [in repo]
 │  └─ adr/                      # ADR-001-reader-engine.md, …                          [Phase 0]
 ├─ apps/
 │  ├─ web/                      # SvelteKit SPA + Capacitor config                    [in repo]
-│  │  ├─ src/routes/            # (library)/, read/[bookId]/, creator/, settings/, (store)/ later
+│  │  ├─ src/routes/            # library/, read/[bookId]/, store/, book/[slug]/, creator/[handle]/,
+│  │  │                         # studio/, you/, admin/, dev/ (IMPLEMENTATION-PLAN.md §5)
 │  │  ├─ src/lib/
 │  │  │  ├─ services.ts         # the one place Stores are chosen                    [in repo]
 │  │  │  ├─ state/              # *.svelte.ts shared state (prefs, library, session)
 │  │  │  ├─ reader/             # reader UI: toolbar, scrubber, panels, menus
 │  │  │  └─ platform/           # web vs Capacitor adapters (audio, files, share, …)
 │  │  ├─ static/books/          # bundled sample book(s)                              [in repo]
-│  │  ├─ ios/  android/         # generated by Capacitor                              [Phase 0]
+│  │  ├─ static/demo/           # demo Books, Layers and audio for backend-local      [Phase 0]
+│  │  ├─ android/               # generated by Capacitor                              [Phase 0]
+│  │  ├─ ios/                   # generated by Capacitor                              [backlog]
 │  │  └─ capacitor.config.ts
 │  ├─ api/                      # Hono API, one folder per module                      [Phase 2]
 │  └─ worker/                   # pg-boss job handlers                                 [Phase 2]
 ├─ packages/
-│  ├─ core/                     # domain types, Anchors, Stores interfaces, schemas    [in repo]
+│  ├─ core/                     # domain types, Anchors, Stores + Backend interfaces, schemas [in repo]
+│  ├─ domain/                   # pure business rules: Entitlements, Bundles, Flags…    [Phase 0]
+│  ├─ contract-tests/           # shared suites for any Stores or Backend (dev only)    [Phase 0]
 │  ├─ storage-local/            # IndexedDB implementation of Stores                   [in repo]
+│  ├─ backend-local/            # simulated Backend in the browser: own DB, seed, Personas [Phase 0]
 │  ├─ tokens/                   # design tokens, theme generation, reader tokens        [in repo]
 │  ├─ text-pipeline/            # EPUB parse/sanitise, tokenise, WordIds, diff, index   [Phase 1]
 │  ├─ reader-core/              # ReaderEngine interface, engine adapter, Anchor↔Locator [Phase 1]
 │  ├─ alignment/                # transcript ↔ Word alignment, Sync Map format          [Phase 1]
 │  ├─ ui/                       # Svelte components on top of tokens                    [Phase 1]
 │  ├─ storage-remote/           # Stores backed by the API, with local cache + outbox   [Phase 2]
+│  ├─ backend-http/             # Backend over the API, same schemas                    [Phase 2]
 │  └─ db/                       # Drizzle schema, migrations, seed                      [Phase 2]
-├─ tools/                       # dev-only CLIs, e.g. tools/align (whisper.cpp)         [Phase 1]
-└─ fixtures/                    # test EPUBs, audio clips, images (§12.2)               [Phase 0]
+├─ tools/                       # dev-only CLIs: align, resolve-anchors, images         [Phase 1]
+└─ fixtures/                    # test EPUBs, audio clips, images, seed/ (§12.2)        [Phase 0]
 ```
 
 Reader UI lives in `apps/web/src/lib/reader/` until a second app needs it; extract it to a package then. Pure logic never lives in Svelte components.
 
-**Dependency direction** (enforced with ESLint import rules): `apps/*` → `packages/*` → `core`. `core` imports nothing internal. `text-pipeline`, `alignment` and `reader-core` import only `core`. `ui` imports only `tokens`. No package imports from `apps/*`.
+**Dependency direction** (enforced with ESLint import rules): `apps/*` → `packages/*` → `core`. `core` imports nothing internal. `text-pipeline`, `alignment`, `reader-core` and `domain` import only `core`. `backend-local` imports `core`, `domain` and `text-pipeline`. `contract-tests` imports `core` (and Vitest). `ui` imports only `tokens`. No package imports from `apps/*`. Inside `apps/web`, only `src/lib/services.ts` may import `storage-local` or `backend-local`.
 
 ### 5.4 Runtime placement of shared packages
 
@@ -415,12 +434,26 @@ Reader UI lives in `apps/web/src/lib/reader/` until a second app needs it; extra
 | `text-pipeline` | Browser (in a Web Worker, so import doesn't freeze the UI) | Worker job `ingest-epub` (same code) |
 | `alignment` | `tools/align` CLI on the developer's machine | Worker job `align-narration` |
 | `storage-local` | Primary store | Offline cache and outbox under `storage-remote` |
+| `domain` | Inside `backend-local`, in the browser | Inside `apps/api` (same code) |
+| `backend-local` | The backend (simulated) | E2E tests and offline demos, or removed |
 
 `text-pipeline` must therefore use only APIs available in both browsers and Node (e.g. `DOMParser` substitutes passed in, `Intl.Segmenter`, Web Crypto).
 
 ### 5.5 Public store pages and SEO (Phase 6)
 
 The SPA build stays the only build the apps use. For search engines, public Book pages are either prerendered at build/publish time or served by a separate web-only SvelteKit deployment with a server adapter. Decide in Phase 6; nothing earlier depends on it.
+
+### 5.6 Backend seam and simulated backend (Phase 0 onwards, D-021, D-022)
+
+The app reaches server-authoritative operations only through the `Backend` interface (Invariant 7), so the Store, Creator Studio, community and moderation areas can be built and tried in the PoC and later pointed at the real API without rewriting them. `docs/IMPLEMENTATION-PLAN.md` §4 has the detail.
+
+- **Interface.** `packages/core/src/backend/` defines modules that mirror the planned API modules (§10.1): `session`, `catalogue`, `library`, `content`, `checkout`, `support` (Tips and Creator Subscriptions), `layers`, `studio`, `community`, `moderation`, and `events` for change notifications. Every input and output has a Zod schema. Failures are a `BackendError` carrying a §10.1 error code. Lists are paged as `{ items, nextCursor }`, and mutations that move money or create Entitlements take an idempotency key, even locally.
+- **Content.** `content.open(bookId)` checks Entitlements, then returns the Revision, Chapter access, available Layers and a loader for the Book's files. Locally the loader reads from `backend-local`'s database; from Phase 2 it fetches under the content-token prefix (§10.3). `reader-core` only sees the loader.
+- **`backend-local`** (Phase 0 to the PoC review) runs in the browser with its own IndexedDB database, separate from `Stores`. It loads versioned seed data from `fixtures/seed/` (validated with Zod), replaces sign-in with Personas, enforces roles and ownership itself (rejecting with `FORBIDDEN`, not just hiding UI), and offers simulation controls through the dev panel: latency, failure rate, offline, payment outcome, AI-detector verdict, and a clock that can be moved forward. It is lazy-loaded, and its seed is fetched as JSON rather than bundled.
+- **Rules live in `packages/domain`**: Entitlement checks, Bundle expansion, subscription windows, price arithmetic, revenue splits, community policy checks, default Layer selection and Flag rules. `backend-local` uses them now and `apps/api` reuses them in Phase 2.
+- **Contract tests** in `packages/contract-tests` run the same suites against every `Stores` and `Backend` implementation: the local ones now, `storage-remote` and `backend-http` against the Docker API in Phase 2. Passing them is the condition for swapping implementations in `services.ts`.
+- **Simulations never resolve OPEN items quietly.** Where a rule isn't decided (OPEN-08, OPEN-10, OPEN-11, OPEN-12), `backend-local` uses an obviously placeholder value from one config file, marked `// SIMULATION:`, and the PR lists it.
+- **Phase 2:** `backend-http` and `storage-remote` replace the local implementations in `services.ts`; `session` moves to the auth provider; first sign-in offers to upload the device's data (§6.3).
 
 ---
 
@@ -512,7 +545,7 @@ The PoC stores everything locally, and Phase 2 adds sync. To avoid a rewrite, ev
 - Conflicts: last write wins per record by `updatedAt`, except Reading Progress (§9.5).
 - First sign-in offers to upload the device's existing local library and reader data ("Keep my notes and bookmarks").
 
-**`Stores` interfaces** (`packages/core/src/storage.ts`) grow to cover: `library` (Books, Revisions, processed content blobs), `annotations`, `placedBookmarks`, `progress`, `preferences`, `layerSelection`, and in the PoC `localLayers` (demo Illustration Packs and Sync Maps).
+**`Stores` interfaces** (`packages/core/src/storage.ts`) grow to cover: `library` (imported Books, Revisions, processed content blobs), `annotations`, `placedBookmarks`, `progress`, `preferences` and `layerSelection`. Catalogue Books and all Layers, including the PoC's demo Illustration Packs and Sync Maps, come through `Backend` (§5.6), so Layer code is the same in the PoC and in Phase 3. In the PoC, user-owned data is kept per Persona (`book-reader:<userId>`), which rehearses per-account data.
 
 **Local IDs for imported Books:** `revisionId` = SHA-256 of the EPUB file (re-importing the same file is a no-op). `bookId` = the EPUB's `dc:identifier` if present, else a new UUIDv7. A different file with the same `bookId` becomes a new Revision and triggers re-anchoring.
 
@@ -684,7 +717,7 @@ Per user, per Book:
 - Zero or more Illustration Packs, in priority order.
 - At most one narration Audio Track at a time.
 - **Default on first open:** every *official* Layer the user is entitled to is on, except that audio waits for the reader to press play (Invariant 11).
-- Only Layers the user has Entitlements for can be enabled (Phase 2+). In the PoC, every local Layer is available.
+- Only Layers the user has Entitlements for can be enabled. `backend-local` enforces this in the PoC (simulated Entitlements), and the API from Phase 2.
 
 ### 8.2 Illustrations
 
@@ -713,6 +746,7 @@ Injection happens at render time through `ReaderEngine.injectFigures()`, and onl
 
 - Audio drives position. The current Word is highlighted through an engine decoration (`group: 'narration'`) at Word or sentence granularity (preference).
 - When the highlighted Word leaves the visible range, the reader turns the page (preference, default on).
+- If the reader turns pages by hand while narration plays, auto-turn pauses and a "Back to narration" chip appears. Following resumes when they tap it or when the narration reaches the visible range. Auto-turn must never fight the reader.
 - Tapping a Word while narration plays seeks to its `startMs`.
 - Controls: play/pause, ±15 s, previous/next sentence, speed 0.5×–3×.
 - Time → Word uses binary search on the Sync Map; Word → time uses a `Map<WordId, index>` built on load.
@@ -807,7 +841,7 @@ export interface ReaderEngine {
 ### 9.3 Selection, Annotations and Placed Bookmarks
 
 - Desktop: selecting text shows a floating toolbar; right-click on a selection opens the same actions in a context menu.
-- Touch: long-press starts native selection and the same toolbar appears. How to suppress or extend the native iOS/Android selection menu is validated in P0-07.
+- Touch: long-press starts native selection and the same toolbar appears. How to suppress or extend the native selection menu is validated in P0-07 on Android, and in backlog item IOS-05 on iOS.
 - Actions: Highlight (5 colours from theme tokens), Add note, Copy, Remove highlight. Share quote comes later.
 - Selections snap to whole Words (Invariant 5).
 - Notes panel: grouped by Chapter, filter by colour, jump to Anchor, edit, delete, export as Markdown or plain text. Orphaned items appear in their own section with their quoted text.
@@ -994,13 +1028,13 @@ The illustration panel sits in the reader layer but may be more expressive (roun
 
 ### 11.4 Components (Phase 1 set, `packages/ui`)
 
-Button (filled, tonal, outlined, text), IconButton, Slider, Switch, Radio, Checkbox, TextField, Menu, Dialog, Bottom sheet, Navigation bar, Navigation rail, Snackbar, Card, Chip, Tabs, Progress indicator, Tooltip. OPEN-02 decides how they are built.
+Button (filled, tonal, outlined, text), IconButton, Segmented button, Slider, Switch, Radio, Checkbox, TextField, Menu, Dialog, Bottom sheet, Side sheet, Navigation bar, Navigation rail, Snackbar, Card, Chip, Tabs, Progress indicator, Tooltip. OPEN-02 decides how they are built.
 
 ### 11.5 Layout
 
 - M3 window size classes: compact < 600 px, medium 600–839 px, expanded ≥ 840 px.
 - App navigation: bottom navigation bar on compact; navigation rail on medium and expanded.
-- Main areas: Library, Reader, Settings (PoC); Store and Creator join in Phase 2.
+- Main areas: Library, Store, Studio (Creators only) and You (profile, purchases, subscriptions, Bookmark Designs, Settings; Admin for moderators). In the PoC, Store, Studio and Admin run against the simulated backend (§5.6) and feature flags can hide them. The Reader is full screen, outside the app navigation.
 - The reader is full screen. Toolbars auto-hide and toggle with a centre tap or Esc.
 - Respect safe-area insets (`--safe-*` tokens) everywhere; nothing depends on hover.
 
@@ -1017,7 +1051,7 @@ Button (filled, tonal, outlined, text), IconButton, Slider, Switch, Radio, Check
 - Touch targets at least 48 × 48 px (`--touch-target`), comfortably above WCAG 2.2 AA's 24 px minimum.
 - Visible keyboard focus; full keyboard operation of the reader with documented shortcuts.
 - Labelled controls; page turns and chapter changes announced through a live region.
-- Book text is real text in the DOM and must read naturally in VoiceOver and TalkBack. Word marking must not break screen reader output (verified in P0-05).
+- Book text is real text in the DOM and must read naturally in VoiceOver and TalkBack. Word marking must not break screen reader output (verified in P0-05 with TalkBack, and in backlog item IOS-03 with VoiceOver).
 - Reduced motion disables animated page turns and crossfades.
 - Narration needs no captions (the text is the transcript).
 
@@ -1030,11 +1064,12 @@ Button (filled, tonal, outlined, text), IconButton, Slider, Switch, Radio, Check
 | Layer | Tool | Required for |
 |---|---|---|
 | Unit | Vitest | `core` (Anchors, preferences), `text-pipeline`, `alignment`, `reader-core` mapping, theme generation, `storage-local` (with `fake-indexeddb`) |
+| Contract | Vitest suites in `packages/contract-tests` | Every `Stores` and `Backend` implementation (§5.6) |
 | Golden files | Vitest snapshots | Ingestion: fixture EPUB → expected XHTML, word index and manifest |
 | Component | @testing-library/svelte | `ui`, reader components |
 | End to end | Playwright (Chromium **and** WebKit) | Each phase's acceptance flows |
 | API integration | Vitest + Docker Postgres + MinIO | Every API module (Phase 2+) |
-| Device smoke | Manual checklist (`docs/device-checklist.md`) | Every mobile build, on a real iPhone and the reference Android phone |
+| Device smoke | Manual checklist (`docs/device-checklist.md`) | Every mobile build, on the owner's Android phone. iPhone checks are in `docs/BACKLOG.md` (D-024) |
 
 ### 12.2 Fixtures (`fixtures/`)
 
@@ -1045,12 +1080,13 @@ Button (filled, tonal, outlined, text), IconButton, Slider, Switch, Radio, Check
 - A small hand-made EPUB with LitRPG status windows, system messages and stat tables.
 - A sample chapter of the launch title (Phase 2).
 - An EPUB with a right-to-left language and one with a CJK language, for tokeniser tests (Phase 2).
+- Demo content for the simulated backend (D-023): seed data in `fixtures/seed/`; 4–6 Standard Ebooks titles (CC0) as store filler; Arthur Rackham's 1907 *Alice* illustrations (public domain) as the demo community pack; the status-window EPUB grown into a short demo serial of about 6 chapters by a seeded author (labelled AI-generated if an agent writes it).
 
-Large audio files stay out of git: a script downloads them into place.
+Large audio files stay out of git: a script downloads them into place. `fixtures/LICENSES.md` records the source and licence of every file.
 
 ### 12.3 Performance budgets
 
-Reference device: a mid-range Android phone from 2023–24 (Samsung Galaxy A15 class), over 4G.
+Reference device: a mid-range Android phone from 2023–24 (Samsung Galaxy A15 class), over 4G. Day-to-day testing uses the owner's Android phone; if it is much faster than the reference class, budgets are also checked with Chrome's CPU throttling.
 
 | Measure | Budget |
 |---|---|
@@ -1088,7 +1124,7 @@ Phases are sequential. Each ends with an exit review: acceptance flows pass, ADR
 | Phase | Goal | Outcome |
 |---|---|---|
 | 0 | Foundations and spikes | Groundwork aligned with this document; the technical unknowns de-risked |
-| 1 | Local-first proof of concept | The full reading experience, with demo illustrations and synced narration, on web, iOS and Android, with no backend |
+| 1 | Local-first proof of concept | The full reading experience, with demo illustrations and synced narration, plus simulated store, Creator Studio, community and moderation, on web and Android, with no backend (iOS in the backlog) |
 | PoC review | Test the core bet | Go/no-go on the platform, and on hosting |
 | 2 | Platform | Accounts, sync across devices, author publishing, free library |
 | 3 | Official Layers | Authors add their own illustrations and narration |
@@ -1096,9 +1132,25 @@ Phases are sequential. Each ends with an exit review: acceptance flows pass, ADR
 | 5 | Community | Community Layers with author permission, payouts, moderation |
 | 6 | Discovery and retention | Store SEO, reviews, recaps, glossary, offline, analytics for authors |
 
+**Phases 0 and 1 are split into smaller phases**, each ending in a build the owner can try on desktop and on their Android phone. This section defines the tasks; `docs/IMPLEMENTATION-PLAN.md` gives their order, UX notes and Try-it checklists. Phases 1.4–1.5 (Layers track) and 1.6–1.8 (Platform track) can run in parallel.
+
+| Phase | Tasks |
+|---|---|
+| 0.1 Foundations | P0-01, P0-02, P0-03, P0-08, P0-09 |
+| 0.2 De-risk the reader | P0-04 to P0-07, P0-10, P0-11 |
+| 1.1 App shell and design system | P1-UI-01 to P1-UI-03, P1-APP-01, P1-APP-02 |
+| 1.2 Read a book | P1-ING-01, P1-ING-02, P1-RDR-01 to P1-RDR-05, P1-RDR-08, P1-APP-03 |
+| 1.3 Make it yours | P1-RDR-06, P1-RDR-07, P1-ING-03, P1-APP-04 |
+| 1.4 Illustrations ★ | P1-LAY-01, P1-LAY-02, P1-LAY-06, P1-LAY-07 |
+| 1.5 Narration ★ | P1-LAY-03, P1-LAY-04 |
+| 1.6 Store and ownership (simulated) | P1-STO-01 to P1-STO-05 |
+| 1.7 Creator Studio (simulated) | P1-STU-01 to P1-STU-04, P1-LAY-05 |
+| 1.8 Community and moderation (simulated) | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 |
+| 1.9 Android build and PoC readiness | P1-MOB-01, P1-QA-01 to P1-QA-03 |
+
 ### 13.1 Phase 0 — Foundations and spikes
 
-Spikes produce ADRs in `docs/adr/` and throwaway code under `apps/web/src/routes/spike/` (deleted at the end of the phase). Don't build features in Phase 0.
+Spikes produce ADRs in `docs/adr/` and throwaway code under `apps/web/src/routes/spike/` (deleted at the end of the phase). Don't build product features in Phase 0; the backend seam (P0-08) and dev panel (P0-09) are infrastructure.
 
 #### P0-01 Tooling and CI
 Depends on: —
@@ -1117,24 +1169,26 @@ Depends on: P0-01
 Acceptance:
 - [ ] Anchor helpers (`compareAnchors`, `isWithinRange`, `rangesOverlap`, `latestAtOrBefore`) have full unit coverage, including the different-Revision error.
 - [ ] No `cfi`, `charOffset` or `editionId` remains in stored types.
+- [ ] The Stores contract suite (P0-08) passes against `storage-local`.
 
 #### P0-03 Capacitor shell
 Depends on: P0-01
-- Add Capacitor with iOS and Android projects; `cap:sync`, `cap:ios`, `cap:android` scripts.
+- Add Capacitor with the Android project; `cap:sync` and `cap:android` scripts. The iOS project is in `docs/BACKLOG.md` (D-024).
+- Builds install on the owner's Android phone over USB or wireless debugging (no emulator), and the dev server runs with `--host` so the phone's browser can open it over Wi-Fi.
 - `lib/platform/` interfaces (§9.7) with stub implementations.
 
 Acceptance:
-- [ ] The same build runs in a desktop browser, the iOS simulator and the Android emulator.
+- [ ] The same build runs in a desktop browser and on the owner's Android phone, both as the Capacitor app and as the dev server opened in the phone's browser.
 
 #### P0-04 Spike: reader engine (resolves OPEN-01)
-Depends on: P0-03
-Evaluate foliate-js and Readium ts-toolkit on all fixtures in `/spike/reader`. Score each on:
+Depends on: P0-03, P0-11
+Evaluate foliate-js and Readium ts-toolkit on all fixtures in `/spike/reader`, a side-by-side page the owner also scores for feel on desktop and on their phone. Score each on:
 1. Paginated single, paginated spread and scroll modes.
 2. Changing font size or family keeps the first visible Word on screen.
 3. A decorations API (or access to the iframe) usable for highlights and narration, ideally via the CSS Custom Highlight API.
 4. Selection events mappable to Word ranges.
 5. Injecting a `<figure>` re-paginates correctly.
-6. Works inside iOS WKWebView and Android WebView via Capacitor.
+6. Works inside Android WebView via Capacitor, and in Playwright WebKit as the stand-in for iOS WKWebView until backlog item IOS-02.
 7. A 10 000-word Chapter with Word marking meets §12.3 budgets.
 8. Feasibility of a later page-curl skin.
 9. Licence, maintenance activity, documentation.
@@ -1151,15 +1205,16 @@ Compare on the fixtures:
 - **A. Word spans:** wrap every Word in `<span data-w="{wordId}">`. Simple DOM ↔ WordId mapping; adds one element per Word.
 - **B. Block index + offsets:** only Blocks carry `data-b`; the word index stores each Word's character offsets in its Block, and `reader-core` builds DOM Ranges at runtime. Leaves the DOM untouched; mapping depends on identical text normalisation at ingest and render.
 
-Measure DOM size, file size growth, layout time, highlight cost, and whether VoiceOver and TalkBack read the text naturally.
+Measure DOM size, file size growth, layout time, highlight cost, and whether TalkBack and a desktop screen reader read the text naturally (VoiceOver is backlog item IOS-03).
 
 Acceptance:
 - [ ] `docs/adr/ADR-002-word-marking.md`, including the word index format.
 
 #### P0-06 Spike: narration alignment
-Depends on: P0-01
+Depends on: P0-01, P0-11
 - Run whisper.cpp on two LibriVox chapters of *Alice*; implement a minimal Needleman–Wunsch aligner in `packages/alignment`.
 - Report coverage, CPU time per hour of audio, and recommended model size.
+- A spike page (`/spike/narration`) plays an aligned chapter with Word highlighting, so the owner can feel the result early.
 
 Acceptance:
 - [ ] Coverage ≥ 0.95 on clean narration of the matching text.
@@ -1167,18 +1222,56 @@ Acceptance:
 
 #### P0-07 Spike: mobile platform capabilities
 Depends on: P0-03
-- Background audio with lock-screen controls on iOS and Android.
+All on the owner's Android phone; the iOS equivalents are backlog items IOS-04 to IOS-08.
+- Background audio with lock-screen controls.
 - Long-press text selection inside the reader iframe with our own floating toolbar.
 - Importing a file from the device into the app; safe-area handling.
+- Whether the OS can clear WebView storage and, if so, how processed Books are kept (e.g. Capacitor Filesystem).
 
 Acceptance:
 - [ ] `docs/adr/ADR-004-mobile-platform.md`, naming the plugins used and any limitations.
 
-**Phase 0 exit:** ADR-001 to ADR-004 accepted; *Alice* readable on web, iOS and Android, with a font-size change keeping position; CI green.
+#### P0-08 Backend seam (§5.6)
+Depends on: P0-02
+- `Backend` interface in `packages/core/src/backend/`: Zod schemas for every input and output, `BackendError` with the §10.1 codes, paged lists, idempotency keys.
+- New packages: `domain` (rules module and its import boundary), `contract-tests` (Stores and Backend suites), `backend-local` (own IndexedDB database, seed loader for `fixtures/seed/`, `session` with Personas, `catalogue` reads, simulation controls, injectable clock).
+- `services.ts` exposes `getStores()` and `getBackend()`; `backend-local` is lazy-loaded and its seed fetched as JSON.
+
+Acceptance:
+- [ ] The Stores and Backend contract suites pass against `storage-local` and `backend-local`.
+- [ ] At a 100% failure rate, every Backend call rejects with a typed `BackendError`.
+- [ ] An invalid seed file fails with a readable error.
+- [ ] Importing `backend-local` or `storage-local` anywhere in `apps/web` except `services.ts` fails lint.
+
+#### P0-09 Dev panel and feature flags
+Depends on: P0-08
+- `/dev`: Persona switcher; latency, failure rate and offline; payment outcome; AI-detector verdict; move the clock forward; reset demo data; wipe device data.
+- Feature flags `store`, `studio`, `community`, `admin` and `devPanel`; build profiles `owner` and `tester` chosen with `VITE_PROFILE` and documented in `.env.example`.
+
+Acceptance:
+- [ ] Switching Persona reloads the app as that user, with their own Stores data.
+- [ ] The `tester` profile hides the dev panel and every flagged-off area, routes included.
+
+#### P0-10 Spike: UI components (resolves OPEN-02)
+Depends on: P0-01
+Build Button, Slider, Bottom sheet and Menu with `m3-svelte` and with Bits UI styled by our tokens. Compare Svelte 5 runes support, theming from generated tokens (§11.2), keyboard and screen-reader behaviour, bundle size and maintenance.
+
+Acceptance:
+- [ ] `docs/adr/ADR-005-components.md` records the choice.
+
+#### P0-11 Fixtures and demo content
+Depends on: —
+- The fixtures in §12.2, including the demo content from D-023.
+- A script downloads the LibriVox audio into place; large files are never committed.
+
+Acceptance:
+- [ ] `fixtures/LICENSES.md` records the source and licence of every file, and every source is public domain or CC0.
+
+**Phase 0 exit:** ADR-001 to ADR-005 accepted; *Alice* readable on web and on the owner's Android phone, with a font-size change keeping position; contract suites passing against `storage-local` and `backend-local`; CI green.
 
 ### 13.2 Phase 1 — Local-first proof of concept
 
-No backend. Everything is stored on the device through `Stores`.
+No backend. User data goes through `Stores`; server-authoritative operations go through `Backend`, simulated in the browser by `backend-local` (§5.6).
 
 **Library and ingestion**
 
@@ -1205,27 +1298,76 @@ No backend. Everything is stored on the device through `Stores`.
 
 | ID | Task | Depends on | Acceptance |
 |---|---|---|---|
-| P1-LAY-01 | Local Layer format (JSON manifest + files) and loader; `layerSelection` store | P0-02 | The Tenniel pack and the narration demo load from static files |
+| P1-LAY-01 | Layer records and loader served by `Backend.layers`, with files through the same loader as Book content; `layerSelection` store | P0-02, P0-08 | The Tenniel pack and the narration demo load through `backend-local` |
 | P1-LAY-02 | Illustrations: all four modes (`popup` default, `per-page`, `spread`, `in-text`), current-Illustration rule, new-picture dot, first-use hint, lightbox (§8.2) | P1-LAY-01, P1-RDR-03 | No mode ever shows an Illustration anchored after the last visible Word; switching modes keeps position; `in-text` re-paginates correctly after injection; works at compact, medium and expanded widths |
 | P1-LAY-03 | `tools/align` CLI and Sync Maps for the first 3 chapters of *Alice* (§7.2) | ADR-003 | Coverage ≥ 0.95 per chapter |
-| P1-LAY-04 | Narration player: highlighting, auto-turn, tap-to-seek, speed, background playback (§8.3) | P1-LAY-03, ADR-004 | Highlight within 100 ms of the audio; plays with the screen locked on iOS and Android |
-| P1-LAY-05 | Local placement tool prototype: select text → "Attach illustration" → image, placement, alt text | P1-LAY-02 | Placements are stored as Anchors and survive re-import of an edited Revision |
+| P1-LAY-04 | Narration player: highlighting, auto-turn, tap-to-seek, speed, background playback (§8.3), through the `lib/platform` audio adapter | P1-LAY-03, ADR-004 | Highlight within 100 ms of the audio; plays with the screen locked on Android (iOS is backlog item IOS-04) |
+| P1-LAY-05 | Placement tool, grown into the Studio pack builder: reader in Creator mode → select text → "Attach illustration" → image (re-encoded on the device), placement, span, alt text, caption, credit, `spoilerSafe`; publish the pack | P1-LAY-02, P1-STU-01 | Placements are stored as Anchors and survive re-import of an edited Revision; a pack can't be published while any Illustration lacks alt text |
+| P1-LAY-06 | Demo packs: Tenniel (official) and Rackham (community). Illustrations written as text quotes; `tools/resolve-anchors` resolves them to Anchors against the *Alice* Revision; `tools/images` makes WebP variants (640, 1280, 2048 px) and dominant colours | P1-ING-01, P0-11 | Each Illustration resolves to exactly one Anchor or the tool fails; every Illustration has alt text |
+| P1-LAY-07 | Layers menu in the reader: packs with Official badge, AI label and credit; enable, disable and reorder; Illustration mode picker | P1-LAY-02 | On first open, every official Layer is on and audio is off (§8.1) |
 
 **UI and mobile**
 
 | ID | Task | Depends on | Acceptance |
 |---|---|---|---|
 | P1-UI-01 | Theme generation and tokens (§11.2); migrate existing token names | P0-02 | Same seed/mode/contrast → same tokens; every text role meets AA |
-| P1-UI-02 | Component set (§11.4) | P1-UI-01, OPEN-02 | Each component has keyboard, focus and reduced-motion tests |
+| P1-UI-02 | Component set (§11.4) | P1-UI-01, P0-10 | Each component has keyboard, focus and reduced-motion tests |
 | P1-UI-03 | App navigation, responsive layout, Settings with theme customisation (§11.5) | P1-UI-02 | Correct at compact, medium and expanded widths; theme changes apply instantly |
-| P1-MOB-01 | iOS and Android builds of the whole Phase 1 flow; icons and splash | P0-07, P1-LAY-04 | Device checklist passes |
+| P1-MOB-01 | Android build of the whole Phase 1 flow; icons and splash screen (iOS is backlog items IOS-01 and IOS-09) | P0-07, P1-LAY-04 | Device checklist passes on the owner's Android phone |
 
-**Phase 1 exit (automated on web, manual on devices):**
+**App shell and data safety**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-APP-01 | Skeleton screens backed by `backend-local`: Library, Store home, Book page, Creator profile, You, Studio dashboard, Admin queue (role-gated); read-only, with loading, empty, error and offline states | P1-UI-03, P0-09 | Every state can be forced from the dev panel and renders at compact, medium and expanded widths; Studio and Admin appear only for Personas with the role |
+| P1-APP-02 | State layer in `lib/state/`: a `resource()` rune helper (data, loading, error, refresh), refresh on `Backend.events`, one map from error codes to UI copy, a snackbar service | P0-08 | The helper is unit-tested; every error code has copy |
+| P1-APP-03 | Opening Books: catalogue Books through `Backend.content.open()` (`backend-local` processes seeded EPUBs with `text-pipeline` and caches them), imported Books from `Stores.library`; one Library list with "Continue reading". *Alice* is granted to every Persona at seed | P1-APP-01, P1-ING-02, P1-RDR-05 | The reader behaves the same whatever a Book's source; a catalogue Book without an Entitlement shows a "Get this book" sheet |
+| P1-APP-04 | Data safety (§18): request persistent storage after the first highlight or import; say clearly that data lives on this device; export all data (JSON) and notes (Markdown); delete device data | P1-RDR-06 | The export contains every Stores record; You → Data shows whether persistent storage was granted |
+
+**Store and ownership (simulated)**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-STO-01 | Catalogue and Book page: shelves, search, Illustration previews, narration sample, AI labels, content rating and warnings, "Read sample" | P1-APP-01, P1-LAY-02 | Previews use only `spoilerSafe` Illustrations (Invariant 6) |
+| P1-STO-02 | Products, Entitlements and Bundles, with the rules in `domain`: "Add to library", simulated checkout with idempotency keys, "Complete edition" as the default choice, purchases in You; `content.open` and Layer enabling gated by Entitlements | P1-STO-01 | Invariants 15 and 17 hold inside `backend-local`; refunding a Bundle (dev panel) revokes its children; a double-tapped purchase creates one order |
+| P1-STO-03 | Bookmark Designs: a small shop with 3–4 seeded designs; a default design and a design per Placed Bookmark | P1-STO-02, P1-RDR-07 | A bought design is usable in every Book immediately |
+| P1-STO-04 | Tips and Creator Subscriptions: Tip sheet; plans; subscribe and cancel; subscription Entitlements unlock early-access Chapters of the demo serial (placeholder rule; OPEN-10 and OPEN-11 stay open); renewals follow the dev clock | P1-STO-02 | Access lasts to the end of a cancelled period, then early access ends; purchased Products are unaffected |
+| P1-STO-05 | AI labels wherever Books and Layers appear; "Hide AI-generated content" setting | P1-STO-01 | With the setting on, AI-generated content disappears from the store, community hub and Layers menu |
+
+**Creator Studio (simulated)**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-STU-01 | Upload and publish: EPUB → `text-pipeline` in a Web Worker → ingest report → preview → publish → listed. Uploading to an existing Book creates a new Revision; readers' Anchors migrate when they next open it (reusing P1-ING-03); Sync Maps for changed Chapters become `stale` | P1-ING-03, P1-STO-01 | The Phase 2 exit flow, locally: an edited paragraph is published and the Reader Persona's other notes and bookmarks are unaffected |
+| P1-STU-02 | Book settings: details, cover, price (simulated), content rating and warnings, the AI-use answer, `community_policy`, `community_ai` | P1-STU-01 | Publishing is blocked until the AI-use question is answered |
+| P1-STU-03 | Narration manager: per-Chapter audio plus a Sync Map from `tools/align`; coverage and status (`ready`, `stale`, `needs_review`); a review screen that steps through low-confidence regions | P1-LAY-04, P1-STU-01 | Coverage below 0.90 gives `needs_review`, and each low-confidence region is one tap away |
+| P1-STU-04 | Support set-up: Creator Subscription plans and benefits; a simulated earnings dashboard using placeholder revenue splits (OPEN-08 stays open) | P1-STO-04 | Every simulated figure is labelled; splits come from one placeholder config |
+
+**Community and moderation (simulated)**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-COM-01 | Community submissions: the Illustrator Persona makes a pack or track for another author's Book, free or paid. `closed` blocks it, `approval` queues it for the author, `open` lists it subject to moderation; the AI-use answer is required, and AI-generated Layers are refused where `community_ai` is `refused` | P1-LAY-05, P1-STU-02 | Invariant 19 holds inside `backend-local` for every policy combination (contract-tested) |
+| P1-COM-02 | Per-Book community hub and Creator profiles: browse, rate and enable community Layers; "Author-endorsed" badge; endorsed first, then top-rated; follow; portfolio | P1-COM-01 | One rating per user per Layer; endorsed Layers sort first |
+| P1-ADM-01 | Flag rules in `domain` (`upload_volume`, `ai_untagged_suspected`, `report`, `rapid_new_account`) with configurable thresholds; a stub AI detector driven from the dev panel; the held-for-review state (§10.6) | P0-08, P1-STU-01 | Every rule is unit-tested below, at and above its threshold |
+| P1-ADM-02 | Review and curation: a reader "Report" action (reason required); the admin queue, Flag detail and actions with reasons; the append-only action log; outcomes in the creator's in-app inbox; an author curation view for their own Books | P1-ADM-01, P1-COM-01 | Admin actions reject with `FORBIDDEN` for non-moderator Personas inside `backend-local`, not only in the UI |
+
+**Quality and release**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-QA-01 | Performance pass against §12.3 on the owner's Android phone (with CPU throttling if it's much faster than the reference class); budget checks in CI where measurable (bundle size, fixture import time) | P1-LAY-04 | Every budget is met, or an issue is filed with measurements |
+| P1-QA-02 | Accessibility pass: axe on every route in Playwright; TalkBack and desktop screen-reader walkthroughs of the reader; keyboard map in Help; reduced-motion audit | P1-ADM-02 | No axe violations at WCAG 2.2 AA; walkthrough notes are in the device checklist |
+| P1-QA-03 | Tester build and PoC review kit: the `tester` profile; a first-run welcome; a static deploy of the web build; Android internal testing or an APK; `docs/poc-review.md` (session script, observation sheet, §13.3 questions) | P1-MOB-01 | A tester with only a link or an invite reaches the first page of *Alice* within a minute, unaided |
+
+**Phase 1 exit (automated on web, manual on the owner's Android phone):**
 A reader opens *Alice*, changes font size and layout (position kept), opens Illustrations from the pop-up button and tries the other modes, turns on narration, listens through a chapter with the screen locked while pages turn, highlights a sentence with a note, places three bookmarks, closes the app and resumes at the same Word. Re-importing an edited copy of the EPUB keeps their notes.
+
+**Simulated areas exit (automated on web):** as the Reader, the owner buys a Complete edition and a Bookmark Design, tips and subscribes to the demo serial's author, and reads an early-access Chapter. As the Author, they publish a Book and then a new Revision (the Reader's notes survive), attach Illustrations, and import a Sync Map. As the Illustrator, they submit a community pack that the Author approves and endorses. As the Moderator, they resolve a Flag.
 
 ### 13.3 PoC review (go/no-go)
 
-Put the PoC in front of 5–10 readers from the launch audience, including some who describe themselves as reluctant readers, and the owner's own beta readers.
+Put the PoC in front of 5–10 readers from the launch audience, including some who describe themselves as reluctant readers, and the owner's own beta readers. Use the `tester` build profile and choose which areas each session shows (the reading experience alone, or with the simulated store). Testers with iPhones use the web build in Safari and note anything that breaks (D-024).
 
 - **Observe:** do they turn on illustrations and narration unprompted? Do they keep them on? Does narration with highlighting help them keep going? Does anything feel slow or confusing?
 - **Ask:** would they read the launch title this way? What would they pay for?
@@ -1342,13 +1484,17 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | D-011 | Narration before anything else audio; ambient audio Parked | Accepted |
 | D-012 | Illustrations: reader chooses `popup` (default), `per-page` (left panel), `spread` (wide area above, for double-page art) or `in-text` (creator placements), or off | Accepted |
 | D-013 | Page turns: none / slide / fade now; page curl later as a skin | Accepted |
-| D-014 | The PoC uses *Alice* only (Tenniel illustrations, LibriVox narration); status windows tested with a hand-made fixture | Accepted |
+| D-014 | The PoC uses *Alice* only (Tenniel illustrations, LibriVox narration); status windows tested with a hand-made fixture | Accepted; amended by D-023 |
 | D-015 | Reader engine | Pending ADR-001 |
 | D-016 | Word marking (spans vs offsets) and word index format | Pending ADR-002 |
 | D-017 | Alignment model and hosting | Pending ADR-003 |
 | D-018 | Mobile audio, selection and file plugins | Pending ADR-004 |
 | D-019 | AI-generated content allowed but must be labelled; readers can hide it; authors can refuse it on their Books (§10.6). Resolves the former OPEN-09 | Accepted |
 | D-020 | Automatic Flags (upload volume, suspected unlabelled AI, reports, new accounts) with a manual admin review queue and author curation tools, from Phase 2 (§10.6) | Accepted |
+| D-021 | The PoC includes simulated store, Creator Studio, community and moderation areas behind feature flags, so the owner can try every area of the product before a backend exists. Real accounts, sync and money stay in Phase 2 onwards. Phases 0 and 1 are split into smaller phases (0.1–1.9) per `docs/IMPLEMENTATION-PLAN.md` | Accepted (owner decision, 11 Oct 2026) |
+| D-022 | A `Backend` interface in `core`, implemented by `backend-local` in the PoC and `backend-http` from Phase 2, guarded by shared contract tests, with business rules in `packages/domain` (§5.6). Chosen over mocking HTTP with a service worker (unreliable in iOS WKWebView, awkward for binary content) and over running the API in the browser (would commit to D-004 early) | Accepted (owner decision, 11 Oct 2026) |
+| D-023 | Demo content adds Standard Ebooks filler titles (CC0, no Layers), Arthur Rackham's *Alice* illustrations as the demo community pack, and a short demo serial grown from the status-window fixture (§12.2). Amends D-014 | Accepted (owner decision, 11 Oct 2026) |
+| D-024 | iOS builds and iOS device testing are deferred to `docs/BACKLOG.md` until the owner has a Mac (or a cloud macOS build service) and an iPhone. The PoC targets web and Android, tested on the owner's Android phone rather than an emulator. Code stays iOS-ready: Playwright WebKit on every PR, `lib/platform` adapters only, safe areas everywhere. iOS remains a product target | Accepted (owner decision, 11 Oct 2026) |
 
 ---
 
@@ -1357,12 +1503,12 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | ID | Question | Resolve by |
 |---|---|---|
 | OPEN-01 | foliate-js or Readium ts-toolkit? | P0-04 |
-| OPEN-02 | Components: wrap `m3-svelte`, or build our own on headless Bits UI primitives styled with our tokens? Check maintenance, Svelte 5 support and theming. Recommendation: evaluate `m3-svelte` first; fall back to Bits UI | Before P1-UI-02 |
+| OPEN-02 | Components: wrap `m3-svelte`, or build our own on headless Bits UI primitives styled with our tokens? Check maintenance, Svelte 5 support and theming. Recommendation: evaluate `m3-svelte` first; fall back to Bits UI | P0-10 (before P1-UI-02) |
 | OPEN-03 | Keep content delivery in the API or move it to an edge worker? | When traffic justifies it; before Phase 4 |
 | OPEN-04 | Stripe + Stripe Tax, or a merchant of record for digital-goods VAT/sales tax, given creator payouts later? | Before Phase 4 |
 | OPEN-05 | Mobile purchasing. Default: "reader app" model (buy on the web, read anywhere, as the Kindle app does). Store rules are changing: as recorded on 11 Oct 2026, US iOS link-outs carry no Apple commission while a court sets a fee (Apple has proposed 5–15%), and Google has cut its rate to 10%. Re-check before deciding | Before Phase 4 |
 | OPEN-06 | Hosting for API and worker (the worker needs ffmpeg and whisper.cpp; GPU per ADR-003) | PoC review |
-| OPEN-07 | Product name and brand seed colour | Before public launch |
+| OPEN-07 | Product name and brand seed colour. Until then, P1-UI-01 uses a placeholder seed (recommended: a deep teal; not M3 purple) | Before public launch |
 | OPEN-08 | Revenue splits: platform fee on sales, Tips and Creator Subscriptions; split between author and community creator on community Layers; can authors set price limits for community Layers on their Books? | Before Phase 4 |
 | OPEN-09 | *Resolved by D-019.* Remaining detail: which AI-detection services to use for text and images, and their thresholds | Before P2-MOD-01 |
 | OPEN-10 | Chapter-range Products for early-access serial chapters | Before Phase 4 |
@@ -1391,6 +1537,9 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | Recurring payments complexity | Failed renewals, refunds, tax on subscriptions | Stripe Billing and Connect handle renewals and payouts; Creator Subscriptions launch after one-off purchases work; OPEN-04 settles tax |
 | Pop-up default hides the showpiece | Readers never discover Illustrations | One-off hint on first open; new-picture dot; PoC review checks whether testers find it |
 | Scope creep / solo bandwidth | Nothing ships | Strict phases, Parked list, exit reviews, PoC before platform |
+| Simulated areas take time from the core bet (D-021) | Reader and Layers ship late | The Platform track (phases 1.6–1.8) starts after 1.3; each simulated task is a thin vertical slice; 1.8 and then 1.7 can be dropped before the PoC review |
+| The simulated backend drifts from what a real one can do | Phase 2 becomes a rewrite after all | Shared contract tests; rules in `domain`; `backend-local` keeps its own database and enforces permissions itself (§5.6) |
+| iOS untested during the PoC (D-024) | WebKit- or WKWebView-specific bugs and iOS background-audio limits surface late | Playwright WebKit on every PR; `lib/platform` adapters only; testers with iPhones use the web build in Safari; `docs/BACKLOG.md` lists what to verify |
 
 ---
 
@@ -1426,7 +1575,7 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | `packages/core/src/locator.ts` | `Locator` (`editionId`, `cfi`, `paragraphId`, `paragraphIndex`, `charOffset`, `textQuote`), `TextRange` | `anchor.ts` with `PointAnchor` / `RangeAnchor` (§6.1). Keep the helper functions, re-implemented on Ordinals |
 | `packages/core/src/models.ts` | `Bookmark`, `Annotation`, `ReadingProgress` (`maxLocator`), `Illustration`, `IllustrationSet` | `PlacedBookmark`, `Annotation` (highlight with optional note, rather than a `kind` field), `ReadingProgress` (current + furthest Anchor and progression), `Illustration` (+ `placement`, required `alt`), `IllustrationPack`. Add `deletedAt` to user records |
 | `packages/core/src/settings.ts` | `ReaderSettings`: themes incl. `high-contrast`; fonts `serif`/`sans`/`dyslexic`; view mode incl. `overview`; transition default `curl` | `ReaderPreferences` (§9.4): theme mode + contrast + seed; curated font IDs; no `overview`; `pageTurn` default `slide` |
-| `packages/core/src/storage.ts` | `Stores` with bookmarks, annotations, progress, settings | Add `library`, `layerSelection`, `localLayers`; rename to match the glossary |
+| `packages/core/src/storage.ts` | `Stores` with bookmarks, annotations, progress, settings | Add `library` and `layerSelection` (demo Layers come through `Backend`, §5.6); rename to match the glossary |
 | `packages/storage-local` | IndexedDB v1; `crypto.randomUUID()` | v2 with an upgrade step (dropping v1 data is acceptable: no real users yet); UUIDv7 |
 | `packages/tokens` | `--color-*` tokens, 4 hand-written themes, `--touch-target: 44px` | M3 role tokens generated from a seed (§11.2); `--font-ui` per §11.3 with self-hosted Nunito; `--touch-target: 48px`; keep `--reader-*`, `--safe-*`, spacing, radius and motion tokens |
 | `apps/web` reader page | Illustration panel placeholder, settings popover | Unchanged in shape; wired to `reader-core` in Phase 1 |
@@ -1439,7 +1588,9 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 
 Read docs/DESIGN.md §0–§3 before any task. Glossary terms and Invariants are binding.
 Find your task ID in docs/DESIGN.md §13; check its dependencies and any OPEN items it touches.
-Current stage: local-first proof of concept. No backend; all persistence goes through Stores in @book/core.
+Its phase, UX notes and Try-it checklist are in docs/IMPLEMENTATION-PLAN.md.
+Current stage: local-first proof of concept. No backend: user data goes through Stores and server-side operations through Backend (simulated in the browser by backend-local), both in @book/core.
+Targets web and Android (tested on the owner's phone). iOS is deferred: see docs/BACKLOG.md.
 
 ## Commands
 npm install
@@ -1449,12 +1600,14 @@ npm run lint
 npm test
 npm run test:e2e
 npm run build
-npm run cap:sync | cap:ios | cap:android   (from apps/web)
+npm run cap:sync | cap:android   (from apps/web)
 
 ## Rules
 - One task ID per branch/PR (branch: p1-rdr-04-preferences).
 - Svelte 5 runes only. TypeScript strict. Types and schemas live in @book/core.
 - Never import the reader engine outside packages/reader-core.
+- In apps/web, only src/lib/services.ts may import storage-local or backend-local. Business rules go in packages/domain.
+- Simulated features never decide an OPEN item: use placeholder values marked // SIMULATION: and list them in the PR.
 - Never store page numbers, CFIs or offsets; attach everything with Anchors.
 - Never bundle or self-host Arial Rounded MT (commercial font); use it only via the font stack, with Nunito as the fallback.
 - Never resolve an OPEN-xx item silently; propose it in the PR.

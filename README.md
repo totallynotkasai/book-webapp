@@ -1,11 +1,15 @@
 # Book Reader
 
 An interactive ebook reader where the text, illustrations and audio stay in sync.
-See [docs/DESIGN.md](docs/DESIGN.md) for the full design, and [AGENTS.md](AGENTS.md) for the rules
+See [docs/DESIGN.md](docs/DESIGN.md) for the full design,
+[docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md) for the build order,
+[docs/BACKLOG.md](docs/BACKLOG.md) for deferred work, and [AGENTS.md](AGENTS.md) for the rules
 coding agents follow.
 
 **Current stage:** proof of concept. No backend: everything runs in the browser and
-reading data (settings, bookmarks, notes, progress) is stored locally in IndexedDB.
+reading data (settings, bookmarks, notes, progress) is stored locally in IndexedDB. Server-side
+areas (store, Creator Studio, community, moderation) run against a simulated backend in the
+browser (design doc §5.6).
 
 ## Getting started
 
@@ -56,8 +60,11 @@ framework- or platform-specific, so it can be reused by a mobile shell, a backen
 ## Platform decisions
 
 - **Static output** (`@sveltejs/adapter-static`): deployable to any static host and ready to be
-  wrapped by **Capacitor** for iOS/Android. Switch to a server adapter only when public book pages
-  need server rendering.
+  wrapped by **Capacitor** for Android and, later, iOS. Switch to a server adapter only when public
+  book pages need server rendering.
 - **Mobile:** Capacitor, reusing the web app (the reader relies on browser layout, so a React Native
-  rewrite is not planned).
-- **Backend:** deferred until after the proof of concept. Supabase is the likely candidate.
+  rewrite is not planned). Android first; iOS is deferred until a Mac and an iPhone are available
+  ([docs/BACKLOG.md](docs/BACKLOG.md)).
+- **Backend:** deferred until after the proof of concept. Until then the app talks to a simulated
+  backend through the same `Backend` interface the real API will implement (design doc §5.6). The
+  proposed server stack is in design doc §5.2.
