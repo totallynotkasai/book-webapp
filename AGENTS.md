@@ -13,11 +13,12 @@ npm install
 npm run dev     # web app at localhost:5173
 npm run check   # svelte-check + tsc
 npm run lint    # Prettier + ESLint
-npm test        # Vitest
+npm test        # Vitest (unit, contract and import-boundary tests)
+npm run test:e2e   # builds, then Playwright in Chromium + WebKit
 npm run build   # static web app
 ```
 
-Added in Phase 0: `npm run test:e2e` (Playwright) and, from `apps/web`, `npm run cap:sync | cap:android`.
+Import boundaries (DESIGN.md §5.3) are ESLint rules in `eslint.config.js`, tested in `tests/`.
 
 ## Rules
 
