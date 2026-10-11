@@ -5,3 +5,4 @@ build
 coverage
 apps/web/static
 docs
+apps/web/android

@@ -8,6 +8,7 @@
 	],
 	"scripts": {
 		"dev": "npm run dev -w @book/web",
+		"dev:host": "npm run dev -w @book/web -- --host",
 		"build": "npm run build -w @book/web",
 		"preview": "npm run preview -w @book/web",
 		"check": "npm run check --workspaces --if-present",

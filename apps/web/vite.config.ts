@@ -3,6 +3,11 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+	server: {
+		// IPv4 loopback, so `adb reverse tcp:5173 tcp:5173` reaches it from a USB-connected phone.
+		// `npm run dev:host` overrides this to listen on the LAN for the phone's browser over Wi-Fi.
+		host: '127.0.0.1'
+	},
 	plugins: [
 		sveltekit({
 			compilerOptions: {

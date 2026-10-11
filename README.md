@@ -30,11 +30,30 @@ npm run dev
 | `npm run format`   | Auto-format everything                         |
 | `npm run build`    | Build the static web app                       |
 
+## Trying it on your Android phone
+
+No emulator: builds go straight to your own phone (DESIGN.md D-024; iOS is in
+[docs/BACKLOG.md](docs/BACKLOG.md)).
+
+**In the phone's browser, over Wi-Fi.** Run `npm run dev:host` and open the `Network:` address it
+prints on your phone (same Wi-Fi). Windows may ask once to allow Node.js through the firewall.
+
+**In the phone's browser, over USB.** With USB debugging on, run `npm run dev`, then
+`adb reverse tcp:5173 tcp:5173` and open `http://127.0.0.1:5173` on the phone (use `127.0.0.1`,
+not `localhost`, which some phone browsers resolve to IPv6).
+
+**As the app.** Turn on Developer options and USB debugging (or Wireless debugging, then
+`adb pair`), connect the phone, and run `npm run cap:android` from `apps/web`. It builds the web
+app, syncs it into the Android project, builds a debug APK and installs and launches it. It finds a
+JDK 21 (Capacitor 8 needs one; Android Studio keeps one in `~/.jdks`) and the Android SDK itself. If
+several devices are connected, set `ANDROID_SERIAL`. Debug the app's WebView from
+`chrome://inspect` on the PC. `npm run cap:open` opens the project in Android Studio.
+
 ## Structure
 
 ```
 apps/
-  web/                SvelteKit app: UI and routes only
+  web/                SvelteKit app: UI and routes only; android/ is the Capacitor project
 packages/
   core/               Domain types, Anchors, Zod schemas, Stores interfaces. Platform-neutral.
   contract-tests/     Shared suites every Stores (and Backend) implementation must pass
