@@ -24,7 +24,11 @@
 		"@book/storage-local": "*",
 		"@book/tokens": "*",
 		"@capacitor/android": "^8.5.2",
-		"@capacitor/core": "^8.5.2"
+		"@capacitor/core": "^8.5.2",
+		"@internationalized/date": "3.12.4",
+		"@material/material-color-utilities": "0.4.0",
+		"bits-ui": "2.19.3",
+		"m3-svelte": "7.2.1"
 	},
 	"devDependencies": {
 		"@capacitor/cli": "^8.5.2",
@@ -35,6 +39,7 @@
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"typescript": "^6.0.3",
-		"vite": "^8.0.16"
+		"vite": "^8.0.16",
+		"vite-plugin-functions-mixins": "0.4.1"
 	}
 }
