@@ -17,6 +17,7 @@
 		"cap:open": "cap open android"
 	},
 	"dependencies": {
+		"@book/backend-local": "*",
 		"@book/core": "*",
 		"@book/storage-local": "*",
 		"@book/tokens": "*",

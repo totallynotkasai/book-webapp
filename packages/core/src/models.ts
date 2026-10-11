@@ -3,6 +3,7 @@
  * Glossary terms (§2) are used exactly: Revision, Placed Bookmark, Illustration Pack, …
  */
 import type { Anchor, AnchorStatus, PointAnchor, RangeAnchor } from './anchor';
+import type { AiUse } from './backend/dto';
 import type { Timestamp } from './ids';
 
 /** Fields every user-owned record carries, so it can sync in Phase 2 (§6.3). */
@@ -84,9 +85,6 @@ export interface LayerSelection {
 	updatedAt: Timestamp;
 	deletedAt: Timestamp | null;
 }
-
-/** The creator's answer to "Was AI used to make this?" (§10.6). */
-export type AiUse = 'none' | 'assisted' | 'generated';
 
 /** A set of Illustrations for one Book by one Creator (§2). Served through `Backend.layers`. */
 export interface IllustrationPack {

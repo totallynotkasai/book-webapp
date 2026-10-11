@@ -8,6 +8,10 @@ export default defineConfig({
 		// `npm run dev:host` overrides this to listen on the LAN for the phone's browser over Wi-Fi.
 		host: '127.0.0.1'
 	},
+	build: {
+		// Seed and demo JSON is always fetched as a file, never inlined into the bundle (plan §4.3).
+		assetsInlineLimit: (file) => (file.endsWith('.json') ? false : undefined)
+	},
 	plugins: [
 		sveltekit({
 			compilerOptions: {
