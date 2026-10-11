@@ -52,7 +52,7 @@ function forbiddenPackages(allowed, self) {
 	]);
 }
 
-function packageBoundary(name, allowed) {
+function boundaryPatterns(name, allowed) {
 	const forbidden = forbiddenPackages(allowed, name);
 	const patterns = [appRule, crossPackagePathRule];
 	if (forbidden.length > 0) {
@@ -69,10 +69,28 @@ function packageBoundary(name, allowed) {
 			message: '@book/core must stay platform-neutral (DESIGN.md Invariant 9).'
 		});
 	}
-	return {
-		files: [`packages/${name}/**/*.{ts,js,svelte}`],
-		rules: { 'no-restricted-imports': ['error', { patterns }] }
-	};
+	return patterns;
+}
+
+/** Source files get the package's boundary; its tests may also use the shared contract suites. */
+function packageBoundary(name, allowed) {
+	const testFiles = `packages/${name}/**/*.test.ts`;
+	return [
+		{
+			files: [`packages/${name}/**/*.{ts,js,svelte}`],
+			ignores: [testFiles],
+			rules: { 'no-restricted-imports': ['error', { patterns: boundaryPatterns(name, allowed) }] }
+		},
+		{
+			files: [testFiles],
+			rules: {
+				'no-restricted-imports': [
+					'error',
+					{ patterns: boundaryPatterns(name, [...allowed, 'contract-tests']) }
+				]
+			}
+		}
+	];
 }
 
 /** Inside apps/web, only services.ts chooses implementations (Invariant 7). */
@@ -117,7 +135,7 @@ export default ts.config(
 		files: ['**/*.svelte', '**/*.svelte.ts'],
 		languageOptions: { parserOptions: { parser: ts.parser } }
 	},
-	...Object.entries(PACKAGES).map(([name, allowed]) => packageBoundary(name, allowed)),
+	...Object.entries(PACKAGES).flatMap(([name, allowed]) => packageBoundary(name, allowed)),
 	{
 		files: ['apps/web/**/*.{ts,js,svelte}'],
 		rules: {

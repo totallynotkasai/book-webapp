@@ -1,0 +1,126 @@
+/**
+ * Reader Preferences (docs/DESIGN.md §9.4): typography, layout, theme and playback.
+ * Stored globally per user with optional per-Book overrides. Stored values are always merged
+ * over the defaults and validated field by field, so adding a field never breaks old data.
+ */
+import { z } from 'zod';
+
+export const layoutModes = ['paginated-single', 'paginated-spread', 'scroll'] as const;
+export type LayoutMode = (typeof layoutModes)[number];
+
+/** Curated, self-hosted reading fonts (§11.3), plus the EPUB's own. */
+export const fontIds = [
+	'literata',
+	'source-serif-4',
+	'merriweather',
+	'nunito',
+	'atkinson-hyperlegible',
+	'opendyslexic',
+	'publisher'
+] as const;
+export type FontId = (typeof fontIds)[number];
+
+export const themeModes = ['system', 'light', 'dark', 'sepia'] as const;
+export type ThemeMode = (typeof themeModes)[number];
+
+export const contrastLevels = ['standard', 'medium', 'high'] as const;
+export type ContrastLevel = (typeof contrastLevels)[number];
+
+export const illustrationModes = ['popup', 'per-page', 'spread', 'in-text', 'off'] as const;
+export type IllustrationMode = (typeof illustrationModes)[number];
+
+export const FONT_SCALE = { min: 0.75, max: 2.5, step: 0.05 } as const;
+export const LINE_HEIGHT = { min: 1.2, max: 2 } as const;
+export const PARAGRAPH_SPACING = { min: 0, max: 1.5 } as const;
+export const NARRATION_RATE = { min: 0.5, max: 3 } as const;
+
+const HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;
+
+const themeSchema = z.object({
+	mode: z.enum(themeModes).catch('system'),
+	contrast: z.enum(contrastLevels).catch('standard'),
+	seedColor: z.string().regex(HEX_COLOUR).optional().catch(undefined)
+});
+
+const narrationSchema = z.object({
+	rate: z.number().min(NARRATION_RATE.min).max(NARRATION_RATE.max).catch(1),
+	autoTurn: z.boolean().catch(true),
+	highlight: z.enum(['word', 'sentence', 'off']).catch('word')
+});
+
+/** Validates and completes preferences: missing or invalid fields take their defaults. */
+export const readerPreferencesSchema = z.object({
+	layout: z.enum(['auto', ...layoutModes]).catch('auto'),
+	fontFamily: z.enum(fontIds).catch('literata'),
+	fontScale: z.number().min(FONT_SCALE.min).max(FONT_SCALE.max).catch(1),
+	lineHeight: z.number().min(LINE_HEIGHT.min).max(LINE_HEIGHT.max).catch(1.6),
+	paragraphSpacing: z.number().min(PARAGRAPH_SPACING.min).max(PARAGRAPH_SPACING.max).catch(0.8),
+	margins: z.enum(['narrow', 'normal', 'wide']).catch('normal'),
+	justify: z.boolean().catch(false),
+	hyphenate: z.boolean().catch(false),
+	theme: z.preprocess(objectOrEmpty, themeSchema),
+	pageTurn: z.enum(['none', 'slide', 'fade']).catch('slide'),
+	illustrations: z.enum(illustrationModes).catch('popup'),
+	narration: z.preprocess(objectOrEmpty, narrationSchema)
+});
+
+export type ReaderPreferences = z.infer<typeof readerPreferencesSchema>;
+
+/** What a store holds: any subset, including partial nested groups. */
+export type ReaderPreferencesPatch = Partial<
+	Omit<ReaderPreferences, 'theme' | 'narration'> & {
+		theme: Partial<ReaderPreferences['theme']>;
+		narration: Partial<ReaderPreferences['narration']>;
+	}
+>;
+
+export const defaultReaderPreferences: ReaderPreferences = Object.freeze(
+	readerPreferencesSchema.parse({})
+);
+
+function objectOrEmpty(value: unknown): unknown {
+	return isPlainObject(value) ? value : {};
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Deep-merges plain objects; later layers win. Arrays and other values are replaced. */
+function merge(target: Record<string, unknown>, source: Record<string, unknown>) {
+	for (const [key, value] of Object.entries(source)) {
+		if (value === undefined) continue;
+		const existing = target[key];
+		target[key] =
+			isPlainObject(existing) && isPlainObject(value)
+				? merge({ ...existing }, value)
+				: isPlainObject(value)
+					? merge({}, value)
+					: value;
+	}
+	return target;
+}
+
+/**
+ * Resolves the effective preferences: defaults, then the global layer, then a per-Book override.
+ * Layers come from storage, so they are treated as untrusted (`unknown`).
+ */
+export function resolvePreferences(...layers: unknown[]): ReaderPreferences {
+	const merged: Record<string, unknown> = {};
+	for (const layer of layers) if (isPlainObject(layer)) merge(merged, layer);
+	return readerPreferencesSchema.parse(merged);
+}
+
+/** Merges a change into a stored patch, keeping nested groups partial. */
+export function mergePreferencesPatch(
+	base: ReaderPreferencesPatch | undefined,
+	changes: ReaderPreferencesPatch
+): ReaderPreferencesPatch {
+	return merge(merge({}, base ?? {}), changes) as ReaderPreferencesPatch;
+}
+
+/** Snaps a font scale to the allowed range and step. */
+export function clampFontScale(scale: number): number {
+	const stepped = Math.round(scale / FONT_SCALE.step) * FONT_SCALE.step;
+	return Math.min(FONT_SCALE.max, Math.max(FONT_SCALE.min, Number(stepped.toFixed(2))));
+}

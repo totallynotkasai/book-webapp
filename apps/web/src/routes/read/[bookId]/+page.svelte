@@ -1,25 +1,30 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { fontIds, themeIds } from '@book/core';
-	import { fontLabels, readerTokens, themeLabels } from '@book/tokens';
-	import { settings } from '$lib/settings.svelte';
+	import {
+		clampFontScale,
+		contrastLevels,
+		fontIds,
+		themeModes,
+		type ContrastLevel,
+		type FontId,
+		type ThemeMode
+	} from '@book/core';
+	import { contrastLabels, fontLabels, readerTokens, themeModeLabels } from '@book/tokens';
+	import { preferences } from '$lib/preferences.svelte';
 
-	const MIN_SCALE = 0.75;
-	const MAX_SCALE = 2;
-	const SCALE_STEP = 0.125;
+	const SCALE_STEP = 0.1;
 
-	let showSettings = $state(false);
+	let showPreferences = $state(false);
 
 	const readerStyle = $derived(
-		Object.entries(readerTokens(settings.current))
+		Object.entries(readerTokens(preferences.current))
 			.map(([name, value]) => `${name}: ${value}`)
 			.join('; ')
 	);
 
 	function changeScale(delta: number) {
-		const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, settings.current.fontScale + delta));
-		settings.update({ fontScale: next });
+		preferences.update({ fontScale: clampFontScale(preferences.current.fontScale + delta) });
 	}
 </script>
 
@@ -27,27 +32,40 @@
 	<header class="toolbar">
 		<a href={resolve('/')} aria-label="Back to library">←</a>
 		<span class="title">Book: {page.params.bookId}</span>
-		<button onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>Aa</button>
+		<button
+			onclick={() => (showPreferences = !showPreferences)}
+			aria-expanded={showPreferences}
+			aria-label="Reading preferences">Aa</button
+		>
 	</header>
 
-	{#if showSettings}
-		<section class="settings" aria-label="Reader settings">
+	{#if showPreferences}
+		<section class="preferences" aria-label="Reading preferences">
 			<label>
 				Theme
 				<select
-					value={settings.current.theme}
+					value={preferences.current.theme.mode}
 					onchange={(e) =>
-						settings.update({ theme: e.currentTarget.value as (typeof themeIds)[number] })}
+						preferences.update({ theme: { mode: e.currentTarget.value as ThemeMode } })}
 				>
-					{#each themeIds as id (id)}<option value={id}>{themeLabels[id]}</option>{/each}
+					{#each themeModes as id (id)}<option value={id}>{themeModeLabels[id]}</option>{/each}
+				</select>
+			</label>
+			<label>
+				Contrast
+				<select
+					value={preferences.current.theme.contrast}
+					onchange={(e) =>
+						preferences.update({ theme: { contrast: e.currentTarget.value as ContrastLevel } })}
+				>
+					{#each contrastLevels as id (id)}<option value={id}>{contrastLabels[id]}</option>{/each}
 				</select>
 			</label>
 			<label>
 				Font
 				<select
-					value={settings.current.font}
-					onchange={(e) =>
-						settings.update({ font: e.currentTarget.value as (typeof fontIds)[number] })}
+					value={preferences.current.fontFamily}
+					onchange={(e) => preferences.update({ fontFamily: e.currentTarget.value as FontId })}
 				>
 					{#each fontIds as id (id)}<option value={id}>{fontLabels[id]}</option>{/each}
 				</select>
@@ -55,7 +73,7 @@
 			<div class="size">
 				Size
 				<button onclick={() => changeScale(-SCALE_STEP)} aria-label="Smaller text">A−</button>
-				<span>{Math.round(settings.current.fontScale * 100)}%</span>
+				<span data-testid="font-scale">{Math.round(preferences.current.fontScale * 100)}%</span>
 				<button onclick={() => changeScale(SCALE_STEP)} aria-label="Larger text">A+</button>
 			</div>
 		</section>
@@ -72,7 +90,7 @@
 				reader tokens, so changing the theme, font or size above updates it live.
 			</p>
 			<p>
-				Every position in the book is stored as a text locator rather than a page number, so
+				Every position in the book is stored as a word-based Anchor rather than a page number, so
 				bookmarks, notes and illustrations stay attached whatever the layout.
 			</p>
 		</article>
@@ -129,7 +147,7 @@
 		flex: 1;
 	}
 
-	.settings {
+	.preferences {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-4);
@@ -138,14 +156,14 @@
 		border-block: 1px solid var(--color-border);
 	}
 
-	.settings label,
+	.preferences label,
 	.size {
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
 	}
 
-	.settings select,
+	.preferences select,
 	.size button {
 		min-height: var(--touch-target);
 		padding: 0 var(--space-3);
@@ -186,6 +204,7 @@
 		font-size: var(--reader-size);
 		line-height: var(--reader-line-height);
 		text-align: var(--reader-align);
+		hyphens: var(--reader-hyphens);
 	}
 
 	.page p {

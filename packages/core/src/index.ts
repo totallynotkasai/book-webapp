@@ -1,4 +1,5 @@
-export * from './locator';
+export * from './anchor';
+export * from './ids';
 export * from './models';
-export * from './settings';
+export * from './preferences';
 export * from './storage';

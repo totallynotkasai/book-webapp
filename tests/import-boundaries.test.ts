@@ -42,6 +42,9 @@ describe('import boundaries (DESIGN.md §5.3)', () => {
 			['packages/backend-local/src/a.ts', '@book/storage-local', false],
 			['packages/contract-tests/src/a.ts', '@book/core', true],
 			['packages/contract-tests/src/a.ts', '@book/backend-local', false],
+			// Shared contract suites are for tests only.
+			['packages/storage-local/src/index.test.ts', '@book/contract-tests', true],
+			['packages/storage-local/src/index.ts', '@book/contract-tests', false],
 			['packages/ui/src/a.ts', '@book/tokens', true],
 			['packages/ui/src/a.ts', '@book/core', false]
 		];
