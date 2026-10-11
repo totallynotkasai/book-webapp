@@ -49,18 +49,33 @@ JDK 21 (Capacitor 8 needs one; Android Studio keeps one in `~/.jdks`) and the An
 several devices are connected, set `ANDROID_SERIAL`. Debug the app's WebView from
 `chrome://inspect` on the PC. `npm run cap:open` opens the project in Android Studio.
 
+## Dev panel, Personas and build profiles
+
+Owner builds have a developer panel at `/dev` (linked from the Library). It switches between the
+seeded Personas (Reader, Author, Illustrator, Moderator), each with their own notes, progress and
+preferences on the device, and controls the simulated backend: latency, failure rate, offline,
+payment outcome, AI-detector verdict and a clock you can move forward. It can also reset the demo
+data or wipe everything the app stores on the device.
+
+`npm run build:tester -w @book/web` builds the `tester` profile into `apps/web/build-tester/`:
+reading only, no dev panel. `VITE_FLAGS` adds simulated areas for a review session; see
+`apps/web/.env.example`.
+
 ## Structure
 
 ```
 apps/
   web/                SvelteKit app: UI and routes only; android/ is the Capacitor project
 packages/
-  core/               Domain types, Anchors, Zod schemas, Stores interfaces. Platform-neutral.
-  contract-tests/     Shared suites every Stores (and Backend) implementation must pass
+  core/               Domain types, Anchors, Zod schemas, Stores and Backend interfaces
+  domain/             Pure business rules (Entitlements, money, roles), shared with the Phase 2 API
+  contract-tests/     Shared suites every Stores and Backend implementation must pass
+  backend-local/      Simulated Backend in the browser: own database, seed, Personas, controls
   storage-local/      Browser (IndexedDB) implementation of the storage interfaces
   tokens/             Design tokens (CSS custom properties) and preset themes
-docs/               DESIGN.md, IMPLEMENTATION-PLAN.md, BACKLOG.md
-tests/              Repo-level tests (import boundaries)
+fixtures/seed/        Demo data for backend-local (validated on load)
+docs/                 DESIGN.md, IMPLEMENTATION-PLAN.md, BACKLOG.md
+tests/                Repo-level tests (import boundaries)
 ```
 
 Dependencies only point one way: `apps → packages → core`. `core` never imports anything

@@ -50,6 +50,8 @@ export function getStores(): Promise<Stores> {
 	return stores;
 }
 
+export type { LocalBackendControls as DevControls, SimulationSettings };
+
 /** The dev panel's controls (owner builds only). Not part of `Backend`; no Phase 2 equivalent. */
 export async function getDevControls(): Promise<LocalBackendControls> {
 	return (await localBackend()).controls;

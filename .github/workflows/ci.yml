@@ -25,6 +25,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm run build:tester -w @book/web
 
       - name: Cache Playwright browsers
         id: playwright-cache
