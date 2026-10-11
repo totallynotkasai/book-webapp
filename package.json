@@ -16,7 +16,9 @@
 		"test:watch": "vitest",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
-		"test:e2e": "npm run build && npm run build:tester -w @book/web && npm run test:e2e -w @book/web"
+		"test:e2e": "npm run build && npm run build:tester -w @book/web && npm run test:e2e -w @book/web",
+		"fixtures:epubs": "node fixtures/scripts/build-epubs.mjs",
+		"fixtures:audio": "node fixtures/scripts/download-audio.mjs"
 	},
 	"engines": {
 		"node": ">=22"

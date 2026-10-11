@@ -34,3 +34,7 @@ build-tester
 
 # Agent worktrees
 .claude/worktrees
+
+# Fixture audio is downloaded by `npm run fixtures:audio`, never committed (P0-11)
+fixtures/audio/*
+!fixtures/audio/README.md
