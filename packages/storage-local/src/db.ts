@@ -37,8 +37,12 @@ const V1_STORES = ['bookmarks', 'annotations', 'progress', 'settings'];
 /** The default database name. In the PoC each Persona gets `book-reader:<userId>` (§6.3). */
 export const DEFAULT_DB_NAME = 'book-reader';
 
-export function openReaderDB(name = DEFAULT_DB_NAME): Promise<Database> {
-	return openDB<ReaderDB>(name, VERSION, {
+export async function openReaderDB(name = DEFAULT_DB_NAME): Promise<Database> {
+	const db = await openDB<ReaderDB>(name, VERSION, {
+		// Another tab (or "Wipe device data") wants to delete or upgrade this database: let it.
+		blocking() {
+			db.close();
+		},
 		upgrade(db, oldVersion) {
 			if (oldVersion < 2) {
 				// Version 1 stored v0.1 Locators (CFIs and character offsets), which Invariant 2 forbids.
@@ -58,4 +62,5 @@ export function openReaderDB(name = DEFAULT_DB_NAME): Promise<Database> {
 			}
 		}
 	});
+	return db;
 }

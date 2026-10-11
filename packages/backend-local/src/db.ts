@@ -48,8 +48,12 @@ export const SEEDED_STORES = ['personas', 'creators', 'books', 'products', 'enti
 
 const VERSION = 1;
 
-export function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
-	return openDB<BackendDB>(name, VERSION, {
+export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
+	const db = await openDB<BackendDB>(name, VERSION, {
+		// Another tab (or "Wipe device data") wants to delete or upgrade this database: let it.
+		blocking() {
+			db.close();
+		},
 		upgrade(db, oldVersion) {
 			if (oldVersion < 1) {
 				db.createObjectStore('meta', { keyPath: 'key' });
@@ -65,4 +69,5 @@ export function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDa
 			}
 		}
 	});
+	return db;
 }

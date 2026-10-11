@@ -211,7 +211,12 @@ function layerSelectionStore(db: Database, clock: Clock): LayerSelectionStore {
 }
 
 /** Creates the full set of stores backed by the browser's IndexedDB. */
-export async function createLocalStores(options: LocalStoresOptions = {}): Promise<Stores> {
+/** `Stores` plus closing the connection, which only the app's composition root needs. */
+export interface LocalStores extends Stores {
+	close(): void;
+}
+
+export async function createLocalStores(options: LocalStoresOptions = {}): Promise<LocalStores> {
 	const clock = options.clock ?? systemClock;
 	const db = await openReaderDB(options.dbName ?? DEFAULT_DB_NAME);
 	return {
@@ -220,6 +225,7 @@ export async function createLocalStores(options: LocalStoresOptions = {}): Promi
 		placedBookmarks: anchoredStore<PlacedBookmark>(db, 'placedBookmarks', clock),
 		progress: progressStore(db, clock),
 		preferences: preferencesStore(db),
-		layerSelection: layerSelectionStore(db, clock)
+		layerSelection: layerSelectionStore(db, clock),
+		close: () => db.close()
 	};
 }

@@ -5,6 +5,7 @@
  */
 import type { Backend, Stores } from '@book/core';
 import type { LocalBackend, LocalBackendControls, SimulationSettings } from '@book/backend-local';
+import type { LocalStores } from '@book/storage-local';
 // Fetched at runtime, never bundled, to protect the reader route's JavaScript budget (plan §4.3).
 import seedUrl from '../../../../fixtures/seed/seed.json?url';
 
@@ -14,7 +15,7 @@ declare global {
 }
 
 let local: Promise<LocalBackend> | undefined;
-let stores: Promise<Stores> | undefined;
+let stores: Promise<LocalStores> | undefined;
 
 function localBackend(): Promise<LocalBackend> {
 	local ??= import('@book/backend-local').then(({ createLocalBackend, ownerSimulationDefaults }) =>
@@ -59,6 +60,9 @@ export async function getDevControls(): Promise<LocalBackendControls> {
 
 /** Deletes everything this app stores on the device: every Persona's data and the demo backend. */
 export async function wipeDeviceData(): Promise<void> {
+	// Close this page's own connections first, or the deletes wait on them (other tabs close theirs
+	// when they see the delete coming).
+	(await stores)?.close();
 	(await local)?.controls.close();
 	const databases = await indexedDB.databases();
 	await Promise.all(
@@ -71,7 +75,6 @@ export async function wipeDeviceData(): Promise<void> {
 						const request = indexedDB.deleteDatabase(name);
 						request.onsuccess = () => resolve();
 						request.onerror = () => reject(request.error);
-						request.onblocked = () => resolve();
 					})
 			)
 	);
