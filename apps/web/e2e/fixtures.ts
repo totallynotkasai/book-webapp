@@ -36,3 +36,40 @@ export async function switchPersona(page: Page, label: string) {
 		page.getByRole('radio', { name: new RegExp(`^${label}\\b`) }).check()
 	]);
 }
+
+/** Waits until the dev panel's last simulation change has been written. */
+export async function expectSaved(page: Page) {
+	await expect(page.getByTestId('simulation-status')).toHaveText('Saved');
+}
+
+/**
+ * The global Reader Preferences stored for a user, read straight from IndexedDB. Never creates
+ * the database (that would block the app's own upgrade) and always closes its connection.
+ */
+export function storedPreferences(page: Page, userId: string) {
+	return page.evaluate(
+		(name) =>
+			new Promise<unknown>((resolve) => {
+				const open = indexedDB.open(name);
+				open.onupgradeneeded = () => open.transaction?.abort();
+				open.onerror = () => resolve(undefined);
+				open.onsuccess = () => {
+					const db = open.result;
+					if (!db.objectStoreNames.contains('preferences')) {
+						db.close();
+						return resolve(undefined);
+					}
+					const get = db.transaction('preferences').objectStore('preferences').get('__global__');
+					get.onsuccess = () => resolve(get.result);
+					get.onerror = () => resolve(undefined);
+					get.transaction.oncomplete = () => db.close();
+				};
+			}),
+		`book-reader:${userId}`
+	);
+}
+
+/** Waits until a font-scale change has been written, so navigating away can't lose it. */
+export async function expectStoredFontScale(page: Page, userId: string, fontScale: number) {
+	await expect.poll(() => storedPreferences(page, userId)).toMatchObject({ fontScale });
+}

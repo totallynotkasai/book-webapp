@@ -19,6 +19,9 @@
 	let simulation = $state<SimulationSettings>();
 	let now = $state(new Date());
 	let busy = $state(false);
+	/** Changes save to IndexedDB asynchronously; say when they have landed. */
+	let saving = $state(0);
+	let saved = $state(false);
 
 	async function refresh() {
 		controls ??= await getDevControls();
@@ -34,8 +37,14 @@
 
 	async function update(changes: Partial<SimulationSettings>) {
 		if (!controls) return;
-		simulation = { ...(await controls.setSimulation(changes)) };
-		now = controls.clock.now();
+		saving++;
+		try {
+			simulation = { ...(await controls.setSimulation(changes)) };
+			now = controls.clock.now();
+		} finally {
+			saving--;
+			saved = saving === 0;
+		}
 	}
 
 	async function switchPersona(persona: PersonaDto) {
@@ -108,6 +117,10 @@
 	</section>
 
 	{#if simulation}
+		<p class="muted" role="status" data-testid="simulation-status">
+			{saving > 0 ? 'Saving…' : saved ? 'Saved' : ''}
+		</p>
+
 		<section aria-labelledby="network-heading">
 			<h2 id="network-heading">Network</h2>
 			<div class="row">

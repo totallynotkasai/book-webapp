@@ -1,4 +1,11 @@
-import { expect, openDevPanel, switchPersona, test } from './fixtures';
+import {
+	expect,
+	expectSaved,
+	expectStoredFontScale,
+	openDevPanel,
+	switchPersona,
+	test
+} from './fixtures';
 
 // Phase 0.1 Try-it list and P0-09 acceptance (IMPLEMENTATION-PLAN.md §6, DESIGN.md §13.1).
 
@@ -13,6 +20,7 @@ test('switching Persona reloads the app as that user, with their own Stores data
 	await page.getByRole('button', { name: 'Reading preferences' }).click();
 	await page.getByRole('button', { name: 'Larger text' }).click();
 	await expect(page.getByTestId('font-scale')).toHaveText('110%');
+	await expectStoredFontScale(page, 'user-reader', 1.1);
 
 	// …which the Author doesn't see,
 	await switchPersona(page, 'Author');
@@ -31,19 +39,27 @@ test('switching Persona reloads the app as that user, with their own Stores data
 });
 
 test('the Library copes with failures and offline, and recovers', async ({ page }) => {
+	const failureRate = page.getByRole('slider', { name: /Failure rate/ });
+	const offline = page.getByRole('checkbox', { name: 'Offline' });
+
 	await openDevPanel(page);
-	await page.getByRole('slider', { name: /Failure rate/ }).fill('100');
+	await failureRate.fill('100');
+	await expectSaved(page);
 	await page.goto('/');
 	await expect(page.getByRole('alert')).toContainText('Your library didn’t load');
 
 	await openDevPanel(page);
-	await page.getByRole('slider', { name: /Failure rate/ }).fill('0');
-	await page.getByRole('checkbox', { name: 'Offline' }).check();
+	await failureRate.fill('0');
+	await expectSaved(page);
+	await openDevPanel(page);
+	await offline.check();
+	await expectSaved(page);
 	await page.goto('/');
 	await expect(page.getByRole('alert')).toContainText('You’re offline');
 
 	await openDevPanel(page);
-	await page.getByRole('checkbox', { name: 'Offline' }).uncheck();
+	await offline.uncheck();
+	await expectSaved(page);
 	await page.goto('/');
 	await expect(page.getByRole('link', { name: "Alice's Adventures in Wonderland" })).toBeVisible();
 });
@@ -64,6 +80,7 @@ test('wiping device data clears every Persona’s data', async ({ page }) => {
 	await page.getByRole('button', { name: 'Reading preferences' }).click();
 	await page.getByRole('button', { name: 'Larger text' }).click();
 	await expect(page.getByTestId('font-scale')).toHaveText('110%');
+	await expectStoredFontScale(page, 'user-reader', 1.1);
 
 	await openDevPanel(page);
 	page.once('dialog', (dialog) => dialog.accept());
