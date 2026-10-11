@@ -1,72 +1,45 @@
 import 'fake-indexeddb/auto';
-import type { Locator, Stores } from '@book/core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describeStoresContract } from '@book/contract-tests';
+import { openDB } from 'idb';
+import { describe, expect, it } from 'vitest';
 import { createLocalStores } from './index';
 
-const locator: Locator = {
-	editionId: 'ed1',
-	cfi: 'epubcfi(/6/4!/4/2)',
-	paragraphId: 'p1',
-	paragraphIndex: 1,
-	charOffset: 0
-};
+// A fresh database per call keeps tests independent.
+describeStoresContract('storage-local', ({ clock }) =>
+	createLocalStores({ dbName: `test-${crypto.randomUUID()}`, clock })
+);
 
-let stores: Stores;
-
-beforeEach(async () => {
-	// A fresh database per test keeps them independent.
-	stores = await createLocalStores(`test-${crypto.randomUUID()}`);
-});
-
-describe('bookmarks', () => {
-	it('creates, lists by edition, updates and removes', async () => {
-		const created = await stores.bookmarks.create({ editionId: 'ed1', locator, label: 'Start' });
-		await stores.bookmarks.create({ editionId: 'ed2', locator: { ...locator, editionId: 'ed2' } });
-
-		expect(created.id).toBeTruthy();
-		expect(await stores.bookmarks.list('ed1')).toEqual([created]);
-
-		const renamed = await stores.bookmarks.update(created.id, { label: 'Chapter 1' });
-		expect(renamed.label).toBe('Chapter 1');
-		expect(renamed.createdAt).toBe(created.createdAt);
-
-		await stores.bookmarks.remove(created.id);
-		expect(await stores.bookmarks.list('ed1')).toEqual([]);
-	});
-
-	it('rejects updates to missing records', async () => {
-		await expect(stores.bookmarks.update('missing', { label: 'x' })).rejects.toThrow();
-	});
-});
-
-describe('annotations', () => {
-	it('stores highlights and notes against a range', async () => {
-		const note = await stores.annotations.create({
-			editionId: 'ed1',
-			range: { start: locator, end: { ...locator, charOffset: 20 } },
-			kind: 'note',
-			colour: 2,
-			body: 'Foreshadowing?'
+describe('IndexedDB upgrade from version 1', () => {
+	it('drops the v0.1 Locator stores and creates the version 2 stores', async () => {
+		const dbName = `test-v1-${crypto.randomUUID()}`;
+		const v1 = await openDB(dbName, 1, {
+			upgrade(db) {
+				db.createObjectStore('bookmarks', { keyPath: 'id' }).createIndex('editionId', 'editionId');
+				db.createObjectStore('annotations', { keyPath: 'id' }).createIndex(
+					'editionId',
+					'editionId'
+				);
+				db.createObjectStore('progress', { keyPath: 'editionId' });
+				db.createObjectStore('settings');
+			}
 		});
-		expect(await stores.annotations.list('ed1')).toEqual([note]);
-	});
-});
+		await v1.put('bookmarks', { id: 'old', editionId: 'ed1', locator: { cfi: 'epubcfi(/6/4)' } });
+		v1.close();
 
-describe('progress', () => {
-	it('saves and overwrites per edition', async () => {
-		const base = { editionId: 'ed1', locator, maxLocator: locator, updatedAt: '' };
-		await stores.progress.save({ ...base, percent: 0.1 });
-		await stores.progress.save({ ...base, percent: 0.2 });
-		expect((await stores.progress.get('ed1'))?.percent).toBe(0.2);
-		expect(await stores.progress.get('ed2')).toBeUndefined();
-	});
-});
+		const stores = await createLocalStores({ dbName });
+		expect(await stores.annotations.list('ed1')).toEqual([]);
 
-describe('settings', () => {
-	it('keeps global settings and per-book overrides separate', async () => {
-		await stores.settings.save({ theme: 'dark' });
-		await stores.settings.save({ theme: 'sepia' }, 'book1');
-		expect(await stores.settings.get()).toEqual({ theme: 'dark' });
-		expect(await stores.settings.get('book1')).toEqual({ theme: 'sepia' });
+		const v2 = await openDB(dbName);
+		expect([...v2.objectStoreNames].sort()).toEqual([
+			'annotations',
+			'layerSelection',
+			'libraryBooks',
+			'libraryFiles',
+			'libraryRevisions',
+			'placedBookmarks',
+			'preferences',
+			'progress'
+		]);
+		v2.close();
 	});
 });

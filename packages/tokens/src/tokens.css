@@ -1,7 +1,8 @@
 /*
- * Design tokens (design doc §11.2).
+ * Design tokens (docs/DESIGN.md §11.2).
  * Themes are only token overrides, applied with data-theme on any element (usually <html>).
- * Colours and typefaces are placeholders until the Material 3 token migration (§11, task P1-UI-01).
+ * Colours are placeholders until generated Material 3 role tokens replace them (§11.2, P1-UI-01).
+ * Font files are not bundled yet: Nunito and the reading fonts are self-hosted in P1-UI-01.
  */
 
 :root {
@@ -19,22 +20,30 @@
 	--color-highlight-4: #ffd1dc;
 	--color-highlight-5: #e2d4ff;
 
-	/* Reader (overridden at runtime from the user's reader settings) */
-	--reader-font: var(--font-serif);
+	/* Reader (overridden at runtime from the user's Reader Preferences, §9.4) */
+	--reader-font: var(--font-literata);
 	--reader-size: 1.125rem;
 	--reader-line-height: 1.6;
 	--reader-paragraph-spacing: 0.8em;
 	--reader-margin: 2rem;
 	--reader-align: start;
+	--reader-hyphens: manual;
 
-	/* Font stacks. Bundled font files come later. */
-	--font-serif: 'Literata', Georgia, 'Times New Roman', serif;
-	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-	--font-dyslexic: 'OpenDyslexic', 'Atkinson Hyperlegible', 'Comic Sans MS', sans-serif;
+	/* Reading fonts (§11.3), one per FontId. "publisher" leaves the EPUB's own font. */
+	--font-literata: 'Literata', Georgia, 'Times New Roman', serif;
+	--font-source-serif-4: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+	--font-merriweather: 'Merriweather', Georgia, serif;
+	--font-nunito: 'Nunito', system-ui, sans-serif;
+	--font-atkinson-hyperlegible: 'Atkinson Hyperlegible', Verdana, sans-serif;
+	--font-opendyslexic: 'OpenDyslexic', 'Atkinson Hyperlegible', 'Comic Sans MS', sans-serif;
+	--font-publisher: inherit;
 
-	/* UI typography */
-	--font-ui: var(--font-sans);
-	--font-display: var(--font-serif);
+	/*
+	 * UI typography (§11.3). Arial Rounded MT is a commercial font: use it only when the device
+	 * already has it installed, never bundle or self-host it. Nunito is the self-hosted fallback.
+	 */
+	--font-ui: 'Arial Rounded MT', 'Arial Rounded MT Std', 'Nunito', system-ui, sans-serif;
+	--font-display: var(--font-ui);
 
 	/* Shape & spacing */
 	--radius-sm: 4px;
@@ -49,8 +58,8 @@
 	--space-7: 3rem;
 	--space-8: 4rem;
 
-	/* Touch: minimum hit area for interactive controls (WCAG 2.2 target size) */
-	--touch-target: 44px;
+	/* Touch: minimum hit area for interactive controls (§11.7) */
+	--touch-target: 48px;
 
 	/* Device safe areas (notches, home indicators) for PWA and Capacitor */
 	--safe-top: env(safe-area-inset-top, 0px);

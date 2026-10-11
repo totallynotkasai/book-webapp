@@ -8,13 +8,15 @@
 	],
 	"scripts": {
 		"dev": "npm run dev -w @book/web",
+		"dev:host": "npm run dev -w @book/web -- --host",
 		"build": "npm run build -w @book/web",
 		"preview": "npm run preview -w @book/web",
 		"check": "npm run check --workspaces --if-present",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"test:e2e": "npm run build && npm run build:tester -w @book/web && npm run test:e2e -w @book/web"
 	},
 	"engines": {
 		"node": ">=22"

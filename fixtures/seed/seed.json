@@ -1,0 +1,153 @@
+{
+	"version": 1,
+	"defaultPersonaId": "reader",
+	"personas": [
+		{
+			"id": "reader",
+			"label": "Reader",
+			"description": "A reader with Alice in their library. The default.",
+			"user": {
+				"id": "user-reader",
+				"displayName": "Robin Reader",
+				"role": "reader",
+				"creatorId": null
+			}
+		},
+		{
+			"id": "author",
+			"label": "Author",
+			"description": "Writes the demo serial; can use Creator Studio.",
+			"user": {
+				"id": "user-author",
+				"displayName": "Wren Ashdown",
+				"role": "creator",
+				"creatorId": "creator-wren-ashdown"
+			}
+		},
+		{
+			"id": "illustrator",
+			"label": "Illustrator",
+			"description": "A community Creator who makes Illustration Packs for other authors' Books.",
+			"user": {
+				"id": "user-illustrator",
+				"displayName": "Ink & Quill",
+				"role": "creator",
+				"creatorId": "creator-ink-and-quill"
+			}
+		},
+		{
+			"id": "moderator",
+			"label": "Moderator",
+			"description": "Works the admin review queue.",
+			"user": {
+				"id": "user-moderator",
+				"displayName": "Morgan Moderator",
+				"role": "moderator",
+				"creatorId": null
+			}
+		}
+	],
+	"creators": [
+		{
+			"id": "creator-lewis-carroll",
+			"handle": "lewis-carroll",
+			"displayName": "Lewis Carroll",
+			"bio": "Author of Alice's Adventures in Wonderland (1865). Public domain."
+		},
+		{
+			"id": "creator-wren-ashdown",
+			"handle": "wren-ashdown",
+			"displayName": "Wren Ashdown",
+			"bio": "A fictional serial author, seeded for the demo. Their serial was written by an AI and is labelled as such."
+		},
+		{
+			"id": "creator-ink-and-quill",
+			"handle": "ink-and-quill",
+			"displayName": "Ink & Quill",
+			"bio": "A fictional community Creator who curates public-domain illustrations into packs."
+		}
+	],
+	"books": [
+		{
+			"id": "book-alice",
+			"slug": "alices-adventures-in-wonderland",
+			"title": "Alice's Adventures in Wonderland",
+			"creatorId": "creator-lewis-carroll",
+			"lang": "en",
+			"aiUse": "none",
+			"description": "Alice follows a White Rabbit down a rabbit hole into a world of nonsense, riddles and an alarming Queen.",
+			"coverUrl": null,
+			"listingState": "listed"
+		},
+		{
+			"id": "book-lamplighters-ledger",
+			"slug": "the-lamplighters-ledger",
+			"title": "The Lamplighter's Ledger",
+			"creatorId": "creator-wren-ashdown",
+			"lang": "en",
+			"aiUse": "generated",
+			"description": "A short demo LitRPG serial with status windows. Written by an AI for this proof of concept.",
+			"coverUrl": null,
+			"listingState": "listed"
+		}
+	],
+	"products": [
+		{
+			"id": "product-book-alice",
+			"kind": "book",
+			"refId": "book-alice",
+			"bookId": "book-alice",
+			"creatorId": "creator-lewis-carroll",
+			"isOfficial": true,
+			"price": { "amountMinor": 0, "currency": "GBP" },
+			"status": "active"
+		},
+		{
+			"id": "product-book-lamplighters-ledger",
+			"kind": "book",
+			"refId": "book-lamplighters-ledger",
+			"bookId": "book-lamplighters-ledger",
+			"creatorId": "creator-wren-ashdown",
+			"isOfficial": true,
+			"price": { "amountMinor": 399, "currency": "GBP" },
+			"status": "active"
+		}
+	],
+	"entitlements": [
+		{
+			"id": "ent-reader-alice",
+			"userId": "user-reader",
+			"productId": "product-book-alice",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-author-alice",
+			"userId": "user-author",
+			"productId": "product-book-alice",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-illustrator-alice",
+			"userId": "user-illustrator",
+			"productId": "product-book-alice",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-moderator-alice",
+			"userId": "user-moderator",
+			"productId": "product-book-alice",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-author-lamplighters-ledger",
+			"userId": "user-author",
+			"productId": "product-book-lamplighters-ledger",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		}
+	]
+}

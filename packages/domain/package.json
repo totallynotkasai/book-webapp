@@ -1,0 +1,16 @@
+{
+	"name": "@book/domain",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Pure business rules: Entitlements, money, roles, and later Bundles, subscriptions, Flags (DESIGN.md §5.6). Used by backend-local now and apps/api in Phase 2.",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc -p ."
+	},
+	"dependencies": {
+		"@book/core": "*"
+	}
+}

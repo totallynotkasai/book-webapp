@@ -9,5 +9,8 @@
 	},
 	"scripts": {
 		"check": "tsc -p ."
+	},
+	"dependencies": {
+		"zod": "^4.6.3"
 	}
 }

@@ -8,6 +8,13 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	interface ImportMetaEnv {
+		/** `owner` (default) or `tester`. See .env.example. */
+		readonly VITE_PROFILE?: string;
+		/** Tester builds: simulated areas to include, comma-separated. */
+		readonly VITE_FLAGS?: string;
+	}
 }
 
 export {};

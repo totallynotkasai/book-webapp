@@ -1,0 +1,19 @@
+{
+	"name": "@book/contract-tests",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Shared Vitest suites every Stores and Backend implementation must pass (DESIGN.md §5.6). Dev only.",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc -p ."
+	},
+	"dependencies": {
+		"@book/core": "*"
+	},
+	"peerDependencies": {
+		"vitest": "*"
+	}
+}

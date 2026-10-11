@@ -6,17 +6,28 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
+		"build:tester": "vite build --mode tester",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test:e2e": "playwright test",
+		"serve": "node scripts/serve.mjs build 4173",
+		"cap:sync": "npm run build && cap sync android",
+		"cap:android": "npm run cap:sync && node scripts/android.mjs",
+		"cap:open": "cap open android"
 	},
 	"dependencies": {
+		"@book/backend-local": "*",
 		"@book/core": "*",
 		"@book/storage-local": "*",
-		"@book/tokens": "*"
+		"@book/tokens": "*",
+		"@capacitor/android": "^8.5.2",
+		"@capacitor/core": "^8.5.2"
 	},
 	"devDependencies": {
+		"@capacitor/cli": "^8.5.2",
+		"@playwright/test": "^1.63.0",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",

@@ -14,7 +14,7 @@
 
 | Phase | What the owner can try at the end | Tasks | Status |
 |---|---|---|---|
-| **0.1** Foundations | The app on desktop and on your Android phone; a dev panel with Personas and simulation controls | P0-01, P0-02, P0-03, P0-08, P0-09 | Not started |
+| **0.1** Foundations | The app on desktop and on your Android phone; a dev panel with Personas and simulation controls | P0-01, P0-02, P0-03, P0-08, P0-09 | Done (11 Oct 2026; notes in §6) |
 | **0.2** De-risk the reader | *Alice* in both candidate reader engines side by side; a first narration demo with Word highlighting | P0-04 to P0-07, P0-10, P0-11 | Not started |
 | **1.1** App shell and design system | Every area clickable with demo data; the whole app themed from one seed colour | P1-UI-01 to 03, P1-APP-01, P1-APP-02 | Not started |
 | **1.2** Read a book | *Alice*, the status-window fixture and your own EPUBs, fully customisable, resuming at the same Word | P1-ING-01, P1-ING-02, P1-RDR-01 to 05, P1-RDR-08, P1-APP-03 | Not started |
@@ -293,6 +293,20 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 - Open `/dev` and switch between the Reader, Author, Illustrator and Moderator Personas.
 - Set latency high and failure rate to 50%; watch the (still bare) Library cope.
 - Install the Capacitor build on your phone.
+
+**Done (11 October 2026): what was built and how it differs from the plan.** All four Try-it items pass as Playwright specs (`apps/web/e2e/foundations.spec.ts`, `tester.spec.ts`) in Chromium and WebKit, and were checked on the owner's Android phone over adb (Capacitor app: Library from `backend-local`, dev panel, Persona switch; dev server in the phone's browser). Deviations:
+
+- **One PR per phase, not per task** (owner decision, D-025). Each task still has its own commits, with the task ID in the message.
+- **Backend modules arrive with their tasks.** §4.2 sketches all eleven modules "finalised in P0-08". P0-08 built `session`, `catalogue`, `library`, `studio.listBooks` (so role checks are real and contract-tested) and `events`. Each later task adds its module's methods, schemas (`backendContract` in `core/src/backend/contract.ts` makes TypeScript insist on both) and contract-suite cases: `content` (P1-APP-03), `checkout` (P1-STO-02), `support` (P1-STO-04), `layers` (P1-LAY-01), `community` (P1-COM-01), `moderation` (P1-APP-01). Designing them now would guess at screens that don't exist yet.
+- **Two error codes added** to the §10.1 enum, which ends in "…": `NETWORK_ERROR` (offline or unreachable, raised client-side) and `SERVER_ERROR` (5xx). The dev panel's offline and failure-rate controls produce them.
+- **The seed is one file**, `fixtures/seed/seed.json` with a `version`, not a set of files. It's fetched as a hashed asset (`?url`, never inlined) and validated for shape and for references between records. Split it when it grows.
+- **The dev panel bypasses the simulation.** It uses `LocalBackendControls` (Persona list and switch, settings, clock, reset), so it still works at a 100% failure rate or offline. `controls.currentUserId()` is synchronous and never simulated, so `Stores` (`book-reader:<userId>`) opens even when the backend is "down", as a cached auth session would in Phase 2.
+- **Tester builds** come from `npm run build:tester` (`vite build --mode tester`, which loads the committed `apps/web/.env.tester`) into `apps/web/build-tester/`. `VITE_FLAGS` can add simulated areas to a tester session for the PoC review; it can never enable the dev panel. Flagged-off routes answer 404 from the root layout.
+- **E2E serves the built output** with a small static server (`apps/web/scripts/serve.mjs`, SPA fallback) rather than `vite preview`, so owner and tester builds run side by side (ports 4173 and 4174). Zero latency comes from a Playwright init script (`__BOOK_E2E_SIMULATION__`); the clock is fixed with `page.clock.setFixedTime`.
+- **Tokens:** Appendix B's tokens row was split. P0-02 did the parts other code depends on (`--touch-target: 48px`, the `--font-ui` stack, font IDs, Reader Preferences mapping); generated M3 role tokens and self-hosted Nunito stay in P1-UI-01, as §13 already says. Until then, `medium` contrast looks like `standard`, and `high` uses the one hand-written high-contrast theme.
+- **`ReadingProgress` and `LayerSelection` are keyed by `bookId`** (one per Book) and carry timestamps and `deletedAt` but no separate `id`.
+- **Android tooling:** Capacitor 8 needs JDK 21. `scripts/android.mjs` (behind `npm run cap:android`) finds one (Android Studio keeps one in `~/.jdks`) plus the SDK and the phone, so nothing has to be added to PATH. The dev server binds `127.0.0.1` by default so `adb reverse` works over USB; `npm run dev:host` is the Wi-Fi route. The phone's browser must use `127.0.0.1`, not `localhost` (it resolves to IPv6).
+- **Lint:** packages' `*.test.ts` files may import `@book/contract-tests`; nothing else may. A `web` Vitest project runs pure TypeScript tests in `apps/web` (Svelte component tests come with P1-UI-02).
 
 ### Phase 0.2 — De-risk the reader
 

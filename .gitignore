@@ -17,6 +17,7 @@ Thumbs.db
 .env.*
 !.env.example
 !.env.test
+!.env.tester
 
 # Vite
 vite.config.js.timestamp-*
@@ -24,3 +25,9 @@ vite.config.ts.timestamp-*
 
 # Tests
 coverage
+
+# Playwright
+test-results
+playwright-report
+blob-report
+build-tester
