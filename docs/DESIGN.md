@@ -21,7 +21,7 @@ This is the source of truth for product scope, architecture, terminology and bui
 **While working:**
 
 - Work only on tasks in the current phase unless told otherwise. Never build anything in §13.8 Parked.
-- One task ID per branch/PR. Branch name: `p1-rdr-04-preferences`. Put the task ID in commit messages.
+- One branch and PR per phase of `docs/IMPLEMENTATION-PLAN.md` (D-025). Branch name: `p0-1-foundations`. At least one commit per task, with the task ID in the message.
 - If a task conflicts with an Invariant, stop and flag it. Invariants win.
 - Don't add a dependency without saying why in the PR. Prefer libraries already listed in §5.2.
 - If you change a decision, update §16 Decision log in the same PR.
@@ -1495,6 +1495,7 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | D-022 | A `Backend` interface in `core`, implemented by `backend-local` in the PoC and `backend-http` from Phase 2, guarded by shared contract tests, with business rules in `packages/domain` (§5.6). Chosen over mocking HTTP with a service worker (unreliable in iOS WKWebView, awkward for binary content) and over running the API in the browser (would commit to D-004 early) | Accepted (owner decision, 11 Oct 2026) |
 | D-023 | Demo content adds Standard Ebooks filler titles (CC0, no Layers), Arthur Rackham's *Alice* illustrations as the demo community pack, and a short demo serial grown from the status-window fixture (§12.2). Amends D-014 | Accepted (owner decision, 11 Oct 2026) |
 | D-024 | iOS builds and iOS device testing are deferred to `docs/BACKLOG.md` until the owner has a Mac (or a cloud macOS build service) and an iPhone. The PoC targets web and Android, tested on the owner's Android phone rather than an emulator. Code stays iOS-ready: Playwright WebKit on every PR, `lib/platform` adapters only, safe areas everywhere. iOS remains a product target | Accepted (owner decision, 11 Oct 2026) |
+| D-025 | One branch and PR per phase of `docs/IMPLEMENTATION-PLAN.md` (e.g. 0.1, 0.2) instead of one per task, with at least one commit per task carrying its task ID; the PR may be merged once CI is green | Accepted (owner decision, 11 Oct 2026) |
 
 ---
 
@@ -1603,7 +1604,7 @@ npm run build
 npm run cap:sync | cap:android   (from apps/web)
 
 ## Rules
-- One task ID per branch/PR (branch: p1-rdr-04-preferences).
+- One branch/PR per plan phase (branch: p0-1-foundations); the task ID in every commit message (D-025).
 - Svelte 5 runes only. TypeScript strict. Types and schemas live in @book/core.
 - Never import the reader engine outside packages/reader-core.
 - In apps/web, only src/lib/services.ts may import storage-local or backend-local. Business rules go in packages/domain.
