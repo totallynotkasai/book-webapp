@@ -230,7 +230,7 @@ tools/             align, resolve-anchors, images (dev-only CLIs)
 fixtures/          test EPUBs, images, audio download script, seed/ (demo catalogue), LICENSES.md
 ```
 
-Dependency direction (ESLint-enforced, DESIGN.md §5.3): `apps/*` → `backend-local`, `storage-local` → `domain`, `text-pipeline` → `core`. `domain` imports only `core`. `contract-tests` imports `core` and Vitest. Nothing imports from `apps/*`.
+Dependency direction (ESLint-enforced, DESIGN.md §5.3): `apps/*` → `packages/*` → `core`. `domain`, `text-pipeline`, `alignment` and `reader-core` import only `core`. `backend-local` imports `core`, `domain` and `text-pipeline`. `contract-tests` imports `core` and Vitest. Nothing imports from `apps/*`, and inside `apps/web` only `services.ts` may import `storage-local` or `backend-local`.
 
 ---
 
@@ -311,7 +311,7 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 - On desktop and on your phone, open `/spike/reader`: switch engines, turn pages, change font size (does the same Word stay on screen?), select text, try spread and scroll. Say which one *feels* better; that goes into ADR-001.
 - Open `/spike/narration` and listen to an aligned chapter while the Words highlight.
 
-**Exit:** ADR-001 to ADR-005 accepted; D-015 to D-018 and OPEN-01, OPEN-02 and OPEN-13 updated in DESIGN.md; spike code deleted (DESIGN.md §13.1).
+**Exit** (DESIGN.md's Phase 0 exit): ADR-001 to ADR-005 accepted; *Alice* readable on web and on your Android phone, with a font-size change keeping position; contract suites passing against `storage-local` and `backend-local`; CI green. Also: D-015 to D-018 and OPEN-01, OPEN-02 and OPEN-13 updated in DESIGN.md, and spike code deleted (DESIGN.md §13.1).
 
 ### Phase 1.1 — App shell and design system
 
@@ -447,7 +447,7 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 - Tip and Subscribe live on Creator profiles and next to the author's name on Book pages.
 
 **Try it** (as the Reader Persona)
-- Browse and search the store; open a Book page; preview Illustrations; play the narration sample; read a sample.
+- Browse and search the store; open a Book page; preview Illustrations (once phase 1.4 is done); play the narration sample; read a sample.
 - Buy the Complete edition (simulated): Illustrations and narration are on when you open it. Buy another Book as "Book only": its Layers show as available to get.
 - Set the payment outcome to "decline" in the dev panel and try again.
 - Buy a Bookmark Design and use it in two Books.
@@ -502,10 +502,10 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 |---|---|---|
 | P1-MOB-01 | Android build of everything above; icons and splash screen; `docs/device-checklist.md` | M |
 | P1-QA-01 | Performance pass against DESIGN.md §12.3 on your phone (with CPU throttling if it's much faster than the reference class) | M |
-| P1-QA-02 | Accessibility pass: axe on every route, TalkBack walkthrough, keyboard map, reduced-motion audit | M |
+| P1-QA-02 | Accessibility pass: axe on every route, TalkBack and desktop screen-reader walkthroughs, keyboard map, reduced-motion audit | M |
 | P1-QA-03 | Tester build (`tester` profile, first-run welcome), static web deploy, Android internal testing, `docs/poc-review.md` | M |
 
-**Exit:** DESIGN.md's Phase 1 exit flows pass, automatically on web and by hand on your Android phone; the owner runs the PoC review (DESIGN.md §13.3).
+**Exit:** DESIGN.md's Phase 1 exit passes (automatically on web, by hand on your Android phone) and so does its simulated areas exit, for the phases kept in scope; then the owner runs the PoC review (DESIGN.md §13.3).
 
 ---
 
@@ -538,8 +538,8 @@ flowchart LR
 
 - **Within 0.1–0.2:** P0-03, P0-06, P0-10 and P0-11 can start as soon as P0-01 lands; P0-08 runs alongside the spikes.
 - **Within 0.2–1.1:** the design-system work (P1-UI-01, P1-APP-02) needs no spike result except P0-10, so the app shell grows while the reader is being de-risked.
-- **After 1.3:** the dotted links are soft. Phase 1.6 can start before 1.4 (Book pages show Illustration previews once 1.4 lands), but the pack builder and narration manager in 1.7 need 1.4 and 1.5 respectively.
-- **If time runs short before the PoC review:** drop 1.8 first, then 1.7. Phases 0.1–1.5 and 1.9 are the PoC DESIGN.md requires.
+- **After 1.3:** the dotted links hold back single tasks, not whole phases. Phase 1.6 can start before 1.4; its Book pages show Illustration previews once 1.4 lands. Phase 1.7 can start before 1.4 and 1.5 too, but its pack builder (P1-LAY-05) waits for P1-LAY-02 and its narration manager (P1-STU-03) waits for P1-LAY-04.
+- **If time runs short before the PoC review:** drop 1.8 first, then 1.7. Phases 0.1–1.5 and 1.9 are the PoC DESIGN.md requires; nothing in 1.9 depends on 1.6–1.8.
 
 ---
 

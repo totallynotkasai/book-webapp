@@ -1328,7 +1328,7 @@ No backend. User data goes through `Stores`; server-authoritative operations go 
 
 | ID | Task | Depends on | Acceptance |
 |---|---|---|---|
-| P1-STO-01 | Catalogue and Book page: shelves, search, Illustration previews, narration sample, AI labels, content rating and warnings, "Read sample" | P1-APP-01, P1-LAY-02 | Previews use only `spoilerSafe` Illustrations (Invariant 6) |
+| P1-STO-01 | Catalogue and Book page: shelves, search, Illustration previews (shown once P1-LAY-02 is done), narration sample, AI labels, content rating and warnings, "Read sample" | P1-APP-01, P1-APP-03 | Previews use only `spoilerSafe` Illustrations (Invariant 6) |
 | P1-STO-02 | Products, Entitlements and Bundles, with the rules in `domain`: "Add to library", simulated checkout with idempotency keys, "Complete edition" as the default choice, purchases in You; `content.open` and Layer enabling gated by Entitlements | P1-STO-01 | Invariants 15 and 17 hold inside `backend-local`; refunding a Bundle (dev panel) revokes its children; a double-tapped purchase creates one order |
 | P1-STO-03 | Bookmark Designs: a small shop with 3–4 seeded designs; a default design and a design per Placed Bookmark | P1-STO-02, P1-RDR-07 | A bought design is usable in every Book immediately |
 | P1-STO-04 | Tips and Creator Subscriptions: Tip sheet; plans; subscribe and cancel; subscription Entitlements unlock early-access Chapters of the demo serial (placeholder rule; OPEN-10 and OPEN-11 stay open); renewals follow the dev clock | P1-STO-02 | Access lasts to the end of a cancelled period, then early access ends; purchased Products are unaffected |
@@ -1357,13 +1357,13 @@ No backend. User data goes through `Stores`; server-authoritative operations go 
 | ID | Task | Depends on | Acceptance |
 |---|---|---|---|
 | P1-QA-01 | Performance pass against §12.3 on the owner's Android phone (with CPU throttling if it's much faster than the reference class); budget checks in CI where measurable (bundle size, fixture import time) | P1-LAY-04 | Every budget is met, or an issue is filed with measurements |
-| P1-QA-02 | Accessibility pass: axe on every route in Playwright; TalkBack and desktop screen-reader walkthroughs of the reader; keyboard map in Help; reduced-motion audit | P1-ADM-02 | No axe violations at WCAG 2.2 AA; walkthrough notes are in the device checklist |
+| P1-QA-02 | Accessibility pass: axe on every route in Playwright; TalkBack and desktop screen-reader walkthroughs of the reader; keyboard map in Help; reduced-motion audit | P1-LAY-04, plus the last task of each of phases 1.6–1.8 kept in scope | No axe violations at WCAG 2.2 AA; walkthrough notes are in the device checklist |
 | P1-QA-03 | Tester build and PoC review kit: the `tester` profile; a first-run welcome; a static deploy of the web build; Android internal testing or an APK; `docs/poc-review.md` (session script, observation sheet, §13.3 questions) | P1-MOB-01 | A tester with only a link or an invite reaches the first page of *Alice* within a minute, unaided |
 
 **Phase 1 exit (automated on web, manual on the owner's Android phone):**
 A reader opens *Alice*, changes font size and layout (position kept), opens Illustrations from the pop-up button and tries the other modes, turns on narration, listens through a chapter with the screen locked while pages turn, highlights a sentence with a note, places three bookmarks, closes the app and resumes at the same Word. Re-importing an edited copy of the EPUB keeps their notes.
 
-**Simulated areas exit (automated on web):** as the Reader, the owner buys a Complete edition and a Bookmark Design, tips and subscribes to the demo serial's author, and reads an early-access Chapter. As the Author, they publish a Book and then a new Revision (the Reader's notes survive), attach Illustrations, and import a Sync Map. As the Illustrator, they submit a community pack that the Author approves and endorses. As the Moderator, they resolve a Flag.
+**Simulated areas exit (automated on web):** as the Reader, the owner buys a Complete edition and a Bookmark Design, tips and subscribes to the demo serial's author, and reads an early-access Chapter. As the Author, they publish a Book and then a new Revision (the Reader's notes survive), attach Illustrations, and import a Sync Map. As the Illustrator, they submit a community pack that the Author approves and endorses. As the Moderator, they resolve a Flag. Steps from any of phases 1.6–1.8 dropped before the PoC review are skipped.
 
 ### 13.3 PoC review (go/no-go)
 
