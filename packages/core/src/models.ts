@@ -8,7 +8,7 @@ export type Bookmark = {
 	editionId: string;
 	locator: Locator;
 	label?: string;
-	/** Cosmetic design (§3.5). Undefined means the default design. */
+	/** Cosmetic Bookmark Design (§6.5). Undefined means the default design. */
 	designId?: string;
 	createdAt: Timestamp;
 	updatedAt: Timestamp;

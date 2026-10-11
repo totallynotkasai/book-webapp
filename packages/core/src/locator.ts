@@ -1,5 +1,5 @@
 /**
- * The anchoring model (design doc §5.3).
+ * The anchoring model (design doc §6.1). To be replaced by word-based Anchors in task P0-02.
  *
  * Page numbers are display-only and never stored. Everything attached to a book
  * (illustrations, audio, bookmarks, notes, progress) points at a text position.
@@ -69,7 +69,7 @@ export function rangesOverlap(a: TextRange, b: TextRange): boolean {
 /**
  * Returns the item with the latest anchor at or before `position`, or undefined if none.
  *
- * This is the spoiler-safe display rule used by the illustration panel (§3.2): nothing
+ * This is the spoiler-safe display rule used by the illustration modes (§8.2): nothing
  * anchored ahead of the reader is ever returned.
  */
 export function latestAtOrBefore<T>(

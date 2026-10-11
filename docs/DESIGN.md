@@ -1,0 +1,1464 @@
+# Interactive Book Platform — Design Document
+
+> **Status:** Draft v0.2 · **Owner:** Kasai · **Last updated:** 11 October 2026
+> **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
+> The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
+> **Working name:** TBD (OPEN-07). Package scope: `@book/*` (already in the repo; rename when the product is named).
+
+---
+
+## 0. How to use this document
+
+This is the source of truth for product scope, architecture, terminology and build order. It is written for humans and for coding agents.
+
+**Before starting any task, an agent MUST:**
+
+1. Read §2 Glossary and §3 Invariants. Use glossary terms exactly in code, comments, storage fields and (where sensible) UI copy.
+2. Find the task by its ID (e.g. `P1-RDR-04`) in §13 and check that everything in its `Depends on` list is done.
+3. Check §17 for any `OPEN-xx` question the task touches. **Do not silently resolve an OPEN item.** Propose a resolution in the PR description, and stop if the choice is hard to reverse (stored data format, public API, storage layout).
+
+**While working:**
+
+- Work only on tasks in the current phase unless told otherwise. Never build anything in §13.8 Parked.
+- One task ID per branch/PR. Branch name: `p1-rdr-04-preferences`. Put the task ID in commit messages.
+- If a task conflicts with an Invariant, stop and flag it. Invariants win.
+- Don't add a dependency without saying why in the PR. Prefer libraries already listed in §5.2.
+- If you change a decision, update §16 Decision log in the same PR.
+- A task is done only when it meets §12.5 Definition of Done **and** its own acceptance criteria.
+
+**Current stage:** Phase 0/1 — local-first proof of concept. There is **no backend**. Anything in this document marked *Proposed* (mainly the server stack) is a plan to confirm at the PoC review (§13.3), not a decision.
+
+---
+
+## 1. Product
+
+### 1.1 Problem
+
+Many people find books hard to get into. The two most common asks are audio and pictures, but pairing an audiobook with an ebook means two apps, two purchases and manual syncing. That friction is often enough to stop someone starting, or to make them give up partway.
+
+### 1.2 Vision and pitch
+
+A store, library and reader where a book can carry optional **Layers** — narration and illustrations — made by the author or, with the author's permission, by the community. Everything lives in one reader and stays in sync with the text automatically, whatever font, size or layout the reader picks.
+
+**One-line pitch:** "Steam for books": you buy and own your books, then choose which add-ons (narration, illustration packs, bookmark designs) come with them. Community creators can give their work away or sell it, readers can tip, and readers can subscribe directly to a creator, for example to fund a serial that isn't finished yet, with no Patreon in the middle.
+
+### 1.3 Core bet
+
+If narration and illustrations are already attached to the text, in the same reader, with no setup, more people start and finish books. The proof of concept (§13.2) exists to test this before money is spent on hosting.
+
+### 1.4 Users
+
+| Persona | Needs | From phase |
+|---|---|---|
+| **Reluctant reader** | Low effort to start; audio and visual support; zero setup | 1 (PoC) |
+| **Regular reader** | Comfortable typography, notes, bookmarks, progress across devices | 1 (local), 2 (sync) |
+| **Author** (indie / web-serial, owns their rights) | Easy upload; control over official illustrations and narration; analytics; income | 2 |
+| **Community creator** (illustrator, narrator) | A place to publish Layers for books they love; credit, feedback and income | 5 |
+| **Moderator / admin** | Review queue with automatic flags, reports, takedowns (§10.6) | 2 (basic), 5 |
+
+**Launch audience:** readers of web fiction and indie fantasy/LitRPG, and the authors who write it. These authors own their rights, already publish on web-serial platforms, and have no tool that offers synced narration or illustrations. The owner's own LitRPG novel is the launch title.
+
+### 1.5 Goals
+
+- Lower the barrier to starting and continuing a book.
+- Keep illustrations, narration, notes and bookmarks attached to the text regardless of font, size, layout or later edits by the author.
+- Let readers fully customise the reading experience.
+- Give authors and community creators tools to enrich books and a reason to publish here.
+
+### 1.6 Non-goals (until stated otherwise)
+
+- A native (non-WebView) reader. iOS and Android ship the same web build inside Capacitor.
+- Licensing traditionally published books from major publishers, or competing on catalogue size.
+- Real-time co-reading, chat or social feeds.
+- Heavy DRM (Readium LCP).
+
+### 1.7 Product principles
+
+1. **Reduce friction first.** Defaults give a good experience with zero choices: official Layers switched on, a "Complete edition" bundle as the default purchase, audio never auto-playing.
+2. **The text is the spine.** Everything attaches to the text, never to pages (§3, §6.1).
+3. **The book comes first.** The reading surface is calm and almost invisible; controls fade while reading. Personality lives in the app around it, and in the illustration panel, which is the showpiece.
+4. **Authors control their books.** Community content exists for a book only if its author allows it.
+5. **Accessible by default.** WCAG 2.2 AA, full keyboard use, screen readers, reduced motion, dyslexia-friendly and low-vision fonts.
+6. **Private by default.** What someone reads is personal data. No ad or tracking SDKs.
+
+---
+
+## 2. Glossary (use these terms exactly)
+
+| Term | Meaning |
+|---|---|
+| **Book** | A title. Has many Revisions. |
+| **Revision** | An immutable, processed version of a Book's text. Exactly one is *current* at a time. Serial authors publish new Revisions when they add or edit chapters. (Replaces "edition" from the v0.1 drafts and the current code.) |
+| **Chapter** | One spine item of a Revision (one XHTML document). Identified by `chapterId`. |
+| **Block** | A block-level element in a Chapter (paragraph, heading, list item, table, figure). Gets a stable `data-b` index at ingest. |
+| **Word** | A word-like token produced by the tokeniser (§7.1). Punctuation and whitespace are not Words. |
+| **WordId** | Integer ID for a Word, unique within a Book across all Revisions and never reused. Unchanged Words keep their WordId across Revisions. **An identifier, not a position:** never compare WordIds to work out reading order. |
+| **Ordinal** | A Word's position in reading order within one Revision (0-based, whole Book). Used for ordering and range checks. Only meaningful together with its `revisionId`. |
+| **Anchor** | A position (`PointAnchor`) or span (`RangeAnchor`) in a Book's text, made of WordIds, Ordinals and a text quote for recovery (§6.1). The *only* way anything attaches to text. |
+| **Locator** | The reader engine's internal position format (e.g. an EPUB CFI or a Readium Locator). Only `reader-core` converts between Anchor and Locator. **Never persisted.** |
+| **Page** | A computed screenful for the current device and settings. Never stored. |
+| **Visible range** | The Words currently on screen, emitted by the reader on every page turn or scroll. |
+| **Layer** | An optional overlay a reader can enable on a Book: an Illustration Pack or an Audio Track. |
+| **Illustration Pack** | A set of Illustrations for one Book by one creator. (Replaces "illustration set".) |
+| **Illustration** | An image attached to an Anchor, with a placement (§8.2). |
+| **Audio Track** | A set of audio for one Book. Kind is `narration`, or `ambient` (Parked). |
+| **Sync Map** | Per-Chapter list of `[wordId, startMs, endMs, flags]` linking a narration Audio Track to Words (§7.2). |
+| **Official / Community** | Official = made or endorsed by the Book's author. Community = made by another Creator with the author's permission. |
+| **Creator** | Any user who publishes Products. Authors are Creators. |
+| **Product** | Anything that can be listed, priced (including free) and owned. |
+| **Entitlement** | A record that a user owns a Product. The single source of truth for access. |
+| **Bundle** | A Product that grants Entitlements to other Products (e.g. "Complete edition"). |
+| **Creator Subscription** | A recurring monthly payment from a reader to a Creator, cancellable at any time. Grants the Creator's subscriber benefits (e.g. early-access chapters) while active. |
+| **Tip** | A one-off payment from a reader to a Creator. Not a Product; grants nothing. |
+| **Illustration mode** | How a reader chooses to see Illustrations: `popup`, `per-page`, `spread` or `in-text` (§8.2). |
+| **Flag** | An automatic or manual marker that puts content or an account in the review queue (§10.6). |
+| **Bookmark Design** | A collectible cosmetic Product: the look of a bookmark. |
+| **Placed Bookmark** | A user's saved position in a Book (a PointAnchor), drawn with one of their Bookmark Designs. Free and unlimited. |
+| **Annotation** | A user's highlight, optionally with a note, on a RangeAnchor. |
+| **Reading Progress** | A user's current position (PointAnchor + progression) and furthest position reached in a Book. |
+| **Reader Preferences** | Typography, layout, theme and playback settings (§9.4). Global, with optional per-Book overrides. |
+| **Stores** | The storage interfaces in `@book/core`. The app persists data only through them (§6.3). |
+
+Don't use "page" to mean a stored position. Don't say "bookmark" without saying whether you mean a Bookmark Design or a Placed Bookmark. In UI copy, use the words readers use: "Narration", "Illustrations", "Bookmarks", not "Layers" or "Sync Maps".
+
+---
+
+## 3. Invariants (MUST / MUST NOT)
+
+These are non-negotiable. Code that violates them is rejected.
+
+1. **No stored page numbers.** Pages are computed at render time. Persist Anchors and progression only.
+2. **Everything attached to text uses an Anchor**: Annotations, Placed Bookmarks, Reading Progress, Illustrations, Sync Maps, and later glossary entries and comments. No raw character offsets, CFIs or Locators in storage.
+3. **WordIds are immutable and never reused** within a Book. New Words get new IDs from the Book's counter.
+4. **Order comes from Ordinals, never from WordIds.** Ordinals are only compared within the same Revision.
+5. **Selections snap to whole Words.** A RangeAnchor always starts and ends on a Word.
+6. **Nothing appears ahead of the reader.** Illustration panels, previews, recaps and glossary entries only use content anchored at or before the reader's visible range (or furthest position, for recaps and glossary). Store-page previews only use Illustrations marked `spoilerSafe`.
+7. **The app touches storage only through `Stores`** (`@book/core`). The implementation is chosen in one file (`apps/web/src/lib/services.ts`).
+8. **App code never imports the reader engine directly.** Only `packages/reader-core` adapters may import foliate-js / Readium.
+9. **`@book/core` stays platform-neutral.** No framework, DOM or Node imports. (Zod is allowed once schemas are needed.) Shared types and schemas live there; never duplicate a type or DTO elsewhere.
+10. **Book content is untrusted.** EPUB scripts are stripped, CSS is allowlisted, images are re-encoded, audio is transcoded (§7, §10). Chapters render in a sandboxed iframe.
+11. **Audio never starts on its own.** Every audio feature is off until the reader opts in.
+12. **Respect `prefers-reduced-motion`** in every animation, including page turns and crossfades.
+13. **Svelte 5 runes only** (`$state`, `$derived`, `$effect`, `$props`). Shared reactive state lives in `.svelte.ts` modules.
+14. **TypeScript strict everywhere.** No `any` without an explaining comment.
+
+From Phase 2, when the backend exists:
+
+15. **All access checks go through the Entitlements module.** No other code decides ownership. Free Products still need an Entitlement (created by "Add to library").
+16. **Paid or gated content is never publicly readable.** It is served only through short-lived content access tokens (§10.3).
+17. **Money is integer minor units plus an ISO 4217 currency code.** Never floats.
+18. **Clients never connect to the database directly.** All data access goes through the API.
+19. **Community content requires the author's policy to allow it** (§6.6).
+
+---
+
+## 4. Features
+
+Every feature has a home phase so the vision and the roadmap are the same list. ★ marks the features most likely to prove the core bet.
+
+### 4.1 Reader
+
+| Feature | Detail | Phase |
+|---|---|---|
+| Page navigation | Previous/next buttons; keyboard (←/→, PageUp/PageDown, Space, Home/End for chapter start/end); tap/click zones (outer 25% of width); swipe | 1 |
+| Scrubber | Drag to any point. Shows chapter ticks, chapter name and percentage while dragging; jumps on release | 1 |
+| "Back" after a jump | Returns to the position before the last scrubber, TOC, search or link jump | 1 |
+| Table of contents | Drawer with chapter list and current chapter marked | 1 |
+| Layout modes | Single page (narrow screens), two-page spread (≥ 1024 px wide), continuous scroll. `auto` picks for you | 1 |
+| Page indicator | "Page X of Y in this chapter", recomputed live, never stored | 1 |
+| Page-turn animation | None / slide / fade; forced to none under reduced motion | 1 |
+| Page-curl animation | Realistic curl as an optional skin. Later because it depends on the engine (ADR-001) and is costly on low-end phones | 6 |
+| Text zoom | Pinch on the reading surface and Ctrl +/− change font scale and re-lay out, keeping the first visible Word on screen | 1 |
+| Overview mode | 4-up page thumbnails for scanning. A navigation mode, not a reading mode: reflowable text is too cramped in four columns | 6 |
+| Fixed-layout books | Picture books, comics, illustrated editions, with true zoom and pan | Parked |
+
+### 4.2 Customisation
+
+| Feature | Detail | Phase |
+|---|---|---|
+| Fonts | Curated, self-hosted reading fonts plus "Publisher default" (§11.3) | 1 |
+| Typography | Font size, line height, paragraph spacing, margins, justification, hyphenation | 1 |
+| Themes | Light, sepia, dark; standard / medium / high contrast; system mode | 1 |
+| Custom colours | Choose a seed colour (theme generated from it); advanced: custom page and text colours with a live contrast check | 1 (seed), 6 (advanced) |
+| Live apply | Every change re-lays out immediately, keeping position and all attached content | 1 |
+| Per-Book overrides | Any preference can be overridden for one Book | 1 |
+| Sync across devices | | 2 |
+
+### 4.3 Illustrations ★
+
+| Feature | Detail | Phase |
+|---|---|---|
+| Pop-up mode (default) | A picture button in the top-right of the page; tapping it opens the Illustration for the current part of the story over the book, and the reader closes it when done. A dot on the button shows when a new one is available (§8.2) | 1 (demo pack), 3 (authors) |
+| Per-page mode | A panel to the left of the book that always shows the Illustration for the current part of the story, crossfading as the reader moves on | 1 (demo), 3 |
+| Spread mode | A wide area above the book, sized for double-page artwork | 1 (demo), 3 |
+| In-text mode | Illustrations appear in the text where the creator placed them: inline or as a full page, like a printed illustrated book | 1 (demo), 3 |
+| Lightbox | Tap any Illustration to view it full screen with zoom, caption and artist credit | 1 |
+| Several packs | Readers enable one or more packs in priority order, or turn illustrations off | 3 |
+| Spoiler safety | Invariant 6 | 1 |
+
+### 4.4 Narration ★
+
+| Feature | Detail | Phase |
+|---|---|---|
+| Synced narration | Author-recorded audio aligned to the text (§7.2) | 1 (demo), 3 (authors) |
+| Read-along highlighting | Highlights the current Word or sentence | 1 (demo), 3 |
+| Auto page-turn | Turns the page when narration moves past it | 1 (demo), 3 |
+| Tap to seek | Tapping a Word while narration plays jumps the audio there | 1 (demo), 3 |
+| Playback controls | Play/pause, ±15 s, previous/next sentence, speed 0.5×–3× | 1 (demo), 3 |
+| Background playback | Lock-screen and Media Session controls on iOS, Android and web | 1 (spike), 3 |
+| Device text-to-speech | Fallback when a Book has no narration, using the same highlighting | 3 (stretch) |
+| AI narration | Cloud text-to-speech generated once per Revision, as a creator option. Depends on OPEN-09 | 4+ |
+| Sleep timer | | 6 |
+
+### 4.5 Notes, highlights and bookmarks
+
+| Feature | Detail | Phase |
+|---|---|---|
+| Selection toolbar | Highlight (5 colours), Add note, Copy, Remove highlight. Right-click opens the same actions on desktop; long-press on touch | 1 |
+| Share quote | Image or text card of a passage with title and author | 6 |
+| Notes panel | All notes and highlights for the Book, grouped by chapter, filterable by colour, jump to, edit, delete | 1 |
+| Export | Markdown (with chapter headings) and plain text | 1 |
+| Placed Bookmarks | Free and unlimited; optional label; shown as a ribbon on the page edge; listed with notes; `B` shortcut | 1 |
+| Bookmark Designs | Cosmetic Products. Everyone gets a default design; bought designs work in every Book | 1 (default), 4 (store) |
+| Orphan handling | If an author's edit deletes the text an Annotation or bookmark pointed to, it is kept and shown as "orphaned", never silently dropped | 2 |
+
+### 4.6 Library and import
+
+| Feature | Detail | Phase |
+|---|---|---|
+| Local library | Books stored in the browser; sample book preloaded | 1 |
+| Import your own EPUB | Read any DRM-free EPUB with full customisation, notes and bookmarks (no community Layers) | 1 |
+| Accounts and cloud library | | 2 |
+| Offline downloads | Download Books and Layers for offline reading | 6 |
+
+### 4.7 Authors and creators
+
+| Feature | Detail | Phase |
+|---|---|---|
+| Upload and publish | EPUB upload, ingest report, preview, publish | 2 |
+| New Revisions | Edit or append chapters; reader data migrates automatically (§6.2) | 2 |
+| Illustration placement tool | Select text in Creator mode → "Attach illustration" → image, placement, alt text | 1 (local prototype), 3 |
+| Narration upload and review | Per-chapter audio, automatic alignment, review screen for low-confidence parts | 3 |
+| Serial publishing | Scheduled chapter releases with follower notifications | 6 |
+| Author analytics | Reads, completion, drop-off by chapter, Layer usage | 6 |
+| Monetisation | Paid Books, Bundles, early-access chapters, Tips, Creator Subscriptions, revenue share on Layers and cosmetics linked to their Books (§6.5) | 4 |
+| Curation tools | Review queue for the author's own Books: approve, hide or remove community Layers; see flags and reports (§10.6) | 2 (own uploads), 5 (community) |
+| DOCX / Markdown import | Via Pandoc into the EPUB pipeline | 3 (stretch) |
+
+### 4.8 Community
+
+| Feature | Detail | Phase |
+|---|---|---|
+| Community Layers | Packs and narration by other creators, subject to the author's policy (§6.6) | 5 |
+| Per-Book hub | Browse, rate and enable community Layers, free or paid; "Author-endorsed" badge; top-rated first | 5 |
+| Creator profiles | Portfolio across Books, follow, tip, subscribe | 5 |
+| Paragraph comments | Comments on passages, hidden by default behind a count indicator | 6 |
+| Popular highlights | Optionally show passages many readers highlighted | 6 |
+| Reviews | Showing how far the reviewer read; wishlists and sale alerts | 6 |
+| Reading groups | Shared progress and discussion for a small group | Parked |
+
+### 4.9 Reading support and retention
+
+| Feature | Detail | Phase |
+|---|---|---|
+| In-book search | Uses the word index; results jump and highlight | 3 (stretch) |
+| Reading time left | In chapter and Book, from the reader's own pace | 6 |
+| Spoiler-safe recap | "Story so far" built only from chapters the reader has passed | 6 |
+| Spoiler-safe glossary | Characters and places, shown only after their first appearance | 6 |
+| Tap-to-define | Dictionary lookup on a Word | 6 |
+| Focus mode | Dims everything except the current paragraph | 6 |
+| Cross-device prompt | "You were further ahead on another device. Jump there?" | 2 |
+| Stats, streaks, achievements | Optional and easy to switch off | 6 |
+| Guided reading aids | Bionic-style emphasis and similar, opt-in | Parked |
+
+### 4.10 Rich content
+
+| Feature | Detail | Phase |
+|---|---|---|
+| Styled blocks ★ | LitRPG status windows, system messages and tables that stay readable in every theme and size (§9.6) | 1 |
+| Character art cards | Tap a character's name to see their portrait from the active pack | Parked |
+| Maps | Interactive map whose locations link to passages | Parked |
+
+---
+
+## 5. Architecture
+
+### 5.1 Overview
+
+The architecture grows in two stages. Code is structured for the second stage from day one, so moving to it means adding implementations, not rewriting.
+
+**Stage 1 — local-first proof of concept (now).** Everything runs in the browser or the Capacitor WebView. Books are imported or bundled, processed client-side by `text-pipeline`, and stored in IndexedDB with all reader data. Sample Layers (illustrations, narration Sync Maps) are prepared offline with developer tools and served as static files.
+
+```mermaid
+flowchart LR
+  subgraph Device["Browser / Capacitor WebView"]
+    UI["apps/web<br/>(SvelteKit SPA)"]
+    RC["reader-core<br/>(engine adapter, Anchors)"]
+    TP["text-pipeline<br/>(EPUB import)"]
+    Stores["Stores interface<br/>(@book/core)"]
+    IDB[("IndexedDB<br/>(storage-local)")]
+  end
+  Static[("Static files<br/>sample book + demo Layers")]
+  Tools["Dev tools (offline)<br/>tools/align: ffmpeg + whisper.cpp"]
+
+  UI --> RC
+  UI --> TP
+  UI --> Stores --> IDB
+  TP --> Stores
+  RC --> Static
+  Tools -. "writes Sync Maps" .-> Static
+```
+
+**Stage 2 — platform (Phase 2 onwards; *Proposed*, confirm at PoC review).** An API owns accounts, Entitlements and content delivery; a worker runs the same `text-pipeline` and `alignment` packages server-side; the app swaps its local Stores for synced ones.
+
+```mermaid
+flowchart LR
+  subgraph Clients["Clients (one build)"]
+    Web["Web SPA (CDN)"]
+    Cap["iOS / Android<br/>(Capacitor)"]
+  end
+  API["apps/api<br/>Hono + Zod"]
+  Auth["Auth provider<br/>(e.g. Supabase Auth)"]
+  PG[("Postgres<br/>(Drizzle)")]
+  Q[["pg-boss jobs"]]
+  Worker["apps/worker<br/>ingest, images, ffmpeg,<br/>whisper.cpp, migrate-anchors"]
+  S3[("Object storage<br/>R2 / MinIO + CDN")]
+  Stripe["Stripe (Phase 4)"]
+
+  Web & Cap -- "HTTPS JSON, Bearer JWT" --> API
+  Web & Cap -- "/v1/content/{token}/…" --> API
+  API --> Auth
+  API --> PG
+  API --> Q --> Worker
+  Worker --> S3 & PG
+  API --> S3
+  API --> Stripe
+```
+
+### 5.2 Technology stack
+
+Status: **In repo** = already set up. **Phase n** = adopt when that phase starts. **Proposed** = the current plan for the backend, to confirm at the PoC review.
+
+| Concern | Choice | Status | Notes |
+|---|---|---|---|
+| Language | TypeScript (strict) | In repo | Everywhere, including tools |
+| Package manager | npm workspaces | In repo | Owner's preference. Add Turborepo only if builds get slow (it works with npm) |
+| UI framework | Svelte 5 + SvelteKit, built as an SPA (`adapter-static`, `fallback: 'index.html'`) | In repo | One build runs on the web and in Capacitor. Server-rendered store pages come in Phase 6 (§5.5) |
+| Mobile | Capacitor (iOS + Android) | Phase 0 | Native plugins only where web APIs fall short: background audio, deep links, filesystem |
+| Reader engine | foliate-js **or** Readium ts-toolkit | Spike P0-04 (OPEN-01) | Always behind the `ReaderEngine` interface (§9.1) |
+| Local storage | IndexedDB via `idb` | In repo | `@book/storage-local` |
+| Validation | Zod | Phase 1 | For imported data, stored data and (later) API contracts |
+| Design system | Material 3 colour system and tokens (`@material/material-color-utilities`); components per OPEN-02 | Phase 1 | §11 |
+| Icons | Material Symbols, self-hosted subset | Phase 1 | |
+| Audio playback | HTML audio + Web Audio + Media Session; native plugin on mobile | Phase 1 | Behind a platform interface (§9.7). Howler.js only if ambient audio is ever un-parked |
+| Speech alignment | whisper.cpp (binary) for word timings; alignment logic in TS | Phase 1 (dev tool), 3 (worker) | **Exception:** non-TS binary |
+| Audio processing | ffmpeg (binary) | Phase 1 (dev tool), 3 (worker) | **Exception:** non-TS binary |
+| Images | sharp | Phase 3 | Variants, EXIF stripping |
+| EPUB validation | epubcheck (Java) | Phase 2 | **Exception:** non-TS. Report-only at first |
+| API | Hono + Zod | Proposed (Phase 2) | Runs on Node, Deno, Bun or Cloudflare Workers, which keeps hosting open |
+| Database | Postgres + Drizzle ORM + drizzle-kit migrations | Proposed (Phase 2) | Hosted Postgres (Supabase or any provider) |
+| Auth | Supabase Auth (email magic link, Google, Apple) | Proposed (Phase 2) | API verifies JWTs. Check App Store sign-in rules |
+| Jobs | pg-boss | Proposed (Phase 2) | Postgres-backed queue; no Redis |
+| Object storage | Cloudflare R2 (prod), MinIO (local) | Proposed (Phase 2) | S3 API; no egress fees for audio |
+| Payments | Stripe Checkout; Stripe Connect for payouts | Phase 4 | Merchant-of-record question is OPEN-04 |
+| Search | Postgres full-text, then Meilisearch if the catalogue grows | Phase 6 | In-book search uses the word index |
+| Testing | Vitest, @testing-library/svelte, Playwright (Chromium + WebKit) | Vitest in repo | WebKit matters: iOS runs WKWebView |
+| Lint / format | ESLint + eslint-plugin-svelte, Prettier + prettier-plugin-svelte, svelte-check | In repo | |
+| Errors | Sentry (web, Capacitor, and later API and worker) | Phase 2 | Not needed for the local PoC |
+| Analytics | Privacy-preserving, cookie-less, first-party (e.g. self-hosted Plausible plus a few documented events) | Phase 2 | §10.5 |
+
+### 5.3 Repository structure
+
+Existing folders are kept. New ones are added when their phase starts.
+
+```
+/
+├─ AGENTS.md                    # short pointer to this doc + commands (Appendix C)   [Phase 0]
+├─ docs/
+│  ├─ DESIGN.md                 # this document
+│  └─ adr/                      # ADR-001-reader-engine.md, …                          [Phase 0]
+├─ apps/
+│  ├─ web/                      # SvelteKit SPA + Capacitor config                    [in repo]
+│  │  ├─ src/routes/            # (library)/, read/[bookId]/, creator/, settings/, (store)/ later
+│  │  ├─ src/lib/
+│  │  │  ├─ services.ts         # the one place Stores are chosen                    [in repo]
+│  │  │  ├─ state/              # *.svelte.ts shared state (prefs, library, session)
+│  │  │  ├─ reader/             # reader UI: toolbar, scrubber, panels, menus
+│  │  │  └─ platform/           # web vs Capacitor adapters (audio, files, share, …)
+│  │  ├─ static/books/          # bundled sample book(s)                              [in repo]
+│  │  ├─ ios/  android/         # generated by Capacitor                              [Phase 0]
+│  │  └─ capacitor.config.ts
+│  ├─ api/                      # Hono API, one folder per module                      [Phase 2]
+│  └─ worker/                   # pg-boss job handlers                                 [Phase 2]
+├─ packages/
+│  ├─ core/                     # domain types, Anchors, Stores interfaces, schemas    [in repo]
+│  ├─ storage-local/            # IndexedDB implementation of Stores                   [in repo]
+│  ├─ tokens/                   # design tokens, theme generation, reader tokens        [in repo]
+│  ├─ text-pipeline/            # EPUB parse/sanitise, tokenise, WordIds, diff, index   [Phase 1]
+│  ├─ reader-core/              # ReaderEngine interface, engine adapter, Anchor↔Locator [Phase 1]
+│  ├─ alignment/                # transcript ↔ Word alignment, Sync Map format          [Phase 1]
+│  ├─ ui/                       # Svelte components on top of tokens                    [Phase 1]
+│  ├─ storage-remote/           # Stores backed by the API, with local cache + outbox   [Phase 2]
+│  └─ db/                       # Drizzle schema, migrations, seed                      [Phase 2]
+├─ tools/                       # dev-only CLIs, e.g. tools/align (whisper.cpp)         [Phase 1]
+└─ fixtures/                    # test EPUBs, audio clips, images (§12.2)               [Phase 0]
+```
+
+Reader UI lives in `apps/web/src/lib/reader/` until a second app needs it; extract it to a package then. Pure logic never lives in Svelte components.
+
+**Dependency direction** (enforced with ESLint import rules): `apps/*` → `packages/*` → `core`. `core` imports nothing internal. `text-pipeline`, `alignment` and `reader-core` import only `core`. `ui` imports only `tokens`. No package imports from `apps/*`.
+
+### 5.4 Runtime placement of shared packages
+
+| Package | Stage 1 (PoC) | Stage 2 (platform) |
+|---|---|---|
+| `text-pipeline` | Browser (in a Web Worker, so import doesn't freeze the UI) | Worker job `ingest-epub` (same code) |
+| `alignment` | `tools/align` CLI on the developer's machine | Worker job `align-narration` |
+| `storage-local` | Primary store | Offline cache and outbox under `storage-remote` |
+
+`text-pipeline` must therefore use only APIs available in both browsers and Node (e.g. `DOMParser` substitutes passed in, `Intl.Segmenter`, Web Crypto).
+
+### 5.5 Public store pages and SEO (Phase 6)
+
+The SPA build stays the only build the apps use. For search engines, public Book pages are either prerendered at build/publish time or served by a separate web-only SvelteKit deployment with a server adapter. Decide in Phase 6; nothing earlier depends on it.
+
+---
+
+## 6. Domain model
+
+### 6.1 Anchors
+
+Defined in `packages/core/src/anchor.ts`:
+
+```ts
+/** Unique within a Book across all Revisions. Never reused. Not a position. */
+export type WordId = number;
+
+/** W3C Web Annotation TextQuoteSelector. prefix/suffix: up to 32 characters of surrounding text. */
+export interface TextQuote {
+  exact: string;
+  prefix: string;
+  suffix: string;
+}
+
+export interface PointAnchor {
+  kind: 'point';
+  bookId: string;
+  revisionId: string; // the Revision this anchor was created on or last migrated to
+  wordId: WordId;
+  ordinal: number;    // position of wordId in revisionId's reading order
+  quote: TextQuote;   // exact = the Word itself
+}
+
+export interface RangeAnchor {
+  kind: 'range';
+  bookId: string;
+  revisionId: string;
+  startWordId: WordId;
+  endWordId: WordId;  // inclusive
+  startOrdinal: number;
+  endOrdinal: number;
+  quote: TextQuote;
+}
+
+export type Anchor = PointAnchor | RangeAnchor;
+export type AnchorStatus = 'ok' | 'migrated' | 'orphaned';
+```
+
+**Why WordIds and Ordinals both exist.** WordIds give *identity*: an unchanged Word keeps its ID when the author edits elsewhere, so attached content survives Revisions without searching. Ordinals give *order*: after a Revision inserts text, the new Words get high IDs from the counter, so WordId order no longer matches reading order. Storing the Ordinal lets anything be sorted or range-checked without loading the Book (e.g. "the latest Illustration at or before the reader's position").
+
+Pure helpers in `core` (unit-tested, already partly written as `compareLocators`, `latestAtOrBefore`, etc.): `compareAnchors`, `isWithinRange`, `rangesOverlap`, `latestAtOrBefore`. They throw when given Anchors from different Revisions.
+
+**Chapters** are found from Ordinals: each Chapter records `firstOrdinal` and `lastOrdinal` for its Revision.
+
+**In storage** (IndexedDB now, Postgres later), Anchors are stored as typed fields (`revisionId`, `startWordId`, `endWordId`, `startOrdinal`, `endOrdinal`, `quoteExact`, `quotePrefix`, `quoteSuffix`, `anchorStatus`), not opaque JSON, so they can be indexed and migrated cheaply.
+
+### 6.2 Revisions, WordId carry-forward and re-anchoring
+
+Serial authors edit and append constantly, so Anchors must survive new Revisions.
+
+**WordId assignment** (`text-pipeline`):
+
+1. First Revision: tokenise (§7.1) and assign WordIds sequentially from 1. Record `nextWordId` on the Book.
+2. New Revision: tokenise, then run a token-level diff (Myers) against the previous Revision's normalised tokens, Chapter by Chapter, with a whole-Book fallback for moved Chapters.
+   - Unchanged tokens inherit their WordId.
+   - Inserted tokens get new IDs from `nextWordId`.
+   - Deleted WordIds are recorded for the new Revision.
+3. Compute Ordinals for the new Revision.
+
+**Re-anchoring** (`migrate-anchors`, runs when a Revision is published; in the PoC, when a newer copy of an imported Book replaces an older one):
+
+For every Anchor on the previous Revision:
+
+1. All referenced WordIds still exist → set `revisionId` to the new Revision, refresh Ordinals and `quote`, status `migrated`.
+2. Otherwise search the new Revision for `quote` (exact, then fuzzy; same Chapter first) → if found, rewrite WordIds and Ordinals, status `migrated`.
+3. Otherwise status `orphaned`: keep the old data and tell the owner (the reader for Annotations and Placed Bookmarks; the creator for Illustrations). Reading Progress falls back to the nearest surviving Word before it.
+
+Narration Sync Maps for changed Chapters become `stale` and re-alignment is queued (§7.2).
+
+### 6.3 Local-first data and sync
+
+The PoC stores everything locally, and Phase 2 adds sync. To avoid a rewrite, every user-owned record follows these rules from Phase 1:
+
+- `id`: UUIDv7, generated on the device (time-sortable; works offline).
+- `createdAt`, `updatedAt`: ISO 8601 UTC strings.
+- `deletedAt`: soft delete (tombstone), so deletions can sync. Hard-deleted only after sync confirms.
+- Records are written to the local store first; the UI never waits on the network.
+
+**Phase 2 sync** (`storage-remote` wraps `storage-local`):
+
+- Local writes also go to an outbox; the outbox is flushed when online.
+- Pull is incremental (`?since=<cursor>`).
+- Conflicts: last write wins per record by `updatedAt`, except Reading Progress (§9.5).
+- First sign-in offers to upload the device's existing local library and reader data ("Keep my notes and bookmarks").
+
+**`Stores` interfaces** (`packages/core/src/storage.ts`) grow to cover: `library` (Books, Revisions, processed content blobs), `annotations`, `placedBookmarks`, `progress`, `preferences`, `layerSelection`, and in the PoC `localLayers` (demo Illustration Packs and Sync Maps).
+
+**Local IDs for imported Books:** `revisionId` = SHA-256 of the EPUB file (re-importing the same file is a no-op). `bookId` = the EPUB's `dc:identifier` if present, else a new UUIDv7. A different file with the same `bookId` becomes a new Revision and triggers re-anchoring.
+
+### 6.4 Database tables (Phase 2 onwards)
+
+"Phase" = when the table is first needed. Create tables only when their phase starts, but **reserve the listed columns** so later phases don't need disruptive migrations. IDs are UUIDv7; timestamps are `timestamptz` in UTC.
+
+| Table | Purpose | Phase |
+|---|---|---|
+| `users` | Profile linked to the auth provider's user ID; `role` (`reader` / `creator` / `moderator` / `admin`) | 2 |
+| `creators` | Creator profile (display name, bio, payout status) | 2 |
+| `books` | Title, slug, author `creator_id`, `current_revision_id`, `next_word_id`, `community_policy`, `community_ai`, `ai_use`, `listing_state`, `lang`, `content_rating`, `content_warnings` | 2 |
+| `book_revisions` | `revision_no`, status (`processing` / `ready` / `published` / `failed`), manifest key, word count, ingest report | 2 |
+| `chapters` | Per Revision: `spine_index`, `href`, `title`, `first_word_id`, `last_word_id`, `first_ordinal`, `last_ordinal` | 2 |
+| `revision_deleted_words` | WordIds removed in a Revision | 2 |
+| `products` | `kind`, `ref_id`, `book_id`, `creator_id`, `is_official`, `price_minor`, `currency`, `status`, `revenue_split` | 2 |
+| `entitlements` | `user_id`, `product_id`, `source`, `order_id`, `parent_entitlement_id`, `granted_at`, `revoked_at` | 2 |
+| `annotations` | Highlight colour, optional note, Anchor columns, `deleted_at` | 2 |
+| `placed_bookmarks` | PointAnchor columns, `bookmark_design_product_id`, optional label, `deleted_at` | 2 |
+| `reading_progress` | Current PointAnchor columns + `progression`; furthest PointAnchor columns + `furthest_progression`; `device_id`, `updated_at` | 2 |
+| `reader_preferences` | `user_id`, nullable `book_id` (per-Book override), `prefs` JSON validated by Zod | 2 |
+| `assets` | Storage key, MIME, bytes, sha256, dimensions/duration, `moderation_state` | 2 |
+| `uploads` | Presigned upload tracking and processing status | 2 |
+| `illustration_packs` | `book_id`, `creator_id`, `is_official`, `status`, `approval_state`, `ai_use`, `content_rating` | 3 |
+| `illustrations` | `pack_id`, `asset_id`, Anchor columns, `placement`, `span` (`single` / `double`), `alt_text` (required), `caption`, `credit`, `spoiler_safe` | 3 |
+| `audio_tracks` | `book_id`, `creator_id`, `kind`, `is_official`, `status`, `approval_state`, `ai_use`, narrator credit, licence | 3 |
+| `audio_files` | `track_id`, `chapter_id`, `asset_id`, `duration_ms` | 3 |
+| `sync_maps` | `track_id`, `revision_id`, `chapter_id`, storage key, `coverage`, `status` (`ready` / `stale` / `needs_review`) | 3 |
+| `user_layer_selection` | `user_id`, `book_id`, ordered `illustration_pack_ids`, `narration_track_id` | 3 |
+| `bundle_items` | Bundle → Product membership | 4 |
+| `moderation_flags` | `target_type`, `target_id`, `rule` (e.g. `upload_volume`, `ai_untagged_suspected`, `report`), `details`, `state` (`open` / `cleared` / `actioned`), `assigned_to` | 2 |
+| `moderation_actions` | Who did what to which target and why (approve, hide, delist, remove, warn, suspend); append-only audit log | 2 |
+| `moderation_reports` | User reports with reason; each creates a Flag | 2 |
+| `orders`, `order_items`, `payments`, `refunds` | Commerce | 4 |
+| `tips` | `from_user_id`, `creator_id`, optional `book_id`, `amount_minor`, `currency`, `payment_id`, optional message | 4 |
+| `subscription_plans` | `creator_id`, `name`, `price_minor`, `currency`, `interval` (`month`), benefits (e.g. early access to listed Books), `status` | 4 |
+| `creator_subscriptions` | `user_id`, `plan_id`, `status` (`active` / `cancelling` / `ended`), `current_period_end`, Stripe subscription ID | 4 |
+| `payout_accounts`, `payout_ledger` | Creator earnings and Stripe Connect state | 4 |
+| `reviews`, `wishlists`, `achievements`, `comments` | Discovery and retention | 6 |
+
+Reading Progress keeps two positions on purpose: the **furthest Anchor** gates spoiler-sensitive features to the Word (Invariant 6), while **`furthest_progression`** is a simple number for reviews ("read 80%") and refund rules.
+
+### 6.5 Products and Entitlements (Phase 2 model, Phase 4 money)
+
+```ts
+export type ProductKind =
+  | 'book' | 'illustration_pack' | 'audio_track'
+  | 'cover' | 'bookmark_design' | 'bundle';
+
+export type EntitlementSource = 'free_claim' | 'purchase' | 'bundle' | 'subscription' | 'grant';
+```
+
+- Every Book, Illustration Pack, Audio Track, Cover and Bookmark Design has exactly one Product row (more later only if regional pricing is added).
+- `price_minor = 0` means free. Free Products are claimed with "Add to library", which creates an Entitlement (`source: 'free_claim'`). Library and access checks stay uniform.
+- Buying a Bundle creates a parent Entitlement and child Entitlements (`source: 'bundle'`). Refunding the Bundle revokes the children.
+- Every user owns one default Bookmark Design from sign-up.
+- `revenue_split` is stored per Product as basis points `{ platformBps, authorBps, creatorBps }` summing to 10 000, and copied onto order items at purchase so later changes don't rewrite history.
+- One access function: `entitlements.check(userId, productId)` plus a batch variant. Content access tokens are only issued after it passes.
+- **Community content can be free or paid.** Its creator sets the price (0 = free), within any limits the Book's author sets (OPEN-08).
+- **Bookmark Designs work in every Book**, however they were obtained.
+- **Tips** are one-off payments to a Creator, optionally linked to a Book. They grant nothing and are not Products.
+- **Creator Subscriptions** replace Patreon-style support. A Creator offers one or more monthly plans; a reader subscribes or cancels at any time from the Creator's profile or a Book page. While a subscription is active it grants Entitlements (`source: 'subscription'`) to the plan's benefits, typically early-access chapters of unfinished serials (OPEN-10). When it ends, those Entitlements are revoked at the end of the paid period. Anything the reader **bought** is unaffected: purchases are permanent.
+- No platform-wide "read everything" subscription. Readers own what they buy, as on Steam.
+- No random drops, trading or loot boxes (gambling-regulation risk). Bookmark Designs are direct purchases only.
+
+### 6.6 Community content policy (fields in Phase 2, behaviour in Phase 5)
+
+`books.community_policy`:
+
+- `closed` — no community Layers can be submitted. **Default.**
+- `approval` — submissions need the author's approval before listing.
+- `open` — submissions list automatically, subject to moderation; the author can delist.
+
+`books.community_ai` (`allowed` / `refused`, default `allowed`): whether AI-generated community Layers may be submitted for the Book (§10.6).
+
+`is_official = true` can be set only by the Book's author, or on a community Product the author has endorsed.
+
+### 6.7 Object storage layout (Phase 2 onwards)
+
+```
+uploads/tmp/{uploadId}                                        # raw uploads, deleted after processing
+books/{bookId}/rev/{revisionId}/manifest.json                 # engine manifest (format per ADR-001)
+books/{bookId}/rev/{revisionId}/content/{chapterHref}         # sanitised XHTML (marking per ADR-002)
+books/{bookId}/rev/{revisionId}/index/{chapterId}.words.json  # word index (§7.1)
+books/{bookId}/rev/{revisionId}/res/{path}                    # images, CSS, fonts from the EPUB
+packs/{packId}/img/{assetId}/{w640|w1280|w2048}.webp
+tracks/{trackId}/audio/{chapterId}.m4a
+tracks/{trackId}/sync/{revisionId}/{chapterId}.json
+cosmetics/{productId}/{file}
+```
+
+Revision folders are immutable once written. Never overwrite; write a new Revision.
+
+---
+
+## 7. Content pipelines
+
+### 7.1 EPUB ingestion (`text-pipeline`; browser in Phase 1, job `ingest-epub` from Phase 2)
+
+EPUB 3 (and well-formed EPUB 2) only. Authors can export EPUB from Vellum, Atticus, Scrivener, Calibre and similar.
+
+1. **Validate:** ZIP structure, `mimetype`, `META-INF/container.xml`, OPF parse. Fatal failures produce a readable reason. From Phase 2, run epubcheck where available and attach its output to the ingest report (non-blocking at first).
+2. **Sanitise:**
+   - Remove `<script>`, `<iframe>`, `<object>`, `<embed>`, forms, event-handler attributes and `javascript:` URLs.
+   - Remove references to resources outside the EPUB.
+   - Filter CSS to an allowlist (typography, colour, borders, spacing, tables, lists). Author colours are kept but are re-mapped to theme tokens at render time (§9.6).
+3. **Mark Blocks:** give each block-level element a `data-b` index in reading order.
+4. **Tokenise:** walk text nodes in reading order and segment with `Intl.Segmenter(lang, { granularity: 'word' })`; each segment with `isWordLike` is a Word. Never split a Word across element boundaries. Use the Book's `lang` from the OPF. How Words are marked in the output (spans vs. an offset index) is decided by ADR-002.
+5. **Assign WordIds and Ordinals** (§6.2).
+6. **Emit:** sanitised XHTML, the per-Chapter word index (for each Word in reading order: WordId, Block, text, and offsets if ADR-002 needs them), the engine manifest (ADR-001), TOC, and Chapter records with first/last WordId and Ordinal.
+7. **Report:** word count, chapter count, warnings (CSS removed, images missing alt text, and so on). The author sees this before publishing.
+8. **Publish** (separate action, Phase 2): sets the current Revision, then queues `migrate-anchors` and re-alignment for changed Chapters.
+
+`text-pipeline` is pure, deterministic and unit-tested: the same EPUB always produces byte-identical output.
+
+### 7.2 Narration alignment (`alignment`; `tools/align` in Phase 1, job `align-narration` from Phase 3)
+
+Input: one audio file per Chapter. One file with chapter markers is a later enhancement.
+
+1. **Transcode** with ffmpeg to AAC in `.m4a`, mono, about 64 kbps, loudness-normalised (target −18 LUFS integrated; configurable).
+2. **Transcribe** with whisper.cpp, producing word-level timestamps.
+3. **Normalise** both sides: lowercase, strip punctuation, expand numbers both ways ("42" ↔ "forty-two"), collapse hyphenation and contractions.
+4. **Align** transcript tokens to the Chapter's word index with a global sequence alignment (Needleman–Wunsch on normalised tokens; fuzzy match by edit distance).
+5. **Fill gaps:** unmatched Words get interpolated times between matched neighbours and an `interpolated` flag.
+6. **Score:** `coverage = matched / total`. Below 0.90 (configurable) the status is `needs_review`, and the creator gets a review screen that jumps to low-confidence regions.
+7. **Write** the Sync Map:
+
+```json
+{
+  "version": 1,
+  "trackId": "…",
+  "revisionId": "…",
+  "chapterId": "…",
+  "audioKey": "tracks/…/audio/ch03.m4a",
+  "durationMs": 1834000,
+  "coverage": 0.97,
+  "words": [[1201, 0, 320, 0], [1202, 320, 610, 0], [1203, 610, 900, 1]]
+}
+```
+
+`words` entries are `[wordId, startMs, endMs, flags]`, sorted by `startMs`; `flags & 1` = interpolated.
+
+The narration is generated or aligned **once per Revision, never per reader**, and only changed Chapters are redone. This is what keeps narration costs flat as readership grows.
+
+Prior art worth reading before building: **Storyteller**, an open-source, self-hosted platform that aligns ebooks with audiobooks using whisper.cpp, ffmpeg and Readium and outputs EPUB 3 Media Overlays. Check its licence before reusing any code.
+
+### 7.3 Image processing (job `process-image`, Phase 3)
+
+Accept JPEG, PNG, WebP and AVIF up to 25 MB. Decode and re-encode with sharp (strips EXIF and embedded payloads). Generate WebP variants at 640, 1280 and 2048 px on the long edge. Record dimensions and a dominant colour for loading placeholders. `alt_text` is required before an Illustration can be published.
+
+### 7.4 AI-assisted features (Phase 4 onwards)
+
+All AI output is a **suggestion** the author can review, edit or reject before readers see it, and it is labelled under the AI policy (§10.6).
+
+- **AI narration:** text-to-speech per Chapter, generated once per Revision. If the TTS service returns word timings, use them directly; otherwise run §7.2 steps 3–7.
+- **Recaps and glossary:** generated per Chapter when a Revision is published, stored, and assembled on request only from Chapters before the reader's furthest position.
+- **Ambient scene tagging:** only if ambient audio is un-parked (§8.4).
+
+Providers sit behind internal interfaces so they can be swapped.
+
+---
+
+## 8. Layers
+
+### 8.1 Layer selection
+
+Per user, per Book:
+
+- Zero or more Illustration Packs, in priority order.
+- At most one narration Audio Track at a time.
+- **Default on first open:** every *official* Layer the user is entitled to is on, except that audio waits for the reader to press play (Invariant 11).
+- Only Layers the user has Entitlements for can be enabled (Phase 2+). In the PoC, every local Layer is available.
+
+### 8.2 Illustrations
+
+**Illustration modes** (the reader's choice in Reader Preferences, switchable at any time from the toolbar):
+
+| Mode | What the reader sees | Notes |
+|---|---|---|
+| `popup` (**default**) | A picture button in the top-right corner of the page. Tapping it opens the current Illustration over the book in a card the reader can close (tap outside, close button, Esc or swipe down). A small dot on the button shows when a new Illustration has become available since the last look | The calmest mode: the text layout never changes. The first time a Book with Illustrations opens, a one-off hint points at the button so readers know pictures exist |
+| `per-page` | A panel to the **left** of the book showing the current Illustration, crossfading as the reader moves on | Medium and expanded screens. Compact screens have no room beside the text, so the panel sits above it, collapsible to a thumbnail strip |
+| `spread` | A wide area **above** the book, sized for double-page artwork (`span: 'double'`). Single-page Illustrations are shown centred, or two consecutive ones side by side | Best on landscape screens and in spread layout. On compact portrait screens the area is shorter and can be collapsed |
+| `in-text` | Illustrations appear inside the text where the creator placed them (`inline` or `full_page`, below). Those left at the default placement appear inline at their Anchor | Like a printed illustrated book. Pagination recalculates around them |
+| `off` | No Illustrations | |
+
+**Current Illustration rule** (used by `popup`, `per-page` and `spread`): the Illustration with the latest start Anchor at or before the **last** visible Word (it's on screen, so it can't be a spoiler). It stays current until a later one comes into view, so the picture reflects the current scene instead of disappearing between pictures. If several enabled packs have a candidate, show the highest-priority pack's and let the reader swipe to the others. Changes crossfade (instant under reduced motion).
+
+**Creator settings per Illustration:**
+
+- `placement` (used in `in-text` mode): `panel` (default; shown inline at its Anchor), `inline` (a `<figure>` injected after the Block containing the Anchor's end Word), or `full_page` (a page break before and after, scaled to fit the page).
+- `span`: `single` (default) or `double` for double-page artwork. `spread` mode shows double-page art at full width; other modes scale it to fit.
+
+Injection happens at render time through `ReaderEngine.injectFigures()`, and only in `in-text` mode. Illustrations are **never** baked into Revision content, because Layers and modes are chosen per user.
+
+**Lightbox:** tapping any Illustration in any mode opens it full screen with pinch/scroll zoom, caption and credit.
+
+### 8.3 Narration playback
+
+- Audio drives position. The current Word is highlighted through an engine decoration (`group: 'narration'`) at Word or sentence granularity (preference).
+- When the highlighted Word leaves the visible range, the reader turns the page (preference, default on).
+- Tapping a Word while narration plays seeks to its `startMs`.
+- Controls: play/pause, ±15 s, previous/next sentence, speed 0.5×–3×.
+- Time → Word uses binary search on the Sync Map; Word → time uses a `Map<WordId, index>` built on load.
+- On mobile, background playback with lock-screen and Media Session controls is required.
+- Narration updates Reading Progress the same way manual reading does.
+- Pauses when the app is backgrounded only if narration isn't the thing playing.
+
+### 8.4 Ambient audio (Parked)
+
+Ambient music, ambience and sound-effect cues are Parked (§13.8). A silent reader's exact position can't be known, so cues could only fire when an Anchor becomes visible. Booktrack built ebook soundtracks paced to reading position and retired its ebook platform in 2019, after reviewers noted it was confined to its own app.
+
+If evidence of demand appears (for example from the PoC review), the design to start from is: four channels (narration, music, ambience, effects) each with its own volume and mute; ambient segments anchored to RangeAnchors that loop and crossfade over about 2 seconds when the visible range enters a new segment, rather than playing on a timeline; effects that fire once when their Anchor becomes visible; preloading of the next few segments; a visible "now playing" indicator for accessibility; off by default. Assignment would come from AI scene tagging with author review (§7.4).
+
+---
+
+## 9. Reader architecture
+
+### 9.1 ReaderEngine interface (`packages/reader-core`)
+
+App code talks only to this interface. Each candidate engine gets an adapter.
+
+```ts
+export type LayoutMode = 'paginated-single' | 'paginated-spread' | 'scroll';
+
+export interface VisibleRange {
+  chapterId: string;
+  first: PointAnchor;
+  last: PointAnchor;
+  progression: number;                              // 0..1 across the whole Book
+  pageInChapter?: { index: number; count: number }; // display only, never stored
+}
+
+export interface Decoration {
+  id: string;
+  anchor: RangeAnchor;
+  style: 'highlight' | 'underline' | 'narration' | 'search';
+  color?: string; // token name, never a raw hex
+}
+
+export interface FigureInjection {
+  id: string;
+  anchor: Anchor;
+  placement: 'inline' | 'full_page';
+  src: string;      // local blob URL (PoC) or content-token URL (Phase 2+)
+  srcset?: string;
+  alt: string;
+  caption?: string;
+}
+
+export interface EngineEvents {
+  relocated: VisibleRange;
+  selection: { anchor: RangeAnchor; clientRect: DOMRect } | null;
+  wordActivated: { wordId: WordId };                 // tap/click on a Word
+  contextMenu: { anchor: RangeAnchor | null; x: number; y: number };
+  figureActivated: { id: string };
+  error: { code: string; message: string };
+}
+
+export interface ReaderEngine {
+  mount(el: HTMLElement, publication: PublicationHandle, opts: EngineOptions): Promise<void>;
+  destroy(): void;
+
+  goTo(target: Anchor | { progression: number } | { chapterId: string }): Promise<void>;
+  next(): Promise<void>;
+  prev(): Promise<void>;
+
+  setLayout(mode: LayoutMode): Promise<void>;
+  setTypography(t: TypographySettings): Promise<void>;
+  setTheme(tokens: ReaderThemeTokens): void;
+
+  setDecorations(group: string, items: Decoration[]): void; // replaces the group
+  injectFigures(items: FigureInjection[]): void;            // replaces all figures
+
+  getVisibleRange(): VisibleRange | null;
+  on<E extends keyof EngineEvents>(event: E, cb: (payload: EngineEvents[E]) => void): () => void;
+}
+```
+
+- The adapter maps engine Locators ↔ Anchors using the Word marking chosen in ADR-002.
+- Changing typography or layout MUST keep the first visible Word on screen.
+- `relocated` is the **single source of truth for position**. The illustration panel, narration player, progress saving and page indicator all subscribe to one shared reactive value fed by it.
+- Decorations should use the CSS Custom Highlight API where the engine allows it (supported in Chromium, Safari 17.2+ and Firefox 140+). It paints highlights without changing the DOM, so highlighting never triggers re-pagination.
+
+### 9.2 Layout and navigation
+
+- Layout modes: `paginated-single`, `paginated-spread` (offered when the viewport is ≥ 1024 px wide), `scroll`. `auto` (default) = spread on wide screens, single otherwise.
+- Navigation inputs as listed in §4.1. Tap zones are the outer 25% of the width; the centre toggles the toolbars (also Esc).
+- Display "page X of Y in this chapter" from `pageInChapter`; never persist it. The scrubber works in progression and Chapter boundaries, so no whole-Book page map is needed.
+- Page-turn animation: `none` / `slide` / `fade`; forced to `none` under reduced motion. `curl` is reserved for Phase 6.
+- Rendering stays virtualised by Chapter: only the current Chapter (and a neighbour, for fast turns) is laid out.
+
+### 9.3 Selection, Annotations and Placed Bookmarks
+
+- Desktop: selecting text shows a floating toolbar; right-click on a selection opens the same actions in a context menu.
+- Touch: long-press starts native selection and the same toolbar appears. How to suppress or extend the native iOS/Android selection menu is validated in P0-07.
+- Actions: Highlight (5 colours from theme tokens), Add note, Copy, Remove highlight. Share quote comes later.
+- Selections snap to whole Words (Invariant 5).
+- Notes panel: grouped by Chapter, filter by colour, jump to Anchor, edit, delete, export as Markdown or plain text. Orphaned items appear in their own section with their quoted text.
+- Placed Bookmarks: unlimited; added from the toolbar or `B`; placed on the first visible Word; drawn as a ribbon on the page edge in the chosen Bookmark Design; listed in the same panel as notes.
+
+### 9.4 Reader Preferences
+
+Zod schema in `core`; stored globally per user with optional per-Book overrides. Stored preferences are always merged over defaults, so adding a field never breaks old data.
+
+```ts
+export interface ReaderPreferences {
+  layout: 'auto' | LayoutMode;
+  fontFamily: FontId;            // curated list only (§11.3), or 'publisher'
+  fontScale: number;             // 0.75–2.5, step 0.05
+  lineHeight: number;            // 1.2–2.0
+  paragraphSpacing: number;      // em, 0–1.5
+  margins: 'narrow' | 'normal' | 'wide';
+  justify: boolean;
+  hyphenate: boolean;
+  theme: {
+    mode: 'system' | 'light' | 'dark' | 'sepia';
+    contrast: 'standard' | 'medium' | 'high';
+    seedColor?: string;          // hex; generates the scheme (§11.2)
+  };
+  pageTurn: 'none' | 'slide' | 'fade';
+  illustrations: 'popup' | 'per-page' | 'spread' | 'in-text' | 'off';
+  narration: { rate: number; autoTurn: boolean; highlight: 'word' | 'sentence' | 'off' };
+}
+```
+
+Changes apply live without reloading the Chapter and keep position (§9.1). Defaults: `layout: 'auto'`, serif reading font, `fontScale: 1`, `lineHeight: 1.6`, `paragraphSpacing: 0.8`, `margins: 'normal'`, theme mode `system`, contrast `standard`, `pageTurn: 'slide'`, `illustrations: 'popup'`.
+
+### 9.5 Reading Progress
+
+- Save on `relocated`, debounced to 2 s, and when the app is backgrounded or closed.
+- Update the furthest position whenever the current one passes it.
+- Phase 2 conflict rule: last write wins by `updated_at`. If, on open, the server position differs from the local one by more than 1% progression and came from another device, ask: "You were further ahead on another device. Jump there?"
+
+### 9.6 Styled blocks (LitRPG status windows and similar)
+
+Web fiction, especially LitRPG, uses boxed blocks for status windows, system messages and stat tables. Usually these are monospaced-text hacks or images that break in dark mode or at large sizes.
+
+- Ingestion preserves these blocks' structure and allowlisted CSS (borders, backgrounds, padding, monospace, tables).
+- Author colours are re-mapped onto theme tokens at render time (author background → `surface-container`, author border → `outline`, author text → `on-surface`), so blocks stay readable in light, dark and sepia and at every font size.
+- A small hand-made fixture EPUB with status windows and stat tables is part of every reader test suite. (The PoC demo uses *Alice* only; the launch title is tested from Phase 2.)
+- Later: an optional semantic markup convention (e.g. a class authors can use for a "system window") so authors get consistent styling without writing CSS.
+
+### 9.7 Platform differences
+
+`apps/web/src/lib/platform/` exposes one interface per capability, each with a `web` and a `capacitor` implementation: `audio` (HTML audio + Media Session vs native plugin), `files` (file picker / IndexedDB vs Capacitor Filesystem), `share`, `haptics`, `deepLinks`. Feature code imports the interface, never an implementation.
+
+### 9.8 Sandboxing
+
+Chapter content renders in a sandboxed iframe (as both candidate engines do). Only our own injected scripts run inside it. Content gets a strict Content-Security-Policy: no inline scripts from the book, no external origins.
+
+---
+
+## 10. API, security and privacy
+
+### 10.1 API conventions (Phase 2, Proposed)
+
+- REST over JSON under `/v1`. One Hono router per module in `apps/api/src/modules/` (books, revisions, entitlements, annotations, progress, uploads, content, packs, tracks).
+- Every request body, query and response is validated with a Zod schema exported from `@book/core`. `storage-remote` uses the same schemas.
+- Errors: `{ "error": { "code": "ENTITLEMENT_REQUIRED", "message": "…", "details": { … } } }`. Codes are a string enum in `core` (`VALIDATION_FAILED`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `ENTITLEMENT_REQUIRED`, `RATE_LIMITED`, `UPLOAD_TOO_LARGE`, `INGEST_FAILED`, …). Messages say what happened and what to do.
+- Pagination: cursor-based, `?cursor=&limit=` → `{ items, nextCursor }`. Sync pulls use `?since=`.
+- Auth: `Authorization: Bearer <JWT>`. Only public catalogue reads are unauthenticated.
+- Mutations that move money or create Entitlements accept an `Idempotency-Key` header.
+- CORS: the web origin plus Capacitor origins (`capacitor://localhost` on iOS, `https://localhost` on Android).
+
+**Initial endpoints:**
+
+| Method & path | Purpose |
+|---|---|
+| `GET /v1/me`, `PATCH /v1/me`, `DELETE /v1/me` | Profile; account deletion (required by the App Store when sign-up exists) |
+| `GET /v1/me/export` | Download all personal data (UK GDPR) |
+| `POST /v1/uploads` | Presigned upload URL |
+| `POST /v1/books`, `GET/PATCH /v1/books/:bookId` | Author Book management |
+| `POST /v1/books/:bookId/revisions` | Start ingest from an upload |
+| `GET /v1/books/:bookId/revisions/:revisionId` | Status and ingest report |
+| `POST /v1/books/:bookId/revisions/:revisionId/publish` | Publish a Revision |
+| `GET /v1/catalogue` | Public list of Books |
+| `POST /v1/products/:productId/claim` | Add a free Product to the library |
+| `GET /v1/library` | The user's Entitlements, grouped by Book |
+| `POST /v1/books/:bookId/open` | Entitlement check → content token, manifest URL, Layers, progress, preferences |
+| `GET /v1/content/:token/*` | Content delivery (§10.3) |
+| `GET/PUT /v1/books/:bookId/progress` | Reading Progress |
+| `GET/POST/PATCH/DELETE /v1/books/:bookId/annotations[/:id]` | Annotations |
+| `GET/POST/PATCH/DELETE /v1/books/:bookId/placed-bookmarks[/:id]` | Placed Bookmarks |
+| `GET/PUT /v1/preferences[?bookId=]` | Reader Preferences |
+
+### 10.2 Upload safety
+
+- Size limits: EPUB 100 MB, image 25 MB, audio 1 GB per file.
+- Sniff file types from content, not the extension.
+- Sanitise EPUBs (§7.1), re-encode images (§7.3), transcode audio (§7.2). Delete originals from `uploads/tmp/` after processing.
+- Malware-scan uploads before processing.
+- Per-user rate limits on uploads, job creation, comments and auth endpoints.
+
+In the PoC the same sanitising runs on locally imported EPUBs, because a malicious EPUB is a risk on the device too.
+
+### 10.3 Content access tokens
+
+`POST /v1/books/:bookId/open` checks Entitlements and returns a short-lived token (HMAC-signed; claims: `userId`, `bookId`, `revisionId`, allowed `packIds` and `trackIds`, `exp` = 1 hour).
+
+Content is served at `/v1/content/{token}/{path}`. Because the token is a **path prefix**, relative URLs inside chapter XHTML (images, stylesheets, fonts) resolve under the same prefix and are authorised automatically, with no per-resource signing. The reader refreshes the token before it expires.
+
+At first the Node API streams from object storage with `Cache-Control: private`. Moving delivery to an edge worker is OPEN-03. Heavy DRM is Parked; watermarking is a Phase 4 consideration.
+
+### 10.4 Content rating and safety
+
+- Books, Illustration Packs and Audio Tracks carry a content rating and content warnings set by the creator.
+- An age policy decides what is shown to whom (OPEN-12, before Phase 5).
+- Images are screened by a moderation API before community content is listed (Phase 5). Flags go to the review queue (§10.6).
+
+### 10.5 Privacy
+
+- What people read is personal data. No third-party ad or tracking SDKs.
+- Analytics are first-party, cookie-less and minimal, and every event is documented in `docs/analytics.md`. Events record chapter-level milestones, never book text or note contents.
+- Users can export all their data and delete their account.
+- Comply with UK GDPR and PECR: privacy policy, lawful basis per data type, consent where storage or tracking needs it. Take advice before public launch.
+- The PoC stores everything on the device and sends nothing anywhere.
+
+### 10.6 AI disclosure, moderation and curation tools
+
+**Policy (D-019):** AI-generated or AI-assisted Books, Illustrations and narration are allowed, but must be labelled.
+
+- At upload, the creator answers "Was AI used to make this?" (`none` / `assisted` / `generated`) for every Book Revision, Illustration Pack and Audio Track. The answer is shown on the store page and in the reader's Layer list.
+- Readers can hide AI-generated content everywhere with one setting.
+- Authors can refuse AI-generated community Layers on their Books (a `community_ai` setting next to `community_policy`).
+- Mislabelling AI content breaks the upload terms and can lead to removal and account action.
+
+**Automatic Flags** (rules in one module, thresholds configurable, every rule unit-tested):
+
+| Rule | Triggers when | Effect |
+|---|---|---|
+| `upload_volume` | An account publishes 10 or more Books (or new Revisions of different Books) in 30 days. Similar limits for Packs and Tracks | Flag for review. Content stays listed **if** it is labelled AI |
+| `ai_untagged_suspected` | `upload_volume` fires **and** the content is not labelled AI; or an AI-detection check (text or image) scores above its threshold on unlabelled content | **Held for manual review:** the content stays private (the creator can still preview it) until an admin approves it, asks for the label to be corrected, or removes it |
+| `report` | A reader reports content (reason required) | Flag; several reports on one item raise its priority |
+| `rapid_new_account` | A new account uploads paid content within its first days | Flag for review |
+
+Detection scores are evidence for a human, never an automatic verdict, because AI detectors make mistakes.
+
+**Admin review queue** (Phase 2, basic): a list of open Flags with filters by rule and priority; a detail view showing the content, the creator's history, the rule that fired and any detector scores; actions to approve, require relabelling, hide, remove, warn or suspend, each with a reason. Every action is written to the append-only `moderation_actions` log, and the creator is told what happened and how to appeal.
+
+**Author curation tools** (Phase 2 for their own uploads, Phase 5 for community content): authors see Flags and reports on their own Books, choose `community_policy` and `community_ai`, approve or decline community submissions, hide or delist community Layers on their Books, and endorse the ones they like.
+
+Admins and moderators are a `role` on `users` (`reader` / `creator` / `moderator` / `admin`); the admin screens live in a separate route group that requires that role on the API, not only in the UI.
+
+---
+
+## 11. Design system and UI
+
+### 11.1 Direction
+
+Material 3's colour system and token roles, with our own brand on top. Customisation means changing token values, never components.
+
+Two layers with different jobs:
+
+| Layer | Contents | Styling |
+|---|---|---|
+| **App layer** | Library, store, Book pages, Creator tools, settings, profiles | Brand seed colour, UI typography, M3 components |
+| **Reader layer** | Reading surface, toolbars, panels | Minimal chrome; user-controlled typography and colours; toolbars auto-hide |
+
+The illustration panel sits in the reader layer but may be more expressive (rounded frame, crossfades, caption styling), because it's the product's showpiece. Optional author-provided Book skins may change app-layer and panel tokens only, never the reader's chosen text settings.
+
+### 11.2 Colour and theming
+
+- Generate schemes with `@material/material-color-utilities` from one seed colour, for light and dark modes and three contrast levels. Output CSS custom properties named after M3 roles: `--md-sys-color-primary`, `--md-sys-color-on-primary`, `--md-sys-color-surface`, `--md-sys-color-surface-container`, `--md-sys-color-on-surface`, `--md-sys-color-outline`, etc.
+- Generation lives in `packages/tokens` and is pure (seed + mode + contrast → token map), so it runs identically in every environment.
+- Users choose a seed colour (or one of about 8 presets), mode and contrast. **Sepia** is a reader-surface override on the light scheme. **High contrast** is the `high` contrast level in either mode (replacing the separate "high-contrast" theme in the current code).
+- Highlight colours (5) are defined per scheme so they stay legible in dark mode.
+- Don't ship M3's baseline purple (`#6750A4`) as the default; it reads as an unbranded template. Pick a brand seed with the product name (OPEN-07).
+- Reader content, including author-styled blocks, uses the same tokens (§9.6).
+
+### 11.3 Typography
+
+- **UI font: Arial Rounded MT** (the owner's choice for the brand), regular weight, with **Nunito** as the fallback:
+  `--font-ui: 'Arial Rounded MT', 'Arial Rounded MT Std', 'Nunito', system-ui, sans-serif;`
+  - Arial Rounded MT is a commercial Monotype font. It is used only through `local()` / the font stack when the device already has it installed (many Windows PCs with Microsoft Office do). It **must not be bundled or self-hosted** in the web build or the apps without buying a Monotype web/app licence.
+  - Nunito (SIL OFL) is self-hosted, so phones, Macs and other devices get a close rounded look. If a licence for Arial Rounded MT is bought later, bundle it and keep Nunito as the fallback.
+  - Because the two fonts differ slightly in width, layouts must not depend on exact text widths (no fixed-width buttons sized to their label).
+- Reading fonts (curated, self-hosted, no font CDN so they work offline): Literata, Source Serif 4, Merriweather, Nunito, Atkinson Hyperlegible, OpenDyslexic, plus "Publisher default" (the EPUB's own font, where its licence allows embedding). Verify each licence before bundling (expected: SIL OFL).
+- M3 type-scale tokens for UI text. Reading line length defaults to at most about 75 characters on wide screens, controlled by `margins`.
+
+### 11.4 Components (Phase 1 set, `packages/ui`)
+
+Button (filled, tonal, outlined, text), IconButton, Slider, Switch, Radio, Checkbox, TextField, Menu, Dialog, Bottom sheet, Navigation bar, Navigation rail, Snackbar, Card, Chip, Tabs, Progress indicator, Tooltip. OPEN-02 decides how they are built.
+
+### 11.5 Layout
+
+- M3 window size classes: compact < 600 px, medium 600–839 px, expanded ≥ 840 px.
+- App navigation: bottom navigation bar on compact; navigation rail on medium and expanded.
+- Main areas: Library, Reader, Settings (PoC); Store and Creator join in Phase 2.
+- The reader is full screen. Toolbars auto-hide and toggle with a centre tap or Esc.
+- Respect safe-area insets (`--safe-*` tokens) everywhere; nothing depends on hover.
+
+### 11.6 UI copy
+
+- Sentence case. Active, specific verbs: "Add to library", "Publish revision", "Save note".
+- An action keeps its name through the flow: "Publish" produces a "Published" snackbar.
+- Errors say what happened and how to fix it, without apologising. Empty states say what to do next ("Your library is empty. Import an EPUB or open the sample book.").
+- Use readers' words ("Narration", "Illustrations"), not internal ones ("Layers", "Sync Maps").
+
+### 11.7 Accessibility floor
+
+- WCAG 2.2 AA across the app layer and reader chrome.
+- Touch targets at least 48 × 48 px (`--touch-target`), comfortably above WCAG 2.2 AA's 24 px minimum.
+- Visible keyboard focus; full keyboard operation of the reader with documented shortcuts.
+- Labelled controls; page turns and chapter changes announced through a live region.
+- Book text is real text in the DOM and must read naturally in VoiceOver and TalkBack. Word marking must not break screen reader output (verified in P0-05).
+- Reduced motion disables animated page turns and crossfades.
+- Narration needs no captions (the text is the transcript).
+
+---
+
+## 12. Quality
+
+### 12.1 Test layers
+
+| Layer | Tool | Required for |
+|---|---|---|
+| Unit | Vitest | `core` (Anchors, preferences), `text-pipeline`, `alignment`, `reader-core` mapping, theme generation, `storage-local` (with `fake-indexeddb`) |
+| Golden files | Vitest snapshots | Ingestion: fixture EPUB → expected XHTML, word index and manifest |
+| Component | @testing-library/svelte | `ui`, reader components |
+| End to end | Playwright (Chromium **and** WebKit) | Each phase's acceptance flows |
+| API integration | Vitest + Docker Postgres + MinIO | Every API module (Phase 2+) |
+| Device smoke | Manual checklist (`docs/device-checklist.md`) | Every mobile build, on a real iPhone and the reference Android phone |
+
+### 12.2 Fixtures (`fixtures/`)
+
+- *Alice's Adventures in Wonderland* (already in the repo, from Project Gutenberg). Consider adding the Standard Ebooks edition (CC0, clean EPUB 3) as the well-formed reference.
+- A LibriVox recording (public domain) of the first few chapters of the same work. A different source edition gives realistic text/audio mismatches for alignment tests.
+- John Tenniel's 1865 illustrations for *Alice* (public domain) as the demo Illustration Pack.
+- An image-heavy EPUB.
+- A small hand-made EPUB with LitRPG status windows, system messages and stat tables.
+- A sample chapter of the launch title (Phase 2).
+- An EPUB with a right-to-left language and one with a CJK language, for tokeniser tests (Phase 2).
+
+Large audio files stay out of git: a script downloads them into place.
+
+### 12.3 Performance budgets
+
+Reference device: a mid-range Android phone from 2023–24 (Samsung Galaxy A15 class), over 4G.
+
+| Measure | Budget |
+|---|---|
+| Open a Book to the first readable page (network, cold) | < 2 s |
+| Open a cached 10 000-word Chapter | < 1 s |
+| Page turn, input to first frame | < 100 ms; animations hold 60 fps |
+| Re-layout after a typography change, first visible Word kept | < 300 ms |
+| Narration highlight lag behind audio | < 100 ms |
+| Reader route JavaScript, excluding the engine | < 250 KB gzipped |
+| Import of a 150 000-word EPUB in the browser (PoC) | < 10 s, with progress shown and the UI responsive |
+
+Illustrations load lazily as responsive WebP with a dominant-colour placeholder.
+
+### 12.4 CI (GitHub Actions)
+
+On every PR: `npm ci`, `npm run check`, `npm run lint`, `npm test`, `npm run build`, and Playwright E2E against a preview build (plus Docker services from Phase 2). From Phase 2, main deploys to staging.
+
+### 12.5 Definition of Done
+
+- [ ] The task's acceptance criteria are met and demonstrated by tests.
+- [ ] `npm run check`, `npm run lint`, `npm test` and `npm run build` pass.
+- [ ] No new `any` without an explaining comment; no `@ts-ignore` without a linked issue.
+- [ ] New types and schemas live in `@book/core`.
+- [ ] Stored-data changes ship with a migration: an IndexedDB version bump with an upgrade step (now), or a drizzle-kit migration and updated seed (Phase 2+).
+- [ ] UI is keyboard-operable, labelled, and respects reduced motion.
+- [ ] Glossary terms used correctly; this document updated if a decision changed.
+- [ ] No secrets committed; new environment variables added to `.env.example` with a comment.
+
+---
+
+## 13. Roadmap
+
+Phases are sequential. Each ends with an exit review: acceptance flows pass, ADRs are written, and this document is updated.
+
+| Phase | Goal | Outcome |
+|---|---|---|
+| 0 | Foundations and spikes | Groundwork aligned with this document; the technical unknowns de-risked |
+| 1 | Local-first proof of concept | The full reading experience, with demo illustrations and synced narration, on web, iOS and Android, with no backend |
+| PoC review | Test the core bet | Go/no-go on the platform, and on hosting |
+| 2 | Platform | Accounts, sync across devices, author publishing, free library |
+| 3 | Official Layers | Authors add their own illustrations and narration |
+| 4 | Commerce | Paid Products, Bundles, cosmetics |
+| 5 | Community | Community Layers with author permission, payouts, moderation |
+| 6 | Discovery and retention | Store SEO, reviews, recaps, glossary, offline, analytics for authors |
+
+### 13.1 Phase 0 — Foundations and spikes
+
+Spikes produce ADRs in `docs/adr/` and throwaway code under `apps/web/src/routes/spike/` (deleted at the end of the phase). Don't build features in Phase 0.
+
+#### P0-01 Tooling and CI
+Depends on: —
+- Already in place: npm workspaces, strict TypeScript, ESLint, Prettier, Vitest, static SvelteKit build.
+- Add: ESLint import-boundary rules from §5.3, Playwright (Chromium + WebKit), `test:e2e` script, GitHub Actions CI per §12.4, `AGENTS.md` (Appendix C).
+
+Acceptance:
+- [ ] From a clean clone, `npm ci && npm run check && npm run lint && npm test && npm run build` succeeds.
+- [ ] CI runs on pull requests and fails on a deliberate type error.
+- [ ] Importing `apps/web` code from a package fails lint.
+
+#### P0-02 Align groundwork with this document
+Depends on: P0-01
+- Apply Appendix B: `Locator`/`TextRange` → `Anchor` model with WordIds and Ordinals; `editionId` → `revisionId`; illustration set → Illustration Pack; settings → `ReaderPreferences`; UUIDv7 IDs and `deletedAt`; IndexedDB version 2 with an upgrade step; README and code comments point at this document's sections.
+
+Acceptance:
+- [ ] Anchor helpers (`compareAnchors`, `isWithinRange`, `rangesOverlap`, `latestAtOrBefore`) have full unit coverage, including the different-Revision error.
+- [ ] No `cfi`, `charOffset` or `editionId` remains in stored types.
+
+#### P0-03 Capacitor shell
+Depends on: P0-01
+- Add Capacitor with iOS and Android projects; `cap:sync`, `cap:ios`, `cap:android` scripts.
+- `lib/platform/` interfaces (§9.7) with stub implementations.
+
+Acceptance:
+- [ ] The same build runs in a desktop browser, the iOS simulator and the Android emulator.
+
+#### P0-04 Spike: reader engine (resolves OPEN-01)
+Depends on: P0-03
+Evaluate foliate-js and Readium ts-toolkit on all fixtures in `/spike/reader`. Score each on:
+1. Paginated single, paginated spread and scroll modes.
+2. Changing font size or family keeps the first visible Word on screen.
+3. A decorations API (or access to the iframe) usable for highlights and narration, ideally via the CSS Custom Highlight API.
+4. Selection events mappable to Word ranges.
+5. Injecting a `<figure>` re-paginates correctly.
+6. Works inside iOS WKWebView and Android WebView via Capacitor.
+7. A 10 000-word Chapter with Word marking meets §12.3 budgets.
+8. Feasibility of a later page-curl skin.
+9. Licence, maintenance activity, documentation.
+10. Manifest format and how content URLs resolve (must work with both local blob URLs and the §10.3 path-prefix tokens).
+
+If both fail, consider a minimal in-house CSS-columns paginator over our own sanitised XHTML, and record why.
+
+Acceptance:
+- [ ] `docs/adr/ADR-001-reader-engine.md` with scores, the chosen engine and manifest format.
+
+#### P0-05 Spike: Word marking (resolves OPEN-13)
+Depends on: P0-04
+Compare on the fixtures:
+- **A. Word spans:** wrap every Word in `<span data-w="{wordId}">`. Simple DOM ↔ WordId mapping; adds one element per Word.
+- **B. Block index + offsets:** only Blocks carry `data-b`; the word index stores each Word's character offsets in its Block, and `reader-core` builds DOM Ranges at runtime. Leaves the DOM untouched; mapping depends on identical text normalisation at ingest and render.
+
+Measure DOM size, file size growth, layout time, highlight cost, and whether VoiceOver and TalkBack read the text naturally.
+
+Acceptance:
+- [ ] `docs/adr/ADR-002-word-marking.md`, including the word index format.
+
+#### P0-06 Spike: narration alignment
+Depends on: P0-01
+- Run whisper.cpp on two LibriVox chapters of *Alice*; implement a minimal Needleman–Wunsch aligner in `packages/alignment`.
+- Report coverage, CPU time per hour of audio, and recommended model size.
+
+Acceptance:
+- [ ] Coverage ≥ 0.95 on clean narration of the matching text.
+- [ ] `docs/adr/ADR-003-alignment.md`, including hosting implications (CPU vs GPU) for Phase 3.
+
+#### P0-07 Spike: mobile platform capabilities
+Depends on: P0-03
+- Background audio with lock-screen controls on iOS and Android.
+- Long-press text selection inside the reader iframe with our own floating toolbar.
+- Importing a file from the device into the app; safe-area handling.
+
+Acceptance:
+- [ ] `docs/adr/ADR-004-mobile-platform.md`, naming the plugins used and any limitations.
+
+**Phase 0 exit:** ADR-001 to ADR-004 accepted; *Alice* readable on web, iOS and Android, with a font-size change keeping position; CI green.
+
+### 13.2 Phase 1 — Local-first proof of concept
+
+No backend. Everything is stored on the device through `Stores`.
+
+**Library and ingestion**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-ING-01 | `text-pipeline`: validate, sanitise, mark Blocks, tokenise, assign WordIds and Ordinals, emit word index and manifest (§7.1) | ADR-001, ADR-002 | Golden-file tests pass for all fixtures; output is byte-identical across runs; scripts and external resources removed |
+| P1-ING-02 | Local library: bundled sample, "Import EPUB" on web and mobile, processing in a Web Worker with progress, import report | P1-ING-01, P0-07 | A 150 000-word EPUB imports within budget; a corrupt EPUB shows a readable reason; re-importing the same file is a no-op |
+| P1-ING-03 | Re-import as new Revision, with WordId carry-forward and local `migrate-anchors` (§6.2) | P1-ING-02, P1-RDR-06 | Editing one paragraph keeps all other Annotations on the same WordIds; an Annotation on deleted text is re-found by quote if moved, else shown as orphaned |
+
+**Reader**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-RDR-01 | Engine adapter implementing `ReaderEngine`; Anchor ↔ Locator mapping | ADR-001, ADR-002 | Unit tests round-trip Anchors through Locators for every fixture |
+| P1-RDR-02 | Reader shell and navigation (§9.2), TOC, scrubber, "back" | P1-RDR-01 | Every input in §4.1 works; "back" returns to the pre-jump position |
+| P1-RDR-03 | Layout modes including `auto`; page-turn animations | P1-RDR-02 | Switching modes keeps the first visible Word on screen; reduced motion forces `none` |
+| P1-RDR-04 | Reader Preferences UI, persistence, per-Book overrides, live apply, pinch-to-zoom (§9.4) | P1-RDR-02, P1-UI-01 | Every setting re-lays out within budget and keeps position |
+| P1-RDR-05 | Reading Progress: save, resume, furthest position (§9.5) | P1-RDR-02 | Closing and reopening resumes at the same Word |
+| P1-RDR-06 | Selection toolbar, Annotations, notes panel, export (§9.3) | P1-RDR-01 | Works with mouse, keyboard and long-press; selections snap to whole Words; export is valid Markdown with chapter headings |
+| P1-RDR-07 | Placed Bookmarks with the default Bookmark Design | P1-RDR-06 | Unlimited bookmarks; drawn as ribbons; survive font changes |
+| P1-RDR-08 | Styled block theming (§9.6) | P1-RDR-04 | The status-window fixture meets AA contrast in light, dark and sepia |
+
+**Layers demo**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-LAY-01 | Local Layer format (JSON manifest + files) and loader; `layerSelection` store | P0-02 | The Tenniel pack and the narration demo load from static files |
+| P1-LAY-02 | Illustrations: all four modes (`popup` default, `per-page`, `spread`, `in-text`), current-Illustration rule, new-picture dot, first-use hint, lightbox (§8.2) | P1-LAY-01, P1-RDR-03 | No mode ever shows an Illustration anchored after the last visible Word; switching modes keeps position; `in-text` re-paginates correctly after injection; works at compact, medium and expanded widths |
+| P1-LAY-03 | `tools/align` CLI and Sync Maps for the first 3 chapters of *Alice* (§7.2) | ADR-003 | Coverage ≥ 0.95 per chapter |
+| P1-LAY-04 | Narration player: highlighting, auto-turn, tap-to-seek, speed, background playback (§8.3) | P1-LAY-03, ADR-004 | Highlight within 100 ms of the audio; plays with the screen locked on iOS and Android |
+| P1-LAY-05 | Local placement tool prototype: select text → "Attach illustration" → image, placement, alt text | P1-LAY-02 | Placements are stored as Anchors and survive re-import of an edited Revision |
+
+**UI and mobile**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-UI-01 | Theme generation and tokens (§11.2); migrate existing token names | P0-02 | Same seed/mode/contrast → same tokens; every text role meets AA |
+| P1-UI-02 | Component set (§11.4) | P1-UI-01, OPEN-02 | Each component has keyboard, focus and reduced-motion tests |
+| P1-UI-03 | App navigation, responsive layout, Settings with theme customisation (§11.5) | P1-UI-02 | Correct at compact, medium and expanded widths; theme changes apply instantly |
+| P1-MOB-01 | iOS and Android builds of the whole Phase 1 flow; icons and splash | P0-07, P1-LAY-04 | Device checklist passes |
+
+**Phase 1 exit (automated on web, manual on devices):**
+A reader opens *Alice*, changes font size and layout (position kept), opens Illustrations from the pop-up button and tries the other modes, turns on narration, listens through a chapter with the screen locked while pages turn, highlights a sentence with a note, places three bookmarks, closes the app and resumes at the same Word. Re-importing an edited copy of the EPUB keeps their notes.
+
+### 13.3 PoC review (go/no-go)
+
+Put the PoC in front of 5–10 readers from the launch audience, including some who describe themselves as reluctant readers, and the owner's own beta readers.
+
+- **Observe:** do they turn on illustrations and narration unprompted? Do they keep them on? Does narration with highlighting help them keep going? Does anything feel slow or confusing?
+- **Ask:** would they read the launch title this way? What would they pay for?
+- **Decide and record in §16:** go/no-go on Phase 2; confirm or change the Proposed backend stack (§5.2); hosting (OPEN-06); whether ambient audio stays Parked.
+
+### 13.4 Phase 2 — Platform (detail before starting)
+
+| ID | Task | Depends on |
+|---|---|---|
+| P2-OPS-01 | `apps/api` (Hono, `/v1/health`, error middleware, Zod helper), `apps/worker` (pg-boss), `packages/db` (Drizzle), `docker-compose.yml` (Postgres, MinIO), `.env.example` | PoC review |
+| P2-AUTH-01 | Sign-in (email magic link, Google, Apple) on web and both mobile platforms; API upserts `users` | P2-OPS-01 |
+| P2-SYNC-01 | `storage-remote`: outbox, incremental pull, conflict rules, "keep my local data" on first sign-in (§6.3) | P2-AUTH-01 |
+| P2-ING-01 | Presigned uploads, `ingest-epub` job reusing `text-pipeline`, ingest report, preview, publish | P2-OPS-01 |
+| P2-ING-02 | Server `migrate-anchors` on publish; orphan notifications | P2-ING-01 |
+| P2-CAT-01 | Creator profiles, Book management, public Book page, catalogue | P2-AUTH-01 |
+| P2-CAT-02 | Products and Entitlements (free claim), default Bookmark Design, cloud Library | P2-CAT-01 |
+| P2-CAT-03 | `POST /books/:id/open`, content tokens, `/v1/content` delivery | P2-CAT-02, P2-ING-01 |
+| P2-RDR-01 | Cross-device progress prompt | P2-SYNC-01 |
+| P2-ACC-01 | Account deletion and data export | P2-AUTH-01 |
+| P2-MOD-01 | AI-use question at upload and labels on store pages; "hide AI content" reader setting; Flag rules `upload_volume`, `ai_untagged_suspected`, `report`, `rapid_new_account`; held-for-review state; admin review queue and action log; author view of Flags on their own Books (§10.6) | P2-ING-01, P2-CAT-01 |
+| P2-OPS-02 | Staging: API and worker containers, managed Postgres, R2, web on CDN, Sentry, backups, analytics (§10.5) | P2-OPS-01 |
+
+**Phase 2 exit:** an author uploads the launch-title EPUB, reviews the ingest report and publishes. A reader signs up (bringing their PoC notes with them), adds the Book to their library, reads and annotates on one device and carries on at the same Word on another. The author publishes a Revision that edits one paragraph; the reader's other notes and bookmarks are unaffected.
+
+### 13.5 Phase 3 — Official Layers (outline)
+
+- Illustration Packs: upload, `process-image`, the placement tool from P1-LAY-05 in Creator mode, rendering through content tokens.
+- Narration: per-Chapter audio upload, `transcode-audio`, `align-narration` with the creator review screen, re-alignment when a Revision is published (`stale` → `ready`).
+- Layer selection UI with official Layers on by default; several packs in priority order.
+- Stretch: in-book search; device text-to-speech fallback; DOCX/Markdown import via Pandoc.
+
+**Exit:** the launch title has an official Illustration Pack and official narration for at least three Chapters, toggleable on web, iOS and Android.
+
+### 13.6 Phase 4 — Commerce (outline)
+
+- Stripe Checkout on web; paid Products; receipts.
+- Tips to Creators, optionally linked to a Book, with an optional message.
+- Creator Subscriptions (Stripe Billing): Creators set up monthly plans with benefits such as early-access chapters; readers subscribe and cancel in one tap from the Creator's profile or a Book page; benefits end with the paid period; purchases are never affected.
+- Stripe Connect payouts for authors (tips, subscriptions and sales of their own Books and Layers).
+- Bundles, with "Complete edition" (Book + official Layers) as the default purchase on the Book page.
+- Covers and Bookmark Designs as cosmetic Products; a simple cosmetics shop.
+- Refund policy based on `furthest_progression`.
+- Early-access chapters for serials (OPEN-10).
+- Tax handling (OPEN-04) and mobile purchasing (OPEN-05).
+- AI narration as a creator option, labelled under §10.6.
+- Evaluate watermarking.
+
+### 13.7 Phase 5 — Community and Phase 6 — Discovery and retention (outline)
+
+**Phase 5:** community creator onboarding and payouts with an earnings ledger; author settings for `community_policy` and `community_ai`; community Pack and Track submission (free or paid) → author approval (if required) → moderation → listing; author curation tools for community content (§10.6); image moderation API; takedowns; revenue splits (OPEN-08); "Author-endorsed" badge; per-Book hub with ratings; creator profiles.
+
+**Phase 6:** server-rendered store pages; reviews showing how far the reviewer read; wishlists and sale alerts; author analytics (drop-off by Chapter, Layer usage); serial release schedules and follower notifications; spoiler-safe recap and glossary; paragraph comments; popular highlights; share quote; reading time estimates; focus mode; tap-to-define; stats and achievements; offline downloads; overview mode; page-curl skin; sleep timer; advanced custom colours.
+
+### 13.8 Parked (do not build without explicit approval)
+
+- Ambient audio and sound-effect cues (§8.4).
+- Random bookmark drops, trading or any loot-box mechanic.
+- Heavy DRM (Readium LCP).
+- A native (non-WebView) reader.
+- Fixed-layout books (picture books, comics) and facing-page Illustrations in spread mode.
+- Maps and character art cards.
+- Reading groups, real-time co-reading or chat.
+- Bionic-style reading aids.
+
+---
+
+## 14. Success metrics
+
+**PoC (qualitative, §13.3):** testers enable Layers unprompted and keep them on; they say they would read the launch title this way; no blocking usability or performance problems.
+
+**Platform (measured from Phase 2):**
+
+| Metric | Definition |
+|---|---|
+| Activation | Share of new readers who get past the first Chapter |
+| Completion | Book completion rate, with Layers vs without (the core bet) |
+| Feature use | Share of reading sessions with illustrations on, and with narration on |
+| Retention | Readers returning weekly |
+| Creator health | Active authors, official and community Layers published, author satisfaction |
+
+---
+
+## 15. Competitive landscape
+
+| Product | Overlap | Difference |
+|---|---|---|
+| **Kindle Whispersync / Immersion Reading** | Ebook and narration in sync | Needs a separate Audible purchase; no illustrations; closed ecosystem |
+| **Apple Books read-along** | Narration with highlighting | Limited titles; Apple devices only |
+| **Storyteller** (open source) | Aligns your own ebooks and audiobooks | Self-hosted, bring-your-own files; no store, illustrations or community |
+| **Booktrack** | Soundtracks paced to reading position | Audio only; retired its ebook platform in 2019. Lesson: extra audio must be optional and finely controlled |
+| **Wattpad, Royal Road, Webnovel, Tapas** | Serial fiction, community, comments | Plain-text readers; no illustration packs or synced narration |
+| **Webtoon** | Visual storytelling | Comics rather than prose |
+| **Scribd / Everand** | Ebooks and audiobooks in one subscription | Separate experiences, not synced |
+| **Internet Archive / Open Library** | Flip-book reading UI | Scanned books; no enrichment |
+
+**Differentiator:** selectable, author- and community-made illustration packs together with synced narration, in one reader, built for the web-fiction authors who own their rights.
+
+---
+
+## 16. Decision log
+
+| ID | Decision | Status |
+|---|---|---|
+| D-001 | npm workspaces, TypeScript strict, `@book/*` scope | Accepted (owner preference) |
+| D-002 | Svelte 5 + SvelteKit built as an SPA; the same build wrapped by Capacitor for iOS/Android | Accepted |
+| D-003 | No backend until the PoC review; all persistence behind `Stores` | Accepted (owner decision) |
+| D-004 | Backend: Hono API, Postgres + Drizzle, pg-boss, R2, Supabase Auth; clients never touch the database | Proposed — confirm at PoC review |
+| D-005 | Everything attaches via Anchors (WordIds for identity, Ordinals for order, text quote for recovery); no stored pages, CFIs or offsets. Replaces the v0.1 CFI + paragraph + offset Locator | Accepted |
+| D-006 | "Revision" replaces "edition"; "Illustration Pack" replaces "illustration set" | Accepted |
+| D-007 | EPUB is the only import format until Phase 3 | Accepted |
+| D-008 | "Steam for books": every purchasable is a Product (Books, Packs, narration, Bookmark Designs usable in any Book, Bundles); community content free or paid; Tips; Creator Subscriptions instead of Patreon; no platform-wide subscription; access only via Entitlements | Accepted (model from Phase 2, money from Phase 4) |
+| D-009 | Material 3 colour system and tokens with our own brand; user-customisable seed, mode and contrast; high contrast is a contrast level; UI font Arial Rounded MT where installed, Nunito fallback | Accepted |
+| D-010 | Community content default `closed`; the author controls policy | Accepted |
+| D-011 | Narration before anything else audio; ambient audio Parked | Accepted |
+| D-012 | Illustrations: reader chooses `popup` (default), `per-page` (left panel), `spread` (wide area above, for double-page art) or `in-text` (creator placements), or off | Accepted |
+| D-013 | Page turns: none / slide / fade now; page curl later as a skin | Accepted |
+| D-014 | The PoC uses *Alice* only (Tenniel illustrations, LibriVox narration); status windows tested with a hand-made fixture | Accepted |
+| D-015 | Reader engine | Pending ADR-001 |
+| D-016 | Word marking (spans vs offsets) and word index format | Pending ADR-002 |
+| D-017 | Alignment model and hosting | Pending ADR-003 |
+| D-018 | Mobile audio, selection and file plugins | Pending ADR-004 |
+| D-019 | AI-generated content allowed but must be labelled; readers can hide it; authors can refuse it on their Books (§10.6). Resolves the former OPEN-09 | Accepted |
+| D-020 | Automatic Flags (upload volume, suspected unlabelled AI, reports, new accounts) with a manual admin review queue and author curation tools, from Phase 2 (§10.6) | Accepted |
+
+---
+
+## 17. Open questions
+
+| ID | Question | Resolve by |
+|---|---|---|
+| OPEN-01 | foliate-js or Readium ts-toolkit? | P0-04 |
+| OPEN-02 | Components: wrap `m3-svelte`, or build our own on headless Bits UI primitives styled with our tokens? Check maintenance, Svelte 5 support and theming. Recommendation: evaluate `m3-svelte` first; fall back to Bits UI | Before P1-UI-02 |
+| OPEN-03 | Keep content delivery in the API or move it to an edge worker? | When traffic justifies it; before Phase 4 |
+| OPEN-04 | Stripe + Stripe Tax, or a merchant of record for digital-goods VAT/sales tax, given creator payouts later? | Before Phase 4 |
+| OPEN-05 | Mobile purchasing. Default: "reader app" model (buy on the web, read anywhere, as the Kindle app does). Store rules are changing: as recorded on 11 Oct 2026, US iOS link-outs carry no Apple commission while a court sets a fee (Apple has proposed 5–15%), and Google has cut its rate to 10%. Re-check before deciding | Before Phase 4 |
+| OPEN-06 | Hosting for API and worker (the worker needs ffmpeg and whisper.cpp; GPU per ADR-003) | PoC review |
+| OPEN-07 | Product name and brand seed colour | Before public launch |
+| OPEN-08 | Revenue splits: platform fee on sales, Tips and Creator Subscriptions; split between author and community creator on community Layers; can authors set price limits for community Layers on their Books? | Before Phase 4 |
+| OPEN-09 | *Resolved by D-019.* Remaining detail: which AI-detection services to use for text and images, and their thresholds | Before P2-MOD-01 |
+| OPEN-10 | Chapter-range Products for early-access serial chapters | Before Phase 4 |
+| OPEN-11 | *Resolved by D-008* (no platform-wide subscription; Creator Subscriptions instead). Remaining detail: Creator Subscription rules: plan limits, refunds, what happens to early-access benefits when a serial finishes | Before Phase 4 |
+| OPEN-12 | Age policy and content-rating scheme | Before Phase 5 |
+| OPEN-13 | Word marking: spans or offsets? | P0-05 |
+
+---
+
+## 18. Risks
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| The core bet is wrong | Months spent on a platform nobody wants | Local-first PoC with public-domain content; go/no-go review before any hosting spend |
+| Two-sided marketplace cold start | No readers without books; no authors without readers | Launch with the owner's own title; target web-serial and indie authors who own their rights; free-first Phase 2; personal EPUB import gives readers a reason to stay |
+| Alignment quality on real narration | Bad highlighting ruins the main feature | Spike P0-06; coverage threshold; creator review screen |
+| WebView reader performance on low-end Android | Sluggish page turns, battery drain | Budgets in §12.3 measured from Phase 0; engine and Word marking chosen partly on them; Chapter virtualisation |
+| Anchor drift when authors edit | Notes and illustrations in the wrong place | WordId carry-forward, text-quote recovery, orphan handling (§6.2) |
+| Local PoC data lost on browser storage eviction | Testers lose notes | Request persistent storage (`navigator.storage.persist()`); Markdown export; clear wording that data lives on this device |
+| Rights disputes over community content | Legal exposure, author distrust | Default `closed`; approval flow; takedown process; licences recorded per Layer |
+| Moderation workload | Unsafe content, solo bandwidth swamped | Community is Phase 5; automated screening first; author controls; reporting |
+| App store policy changes | Fees or rejection | Web-first sales; reader-app model; OPEN-05 |
+| Too many purchase choices | Undermines the low-friction pitch | "Complete edition" default; official Layers on by default |
+| Narration and AI costs at scale | Margins disappear | Generated once per Revision, never per reader; author-supplied recordings first |
+| AI detectors wrong | Honest creators held up, or unlabelled AI slips through | Detector scores only ever trigger human review, never automatic removal; appeals; the volume rule catches bulk uploads regardless |
+| Recurring payments complexity | Failed renewals, refunds, tax on subscriptions | Stripe Billing and Connect handle renewals and payouts; Creator Subscriptions launch after one-off purchases work; OPEN-04 settles tax |
+| Pop-up default hides the showpiece | Readers never discover Illustrations | One-off hint on first open; new-picture dot; PoC review checks whether testers find it |
+| Scope creep / solo bandwidth | Nothing ships | Strict phases, Parked list, exit reviews, PoC before platform |
+
+---
+
+## Appendix A — How the two drafts were combined
+
+| Topic | `design-doc.md` (28 Sep) | `DESIGN.md` (11 Oct) | This document |
+|---|---|---|---|
+| Purpose | Product vision and features | Engineering plan for agents | Both: §1 and §4 from the first, §0, §2, §3, §6–§13 mostly from the second |
+| Package manager | — | pnpm + Turborepo | **npm**, as in the repo and the owner's stated preference |
+| Backend timing | Supabase from the start | Hono API from Phase 0 | **None until the PoC review**; the second draft's backend kept as the Phase 2 plan, marked Proposed |
+| Mobile | Non-goal (PWA instead) | Capacitor | **Capacitor** (matches the repo) |
+| Anchoring | CFI + paragraph ID + char offset (implemented in code) | WordIds + text quote | **WordIds + Ordinals + text quote.** Ordinals keep the first draft's insight (the code's `paragraphIndex`) that anchors must be orderable without loading the book; the second draft's WordIds alone can't be ordered after a Revision inserts text |
+| Versions | Edition | Revision | **Revision** |
+| Illustrations | Panel showing the latest image at or before the reader | Inline / full-page / rail ("rail" shown only while its anchor is visible) | **Owner's four modes:** pop-up button (default), per-page panel on the left, spread area above for double-page art, in-text placements. Keeps the first draft's "latest picture so far" rule and the second draft's inline and full-page placements |
+| Audio | Narration + ambient (four channels, AI scene tagging) | Narration only; ambient Parked | **Narration first; ambient Parked**, with the first draft's ambient design kept in §8.4 for if it returns |
+| AI | TTS, scene tagging, recaps, glossary | Policy open | Allowed but labelled, with automatic Flags, an admin review queue and author curation tools from Phase 2 (§10.6); AI features are later, author-reviewed suggestions (§7.4) |
+| Page turns | Realistic curl by default | None / slide / fade; curl in Phase 5 | **Slide by default**; curl kept as a later skin |
+| View modes | Single, spread, 4-up overview, scroll | Single, spread, scroll; overview later | Single, spread, scroll; overview in Phase 6 |
+| Zoom | Font scale for text; real zoom for fixed layout | Lightbox only | Pinch maps to font scale; lightbox for images; fixed layout Parked |
+| Design system | Own tokens, Bits UI, direction TBD | Material 3 | **M3 colour system and tokens with our own brand** (UI font Arial Rounded MT where installed, Nunito fallback) and the first draft's two-layer principle; Bits UI kept as the fallback in OPEN-02 |
+| Themes | Light, sepia, dark, high contrast, custom | Mode + seed + contrast levels | Mode + seed + contrast (high contrast becomes a level); advanced custom colours later |
+| Monetisation | Cosmetic bookmark designs; model open | Products + Entitlements, Bundles | "Steam for books": Products + Entitlements, community content free or paid, Tips, Creator Subscriptions instead of Patreon, no platform-wide subscription |
+| Spoiler gating | `max_locator` | `furthest_progression` | **Both:** furthest Anchor for gating, furthest progression for reviews and refunds |
+| Roadmap | Reader → Audio → Community → Monetisation → Stretch | Foundations → Reader + publishing → Layers → Commerce → Community → Steam | Foundations → **local PoC** → PoC review → Platform → Layers → Commerce → Community → Discovery |
+| Only in the first | Personas incl. moderator, competitive landscape, success metrics, content ratings, UK GDPR, rich stretch list | | Kept (§1.4, §15, §14, §10.4, §10.5, §4) |
+| Only in the second | | Glossary, invariants, ReaderEngine interface, ingestion and alignment pipelines, content tokens, Definition of Done, task IDs, ADRs | Kept, adapted to the repo |
+| New in this version | | | Local-first sync rules (§6.3), runtime placement of shared packages (§5.4), Word-marking spike with the CSS Custom Highlight API (§9.1, P0-05), PoC Layers demo with public-domain content, PoC review gate, import performance budget, storage eviction risk |
+
+## Appendix B — Changes needed to the current groundwork (task P0-02)
+
+| Where | Now | Change to |
+|---|---|---|
+| `packages/core/src/locator.ts` | `Locator` (`editionId`, `cfi`, `paragraphId`, `paragraphIndex`, `charOffset`, `textQuote`), `TextRange` | `anchor.ts` with `PointAnchor` / `RangeAnchor` (§6.1). Keep the helper functions, re-implemented on Ordinals |
+| `packages/core/src/models.ts` | `Bookmark`, `Annotation`, `ReadingProgress` (`maxLocator`), `Illustration`, `IllustrationSet` | `PlacedBookmark`, `Annotation` (highlight with optional note, rather than a `kind` field), `ReadingProgress` (current + furthest Anchor and progression), `Illustration` (+ `placement`, required `alt`), `IllustrationPack`. Add `deletedAt` to user records |
+| `packages/core/src/settings.ts` | `ReaderSettings`: themes incl. `high-contrast`; fonts `serif`/`sans`/`dyslexic`; view mode incl. `overview`; transition default `curl` | `ReaderPreferences` (§9.4): theme mode + contrast + seed; curated font IDs; no `overview`; `pageTurn` default `slide` |
+| `packages/core/src/storage.ts` | `Stores` with bookmarks, annotations, progress, settings | Add `library`, `layerSelection`, `localLayers`; rename to match the glossary |
+| `packages/storage-local` | IndexedDB v1; `crypto.randomUUID()` | v2 with an upgrade step (dropping v1 data is acceptable: no real users yet); UUIDv7 |
+| `packages/tokens` | `--color-*` tokens, 4 hand-written themes, `--touch-target: 44px` | M3 role tokens generated from a seed (§11.2); `--font-ui` per §11.3 with self-hosted Nunito; `--touch-target: 48px`; keep `--reader-*`, `--safe-*`, spacing, radius and motion tokens |
+| `apps/web` reader page | Illustration panel placeholder, settings popover | Unchanged in shape; wired to `reader-core` in Phase 1 |
+| `README.md` and code comments | Link to `docs/design-doc.md` and its section numbers (§3.2, §3.5, §5.3, §6.3, §6.4) | Link to this document and its sections |
+
+## Appendix C — `AGENTS.md` template (repo root)
+
+```md
+# AGENTS.md
+
+Read docs/DESIGN.md §0–§3 before any task. Glossary terms and Invariants are binding.
+Find your task ID in docs/DESIGN.md §13; check its dependencies and any OPEN items it touches.
+Current stage: local-first proof of concept. No backend; all persistence goes through Stores in @book/core.
+
+## Commands
+npm install
+npm run dev              # web app at localhost:5173
+npm run check            # svelte-check + tsc
+npm run lint
+npm test
+npm run test:e2e
+npm run build
+npm run cap:sync | cap:ios | cap:android   (from apps/web)
+
+## Rules
+- One task ID per branch/PR (branch: p1-rdr-04-preferences).
+- Svelte 5 runes only. TypeScript strict. Types and schemas live in @book/core.
+- Never import the reader engine outside packages/reader-core.
+- Never store page numbers, CFIs or offsets; attach everything with Anchors.
+- Never bundle or self-host Arial Rounded MT (commercial font); use it only via the font stack, with Nunito as the fallback.
+- Never resolve an OPEN-xx item silently; propose it in the PR.
+- Meet the Definition of Done in docs/DESIGN.md §12.5.
+```
+
+If you use Claude Code, a `CLAUDE.md` containing the single line `@AGENTS.md` pulls these instructions in.

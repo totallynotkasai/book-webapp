@@ -1,7 +1,7 @@
 /*
- * Design tokens (design doc §6.3).
+ * Design tokens (design doc §11.2).
  * Themes are only token overrides, applied with data-theme on any element (usually <html>).
- * Visual direction is still to be decided (§6.4), so colours and typefaces are placeholders.
+ * Colours and typefaces are placeholders until the Material 3 token migration (§11, task P1-UI-01).
  */
 
 :root {

@@ -1,7 +1,8 @@
 # Book Reader
 
 An interactive ebook reader where the text, illustrations and audio stay in sync.
-See [docs/design-doc.md](docs/design-doc.md) for the full design.
+See [docs/DESIGN.md](docs/DESIGN.md) for the full design, and [AGENTS.md](AGENTS.md) for the rules
+coding agents follow.
 
 **Current stage:** proof of concept. No backend: everything runs in the browser and
 reading data (settings, bookmarks, notes, progress) is stored locally in IndexedDB.
@@ -42,7 +43,8 @@ framework- or platform-specific, so it can be reused by a mobile shell, a backen
 ## Architecture rules
 
 - **Never store page numbers.** Everything attached to the text uses a `Locator` or
-  `TextRange` from `@book/core` (design doc §5.3). Pages are recalculated whenever
+  `TextRange` from `@book/core`, which are being replaced by word-based Anchors (design doc §6.1,
+  task P0-02). Pages are recalculated whenever
   the layout changes.
 - **The app talks to storage only through the interfaces in `@book/core`.** The implementation
   is chosen in one place, `apps/web/src/lib/services.ts`. Adding a backend means writing a new
