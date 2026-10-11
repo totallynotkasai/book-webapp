@@ -87,8 +87,8 @@
 
 <style>
 	.reader {
-		display: grid;
-		grid-template-rows: auto auto 1fr auto;
+		display: flex;
+		flex-direction: column;
 		height: 100dvh;
 		padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
 	}
@@ -156,6 +156,7 @@
 
 	/* Narrow screens: illustration above the book. */
 	.body {
+		flex: 1;
 		display: grid;
 		grid-template-rows: minmax(8rem, 30%) 1fr;
 		min-height: 0;
