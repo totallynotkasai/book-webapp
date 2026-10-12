@@ -55,6 +55,9 @@ export interface FigureInjection {
 	srcset?: string;
 	alt: string;
 	caption?: string;
+	/** The image's size, so its space is kept while it loads and the pages don't shift. */
+	width?: number;
+	height?: number;
 }
 
 export interface TypographySettings {
@@ -141,8 +144,13 @@ export interface ReaderEngine {
 
 	/** Replaces a group's decorations (e.g. `annotations`, `narration`). */
 	setDecorations(group: string, items: Decoration[]): void;
-	/** Replaces all injected figures (`in-text` Illustrations, §8.2). */
+	/** Replaces all injected figures (`in-text` Illustrations, §8.2); re-paginates, keeping place. */
 	injectFigures(items: FigureInjection[]): void;
+	/**
+	 * Re-lays out around a change to the element the book is mounted in (a panel opening beside
+	 * it), keeping the first visible Word on screen (§9.1). `change` makes the change.
+	 */
+	relayout(change: () => void | Promise<void>): Promise<void>;
 
 	getVisibleRange(): VisibleRange | null;
 	/**
