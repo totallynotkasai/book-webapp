@@ -43,7 +43,7 @@
 			label: 'Your data',
 			description: 'What’s stored on this device; export or delete it',
 			icon: 'download',
-			phase: '1.3',
+			href: resolve('/you/data'),
 			show: true
 		},
 		{

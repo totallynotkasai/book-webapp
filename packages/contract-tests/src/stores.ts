@@ -199,6 +199,106 @@ export function describeStoresContract(name: string, makeStores: MakeStores): vo
 			});
 		});
 
+		describe('export and delete (P1-APP-04)', () => {
+			async function fill() {
+				await stores.library.putBook({
+					id: 'book-1',
+					title: 'Alice',
+					lang: 'en',
+					currentRevisionId: 'sha-1',
+					source: 'import'
+				});
+				await stores.library.putRevision({
+					id: 'sha-1',
+					bookId: 'book-1',
+					chapterCount: 1,
+					wordCount: 3
+				});
+				await stores.library.putFile('sha-1', 'manifest.json', new Blob(['{}']));
+				const annotation = await stores.annotations.create({
+					bookId: 'book-1',
+					anchor: rangeAnchor('book-1', 0, 2),
+					anchorStatus: 'ok',
+					colour: 2,
+					note: 'Curious'
+				});
+				const removed = await stores.annotations.create({
+					bookId: 'book-1',
+					anchor: rangeAnchor('book-1', 0, 2),
+					anchorStatus: 'ok',
+					colour: 1
+				});
+				await stores.annotations.remove(removed.id);
+				await stores.placedBookmarks.create({
+					bookId: 'book-1',
+					anchor: pointAnchor('book-1', 1),
+					anchorStatus: 'ok'
+				});
+				await stores.progress.save({
+					bookId: 'book-1',
+					current: pointAnchor('book-1', 1),
+					progression: 0.1,
+					furthest: pointAnchor('book-1', 1),
+					furthestProgression: 0.1
+				});
+				await stores.preferences.save({ fontScale: 1.2 });
+				await stores.preferences.save({ justify: true }, 'book-1');
+				await stores.layerSelection.save({
+					bookId: 'book-1',
+					illustrationPackIds: ['pack-a'],
+					narrationTrackId: null
+				});
+				return { annotation, removed };
+			}
+
+			it('exports every record, deleted ones marked, and lists files without their bytes', async () => {
+				const { annotation, removed } = await fill();
+				const snapshot = await stores.exportAll();
+				expect(snapshot).toMatchObject({ format: 'book-reader-data', version: 1 });
+				expect(snapshot.libraryBooks.map((b) => b.id)).toEqual(['book-1']);
+				expect(snapshot.libraryRevisions.map((r) => r.id)).toEqual(['sha-1']);
+				expect(snapshot.libraryFiles).toEqual([
+					{ revisionId: 'sha-1', path: 'manifest.json', type: '', bytes: 2 }
+				]);
+				expect(snapshot.annotations.map((a) => a.id).sort()).toEqual(
+					[annotation.id, removed.id].sort()
+				);
+				expect(snapshot.annotations.find((a) => a.id === removed.id)?.deletedAt).not.toBeNull();
+				expect(snapshot.placedBookmarks).toHaveLength(1);
+				expect(snapshot.progress.map((p) => p.bookId)).toEqual(['book-1']);
+				expect(snapshot.preferences).toEqual(
+					expect.arrayContaining([
+						{ bookId: null, preferences: { fontScale: 1.2 } },
+						{ bookId: 'book-1', preferences: { justify: true } }
+					])
+				);
+				expect(snapshot.layerSelection.map((l) => l.bookId)).toEqual(['book-1']);
+				// It's plain data: it survives a JSON round trip unchanged.
+				expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot);
+			});
+
+			it('deletes everything, and the Stores keep working afterwards', async () => {
+				await fill();
+				await stores.deleteAll();
+				const empty = await stores.exportAll();
+				for (const key of [
+					'libraryBooks',
+					'libraryRevisions',
+					'libraryFiles',
+					'annotations',
+					'placedBookmarks',
+					'progress',
+					'preferences',
+					'layerSelection'
+				] as const) {
+					expect(empty[key], key).toEqual([]);
+				}
+				expect(await stores.library.getFile('sha-1', 'manifest.json')).toBeUndefined();
+				await stores.preferences.save({ fontScale: 1.1 });
+				expect(await stores.preferences.get()).toEqual({ fontScale: 1.1 });
+			});
+		});
+
 		it('returns independent stores on every call', async () => {
 			await stores.annotations.create(annotationInput('book-1'));
 			const other = await makeStores({ clock });

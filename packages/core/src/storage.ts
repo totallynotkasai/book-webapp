@@ -12,6 +12,7 @@ import type {
 	PlacedBookmark,
 	ReadingProgress
 } from './models';
+import type { Timestamp } from './ids';
 import type { ReaderPreferencesPatch } from './preferences';
 
 type ManagedFields = 'id' | 'createdAt' | 'updatedAt' | 'deletedAt';
@@ -85,6 +86,26 @@ export interface LayerSelectionStore {
 	save(selection: NewRecord<LayerSelection>): Promise<LayerSelection>;
 }
 
+/**
+ * Every record the Stores hold, for "Export all data" (P1-APP-04, DESIGN.md §18). Soft-deleted
+ * records are included with their `deletedAt` (they're kept until sync confirms, §6.3). A Book's
+ * processed files are listed, not included: the EPUB they came from can be imported again.
+ */
+export interface StoresSnapshot {
+	format: 'book-reader-data';
+	version: 1;
+	exportedAt: Timestamp;
+	libraryBooks: LibraryBook[];
+	libraryRevisions: LibraryRevision[];
+	libraryFiles: { revisionId: string; path: string; type: string; bytes: number }[];
+	annotations: Annotation[];
+	placedBookmarks: PlacedBookmark[];
+	progress: ReadingProgress[];
+	/** `bookId` null for the global preferences, else that Book's overrides. */
+	preferences: { bookId: string | null; preferences: ReaderPreferencesPatch }[];
+	layerSelection: LayerSelection[];
+}
+
 /** Everything the app stores for one user, bundled so it can be swapped in one place. */
 export interface Stores {
 	library: LibraryStore;
@@ -93,4 +114,8 @@ export interface Stores {
 	progress: ProgressStore;
 	preferences: PreferencesStore;
 	layerSelection: LayerSelectionStore;
+	/** Every record, for "Export all data". */
+	exportAll(): Promise<StoresSnapshot>;
+	/** Removes every record and file ("Delete my data on this device"). */
+	deleteAll(): Promise<void>;
 }
