@@ -47,7 +47,12 @@
 	{disabled}
 >
 	{#snippet child({ props })}
-		<div {...props} class={['segmented', className]} role="radiogroup" aria-label={label}>
+		<div
+			{...props}
+			class={['segmented', className, { 'icons-only': iconsOnly }]}
+			role="radiogroup"
+			aria-label={label}
+		>
 			{#each options as option (option.value)}
 				<ToggleGroup.Item value={option.value} disabled={option.disabled}>
 					{#snippet child({ props: itemProps, pressed })}
@@ -57,11 +62,11 @@
 							class={['segment', { pressed }]}
 						>
 							{#if pressed}
-								<Icon name="check" size={18} />
+								<span class="check"><Icon name="check" size={18} /></span>
 							{:else if option.icon}
-								<Icon name={option.icon} size={18} />
+								<span class="option-icon"><Icon name={option.icon} size={18} /></span>
 							{/if}
-							{#if !iconsOnly}<span>{option.label}</span>{/if}
+							{#if !iconsOnly}<span class="text">{option.label}</span>{/if}
 						</button>
 					{/snippet}
 				</ToggleGroup.Item>
@@ -81,13 +86,14 @@
 	.segment {
 		position: relative;
 		display: inline-flex;
-		flex: 1 1 0;
+		flex: 1 1 auto;
 		align-items: center;
 		justify-content: center;
 		gap: var(--space-2);
 		min-width: 48px;
 		min-height: var(--touch-target);
 		padding: 0 var(--space-3);
+		overflow: hidden;
 		border: none;
 		border-inline-start: 1px solid var(--md-sys-color-outline);
 		background: transparent;
@@ -129,6 +135,29 @@
 		outline: 3px solid var(--md-sys-color-secondary);
 		outline-offset: -3px;
 		z-index: 1;
+	}
+
+	.text {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.option-icon,
+	.check {
+		display: inline-flex;
+	}
+
+	/* Narrow: labels matter more than icons; the filled segment still marks the choice. */
+	@media (max-width: 420px) {
+		.segmented:not(.icons-only) .option-icon,
+		.segmented:not(.icons-only) .check {
+			display: none;
+		}
+
+		.segment {
+			padding: 0 var(--space-2);
+		}
 	}
 
 	.pressed {

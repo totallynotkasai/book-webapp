@@ -24,7 +24,7 @@
 			<Tooltip.Content {side} sideOffset={6}>
 				{#snippet child({ props, wrapperProps })}
 					<div {...wrapperProps} class="wrapper">
-						<div {...props} class="tooltip">{text}</div>
+						<div {...props} role="tooltip" class="tooltip">{text}</div>
 					</div>
 				{/snippet}
 			</Tooltip.Content>

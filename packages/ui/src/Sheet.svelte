@@ -43,7 +43,10 @@
 
 	/** Swipe-down distance (px) that closes a bottom sheet. */
 	const CLOSE_DISTANCE = 80;
+	/** Movement (px) before a press becomes a drag, so taps on the header still reach buttons. */
+	const DRAG_SLOP = 8;
 	let dragStart: number | null = null;
+	let dragging = false;
 	let dragOffset = $state(0);
 	let settling = $state(false);
 
@@ -54,19 +57,27 @@
 
 	function onpointerdown(event: PointerEvent) {
 		if (placement !== 'bottom' || event.button !== 0) return;
+		if ((event.target as Element).closest('button, a, input')) return;
 		dragStart = event.clientY;
+		dragging = false;
 		settling = false;
-		(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 	}
 
 	function onpointermove(event: PointerEvent) {
 		if (dragStart === null) return;
-		dragOffset = Math.max(0, event.clientY - dragStart);
+		const distance = event.clientY - dragStart;
+		if (!dragging && distance > DRAG_SLOP) {
+			dragging = true;
+			(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+		}
+		if (dragging) dragOffset = Math.max(0, distance);
 	}
 
 	function onpointerup() {
 		if (dragStart === null) return;
 		dragStart = null;
+		if (!dragging) return;
+		dragging = false;
 		if (dragOffset > CLOSE_DISTANCE) {
 			dragOffset = 0;
 			close();

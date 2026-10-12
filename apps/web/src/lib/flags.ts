@@ -42,9 +42,9 @@ const ROUTE_FLAGS: [prefix: string, flag: FeatureFlag][] = [
 ];
 
 export function flagForRoute(routeId: string): FeatureFlag | undefined {
-	return ROUTE_FLAGS.find(
-		([prefix]) => routeId === prefix || routeId.startsWith(`${prefix}/`)
-	)?.[1];
+	// Route groups like `(app)` shape layouts, not URLs, so they never decide a flag.
+	const path = routeId.replace(/\/\([^)]+\)/g, '') || '/';
+	return ROUTE_FLAGS.find(([prefix]) => path === prefix || path.startsWith(`${prefix}/`))?.[1];
 }
 
 export function isRouteEnabled(routeId: string, current: Flags): boolean {

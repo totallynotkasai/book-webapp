@@ -21,9 +21,11 @@
 		"@book/alignment": "*",
 		"@book/backend-local": "*",
 		"@book/core": "*",
+		"@book/domain": "*",
 		"@book/reader-core": "*",
 		"@book/storage-local": "*",
 		"@book/tokens": "*",
+		"@book/ui": "*",
 		"@capacitor/android": "^8.5.2",
 		"@capacitor/core": "^8.5.2",
 		"@internationalized/date": "3.12.4",
@@ -31,6 +33,7 @@
 		"bits-ui": "2.19.3"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "4.13.0",
 		"@capacitor/cli": "^8.5.2",
 		"@playwright/test": "^1.63.0",
 		"@sveltejs/adapter-static": "^3.0.10",
