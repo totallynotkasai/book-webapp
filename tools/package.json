@@ -6,11 +6,13 @@
 	"description": "Developer tools that prepare demo Layers offline (DESIGN.md §5.4): resolve Illustration quotes to Anchors and make image variants.",
 	"scripts": {
 		"layers": "tsx src/build-packs.ts",
-		"check": "tsc -p ."
+		"check": "tsc -p .",
+		"narration": "tsx src/align.ts"
 	},
 	"dependencies": {
 		"@book/core": "*",
-		"@book/text-pipeline": "*"
+		"@book/text-pipeline": "*",
+		"@book/alignment": "*"
 	},
 	"devDependencies": {
 		"sharp": "0.35.5",

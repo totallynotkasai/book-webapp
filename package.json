@@ -21,9 +21,10 @@
 		"fixtures:epubs": "node fixtures/scripts/build-epubs.mjs",
 		"fixtures:audio": "node fixtures/scripts/download-audio.mjs",
 		"fixtures:download": "node fixtures/scripts/download-fixtures.mjs && node fixtures/scripts/download-audio.mjs",
-		"fixtures:narration": "node --experimental-transform-types --disable-warning=ExperimentalWarning tools/align-spike/align.mjs",
+		"fixtures:narration": "npm run narration -w @book/tools",
 		"layers": "npm run layers -w @book/tools",
-		"pretest": "node apps/web/scripts/ensure-layers.mjs"
+		"pretest": "node apps/web/scripts/ensure-layers.mjs",
+		"narration": "npm run narration -w @book/tools"
 	},
 	"engines": {
 		"node": ">=22"

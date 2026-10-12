@@ -1,0 +1,29 @@
+{
+	"version": 1,
+	"id": "track-alice-librivox-shallenberg",
+	"bookId": "book-alice",
+	"revisionId": "12cbc3610260503383ad7ecf800beb0d885a6011e15900b2bf61cecfc571d6c8",
+	"chapters": [
+		{
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"syncMap": "ch01.json",
+			"audio": "/demo/audio/alice/ch01.m4a",
+			"durationMs": 796286,
+			"coverage": 0.9958
+		},
+		{
+			"chapterId": "8761230412384829988_11-h-2.htm.xhtml",
+			"syncMap": "ch02.json",
+			"audio": "/demo/audio/alice/ch02.m4a",
+			"durationMs": 775122,
+			"coverage": 0.9925
+		},
+		{
+			"chapterId": "8761230412384829988_11-h-3.htm.xhtml",
+			"syncMap": "ch03.json",
+			"audio": "/demo/audio/alice/ch03.m4a",
+			"durationMs": 632446,
+			"coverage": 0.9947
+		}
+	]
+}
