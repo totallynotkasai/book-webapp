@@ -58,6 +58,6 @@ Filled in during Phase 1 from runs on the Android Studio emulator (`book_phone`:
 |---|---|---|
 | 1. Safe areas | Emulator WebView 133 (below Chromium 140): Capacitor 8 SystemBars (`insetsHandling: "css"`, the default) pads the WebView rather than drawing edge to edge, so `--safe-area-inset-*` are 0 and content sits clear of the status bar and gesture bar. The strips behind the bars show the window background, which follows the system theme rather than the app's; P1-MOB-01 sets it from the app theme. Re-check on WebView 140+ (the phone), where the WebView goes edge to edge and the tokens carry the insets | 1.1 |
 | 2. Storage | Pending | 1.3 (P1-APP-04) |
-| 3. Import | Pending | 1.2 (P1-ING-02) |
+| 3. Import | Works, with the plain file input and no plugin. On `book_compact` (API 36, WebView 133; `book_phone` was busy with another app), Import EPUB opens the system picker (DocumentsUI) at once; the first open after a cold boot takes about 5 s to draw. Picking `status-window.epub` from Downloads imports it in the worker (2 chapters, 430 words, the report) and Read now opens it; swipes turn pages. The picker remembers Downloads next time | 1.2 (P1-ING-02) |
 | 4. Background narration | Pending | 1.5 (P1-LAY-04) |
 | 5. Long-press selection | Pending | 1.3 (P1-RDR-06) |
