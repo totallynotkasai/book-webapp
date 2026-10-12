@@ -18,6 +18,7 @@ import type {
 	CreatorDto,
 	FlagDto,
 	LibraryEntryDto,
+	OpenBookDto,
 	PersonaDto,
 	SessionDto,
 	StudioBookDto
@@ -45,6 +46,19 @@ export interface CatalogueApi {
 export interface LibraryApi {
 	/** The signed-in user's Entitlements, grouped by Book. Rejects with `UNAUTHENTICATED`. */
 	list(page?: PageRequest): Promise<Page<LibraryEntryDto>>;
+}
+
+export interface ContentApi {
+	/**
+	 * Checks Entitlements first (Invariant 15) and rejects with `ENTITLEMENT_REQUIRED`; then gives
+	 * the current Revision and a content token. Rejects with `NOT_FOUND` for an unknown Book.
+	 */
+	open(bookId: string): Promise<OpenBookDto>;
+	/**
+	 * A file of the opened Revision by its path (§6.7), under the token (Invariant 16). Rejects
+	 * with `UNAUTHENTICATED` when the token is unknown or expired, `NOT_FOUND` for a missing file.
+	 */
+	read(contentToken: string, path: string): Promise<Blob>;
 }
 
 export interface StudioApi {
@@ -79,6 +93,7 @@ export interface Backend {
 	session: SessionApi;
 	catalogue: CatalogueApi;
 	library: LibraryApi;
+	content: ContentApi;
 	studio: StudioApi;
 	moderation: ModerationApi;
 	events: BackendEvents;

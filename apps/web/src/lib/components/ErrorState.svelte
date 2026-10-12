@@ -18,8 +18,8 @@
 	const message = $derived(
 		error.offline
 			? inline
-				? 'This may be out of date. Books you’ve opened still work.'
-				: 'Connect to see this. Books you’ve opened still work.'
+				? 'This may be out of date. Books you imported still work.'
+				: 'Connect to see this. Books you imported still work.'
 			: `${error.title}. ${error.message}`
 	);
 </script>

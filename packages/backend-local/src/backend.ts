@@ -22,6 +22,7 @@ import {
 	setMeta,
 	type BackendDatabase
 } from './db';
+import { createContentApi, type IngestFn } from './content';
 import { paginate } from './paging';
 import { parseSeed, type BookRecord, type Seed } from './seed';
 import {
@@ -43,6 +44,18 @@ export interface LocalBackendOptions {
 	validate?: boolean;
 	/** Randomness for latency and failures (tests pass a fixed one). */
 	random?: () => number;
+	/** Fetches a seeded Book's EPUB from its static path (the app fetches; tests read files). */
+	loadFile?: (url: string) => Promise<Uint8Array>;
+	/**
+	 * Processes a catalogue EPUB. The app runs text-pipeline in a Web Worker; the default runs it
+	 * in this thread (fine for tests).
+	 */
+	ingest?: IngestFn;
+}
+
+async function ingestInThread(bytes: Uint8Array, options: { bookId: string }) {
+	const { ingestEpub } = await import('@book/text-pipeline');
+	return ingestEpub(bytes, options);
 }
 
 /** Owner-only controls for the dev panel. Never part of `Backend`; there is no Phase 2 equal. */
@@ -194,7 +207,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 	// ---- module implementations (no simulation; that's applied below) ----
 
 	// Modules defined below this object (moderation) are added to the Backend separately.
-	const implementation: Omit<Backend, 'events' | 'moderation'> = {
+	const implementation: Omit<Backend, 'events' | 'moderation' | 'content'> = {
 		session: {
 			async current() {
 				return { user: currentUser };
@@ -327,15 +340,39 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		}
 	};
 
+	const content = createContentApi({
+		db,
+		clock,
+		requireUser,
+		loadFile:
+			options.loadFile ??
+			(async () => {
+				throw new Error('backend-local was created without loadFile, so it can’t open books.');
+			}),
+		ingest: options.ingest ?? ingestInThread
+	});
+
 	// ---- simulation and contract validation, applied to every method ----
 
-	async function simulate<T>(contract: MethodContract, args: unknown[], run: () => Promise<T>) {
+	/**
+	 * Content files are fetched like static files from a CDN (and cached by the reader), so they get
+	 * no simulated latency or random failures; offline still stops them.
+	 */
+	const UNDELAYED = new Set(['content.read']);
+
+	async function simulate<T>(
+		name: string,
+		contract: MethodContract,
+		args: unknown[],
+		run: () => Promise<T>
+	) {
 		if (simulation.offline) {
 			throw new BackendError('NETWORK_ERROR', 'You’re offline (simulated).');
 		}
+		const undelayed = UNDELAYED.has(name);
 		const { min, max } = simulation.latencyMs;
-		await delay(min + Math.round(random() * (max - min)));
-		if (simulation.failureRate > 0 && random() < simulation.failureRate) {
+		if (!undelayed) await delay(min + Math.round(random() * (max - min)));
+		if (!undelayed && simulation.failureRate > 0 && random() < simulation.failureRate) {
 			throw new BackendError('SERVER_ERROR', 'The server had a problem (simulated failure).');
 		}
 		if (validate) {
@@ -368,23 +405,28 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		return parsed.data as T;
 	}
 
-	function wrapModule<M extends object>(module: M, contracts: Record<string, MethodContract>): M {
+	function wrapModule<M extends object>(
+		moduleName: string,
+		module: M,
+		contracts: Record<string, MethodContract>
+	): M {
 		const wrapped: Record<string, unknown> = {};
 		for (const [name, contract] of Object.entries(contracts)) {
 			const method = (module as Record<string, (...args: unknown[]) => Promise<unknown>>)[name];
 			if (!method) throw new Error(`backend-local is missing ${name}`);
 			wrapped[name] = (...args: unknown[]) =>
-				simulate(contract, args, () => method.apply(module, args));
+				simulate(`${moduleName}.${name}`, contract, args, () => method.apply(module, args));
 		}
 		return wrapped as M;
 	}
 
 	const backend: Backend = {
-		session: wrapModule(implementation.session, backendContract.session),
-		catalogue: wrapModule(implementation.catalogue, backendContract.catalogue),
-		library: wrapModule(implementation.library, backendContract.library),
-		studio: wrapModule(implementation.studio, backendContract.studio),
-		moderation: wrapModule(moderation, backendContract.moderation),
+		session: wrapModule('session', implementation.session, backendContract.session),
+		catalogue: wrapModule('catalogue', implementation.catalogue, backendContract.catalogue),
+		library: wrapModule('library', implementation.library, backendContract.library),
+		content: wrapModule('content', content, backendContract.content),
+		studio: wrapModule('studio', implementation.studio, backendContract.studio),
+		moderation: wrapModule('moderation', moderation, backendContract.moderation),
 		events: { on: events.on }
 	};
 

@@ -15,10 +15,21 @@ export const GLOBAL_PREFERENCES_KEY = '__global__';
  * Anchors are kept as nested objects of typed fields (not JSON strings), so they can be indexed
  * and migrated cheaply (docs/DESIGN.md §6.1).
  */
+/**
+ * A Book file. Kept as bytes plus a media type rather than a Blob: some WebKit builds can't put
+ * Blobs in IndexedDB, and bytes work in every engine. `getFile` hands back a Blob.
+ */
+export interface StoredFile {
+	revisionId: string;
+	path: string;
+	type: string;
+	bytes: ArrayBuffer;
+}
+
 export interface ReaderDB extends DBSchema {
 	libraryBooks: { key: string; value: LibraryBook };
 	libraryRevisions: { key: string; value: LibraryRevision; indexes: { bookId: string } };
-	libraryFiles: { key: [string, string]; value: { revisionId: string; path: string; data: Blob } };
+	libraryFiles: { key: [string, string]; value: StoredFile };
 	annotations: { key: string; value: Annotation; indexes: { bookId: string } };
 	placedBookmarks: { key: string; value: PlacedBookmark; indexes: { bookId: string } };
 	progress: { key: string; value: ReadingProgress };

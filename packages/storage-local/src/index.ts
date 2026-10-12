@@ -144,10 +144,12 @@ function libraryStore(db: Database, clock: Clock): LibraryStore {
 			return revision;
 		},
 		async putFile(revisionId, path, data) {
-			await db.put('libraryFiles', { revisionId, path, data });
+			const bytes = await data.arrayBuffer();
+			await db.put('libraryFiles', { revisionId, path, type: data.type, bytes });
 		},
 		async getFile(revisionId, path) {
-			return (await db.get('libraryFiles', [revisionId, path]))?.data;
+			const file = await db.get('libraryFiles', [revisionId, path]);
+			return file && new Blob([file.bytes], { type: file.type });
 		}
 	};
 }

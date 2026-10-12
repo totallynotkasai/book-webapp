@@ -1,4 +1,7 @@
 import 'fake-indexeddb/auto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { BackendError, backendContract, type Backend, type Clock } from '@book/core';
 import { describeBackendContract, expectBackendError, ManualClock } from '@book/contract-tests';
 import { describe, expect, it } from 'vitest';
@@ -9,6 +12,23 @@ import seedFile from '../../../fixtures/seed/seed.json';
 
 const seedJson: unknown = seedFile;
 
+/** Catalogue EPUBs come from the web app's static folder, as the app fetches them. */
+const loadFile = async (url: string) =>
+	new Uint8Array(
+		readFileSync(join(fileURLToPath(new URL('../../../apps/web/static', import.meta.url)), url))
+	);
+
+/** Processing a Book takes a moment, so tests share the result per Book. */
+const processed = new Map<string, ReturnType<NonNullable<LocalBackendOptions['ingest']>>>();
+const ingest: NonNullable<LocalBackendOptions['ingest']> = (bytes, options) => {
+	let result = processed.get(options.bookId);
+	if (!result) {
+		result = import('@book/text-pipeline').then(({ ingestEpub }) => ingestEpub(bytes, options));
+		processed.set(options.bookId, result);
+	}
+	return result;
+};
+
 function makeLocal(options: Partial<LocalBackendOptions> & { clock?: Clock } = {}) {
 	return createLocalBackend({
 		dbName: `test-backend-${crypto.randomUUID()}`,
@@ -16,6 +36,8 @@ function makeLocal(options: Partial<LocalBackendOptions> & { clock?: Clock } = {
 		baseClock: options.clock ?? new ManualClock(),
 		simulationDefaults: testSimulationDefaults,
 		validate: true,
+		loadFile,
+		ingest,
 		...options
 	});
 }
@@ -31,7 +53,12 @@ function everyCall(backend: Backend): [string, () => Promise<unknown>][] {
 				string,
 				(...args: unknown[]) => Promise<unknown>
 			>;
-			const args = methodName.startsWith('get') || methodName === 'signInAs' ? ['reader'] : [];
+			const args =
+				methodName.startsWith('get') || methodName === 'signInAs' || methodName === 'open'
+					? ['reader']
+					: methodName === 'read'
+						? ['token', 'manifest.json']
+						: [];
 			calls.push([`${moduleName}.${methodName}`, () => module[methodName]!(...args)]);
 		}
 	}
@@ -47,9 +74,26 @@ describe('simulation controls', () => {
 		for (const [name, call] of calls) {
 			const error = await call().catch((e: unknown) => e);
 			expect(error, name).toBeInstanceOf(BackendError);
-			expect((error as BackendError).code, name).toBe('SERVER_ERROR');
+			// Content files are served like a CDN's: no random failures (they still go offline).
+			if (name !== 'content.read') expect((error as BackendError).code, name).toBe('SERVER_ERROR');
 		}
 	});
+
+	it('serves content files without simulated latency or failures, but not offline', async () => {
+		const { backend, controls } = await makeLocal();
+		const opened = await backend.content.open('book-alice');
+		await controls.setSimulation({ failureRate: 1, latencyMs: { min: 5000, max: 5000 } });
+		const started = performance.now();
+		await expect(
+			backend.content.read(opened.contentToken, 'manifest.json')
+		).resolves.toBeInstanceOf(Blob);
+		expect(performance.now() - started).toBeLessThan(2000);
+		await controls.setSimulation({ offline: true });
+		await expectBackendError(
+			backend.content.read(opened.contentToken, 'manifest.json'),
+			'NETWORK_ERROR'
+		);
+	}, 60_000);
 
 	it('offline makes every call fail with NETWORK_ERROR, and events still work', async () => {
 		const { backend, controls } = await makeLocal();
