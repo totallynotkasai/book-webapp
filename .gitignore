@@ -31,3 +31,6 @@ test-results
 playwright-report
 blob-report
 build-tester
+
+# Agent worktrees
+.claude/worktrees

@@ -20,6 +20,7 @@
 	"dependencies": {
 		"@book/backend-local": "*",
 		"@book/core": "*",
+		"@book/reader-core": "*",
 		"@book/storage-local": "*",
 		"@book/tokens": "*",
 		"@capacitor/android": "^8.5.2",
