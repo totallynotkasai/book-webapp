@@ -241,7 +241,9 @@
 	<section aria-labelledby="spikes-heading">
 		<h2 id="spikes-heading">Spikes (Phase 0.2)</h2>
 		<ul class="flags">
-			<li><a href={resolve('/spike/reader')}>Reader engines and Word marking</a> (ADR-001, ADR-002)</li>
+			<li>
+				<a href={resolve('/spike/reader')}>Reader engines and Word marking</a> (ADR-001, ADR-002)
+			</li>
 			<li><a href={resolve('/spike/mobile')}>Mobile capabilities</a> (ADR-004)</li>
 			<li><a href={resolve('/spike/components')}>UI components</a> (ADR-005)</li>
 		</ul>
