@@ -1,12 +1,8 @@
 /**
- * Shared setup for component tests in jsdom (apps/web and packages/ui): jest-dom matchers, cleanup
- * between tests, and the few browser APIs jsdom lacks that Bits UI and our components use.
+ * Shared setup for component tests in jsdom (apps/web and packages/ui): jest-dom matchers and the few browser APIs jsdom lacks that Bits UI and our components use.
  */
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/svelte';
-import { afterEach, vi } from 'vitest';
-
-afterEach(() => cleanup());
+import { vi } from 'vitest';
 
 /** Tests switch this to check reduced-motion behaviour (Invariant 12). */
 export const media = { reducedMotion: false, dark: false };

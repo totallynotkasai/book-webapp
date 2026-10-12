@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 
 // Unit and component tests for the web app: runes in .svelte.ts modules, components with
@@ -7,7 +8,8 @@ import { defineConfig } from 'vitest/config';
 // used rather than SvelteKit's, which looks for its config in the working directory (the repo root
 // when Vitest runs every project); `$lib` is aliased by hand and `$app/*` is not available.
 export default defineConfig({
-	plugins: [svelte({ configFile: false })],
+	// svelteTesting: browser conditions, cleanup, and compiling the library's own runes code.
+	plugins: [svelte({ configFile: false }), svelteTesting()],
 	// Svelte's browser build, so components mount in jsdom rather than rendering on the "server".
 	resolve: {
 		conditions: ['browser'],
