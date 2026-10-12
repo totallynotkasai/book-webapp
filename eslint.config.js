@@ -120,7 +120,8 @@ export default ts.config(
 			'**/test-results',
 			'**/playwright-report',
 			'apps/web/android',
-			'.claude'
+			'.claude',
+			'**/spike-results'
 		]
 	},
 	js.configs.recommended,

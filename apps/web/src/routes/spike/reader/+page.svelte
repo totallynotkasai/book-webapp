@@ -13,6 +13,9 @@
 
 	// Served from static/; the spike runs at the site root.
 	const aliceUrl = '/books/alice.epub';
+	// Test fixtures (P0-11) are emitted as build assets for the spike only.
+	import statusWindowUrl from '../../../../../../fixtures/epub/status-window.epub?url';
+	import rackhamUrl from '../../../../../../fixtures/epub/alice-rackham-gutenberg.epub?url';
 
 	interface BookChoice {
 		id: string;
@@ -28,6 +31,17 @@
 			label: 'Alice, chapters 1–5 as one ~10,800-word chapter (budget test)',
 			url: aliceUrl,
 			merge: { from: 2, to: 6 }
+		},
+		{
+			id: 'status-window',
+			label: 'Status-window fixture (styled blocks, unsafe markup)',
+			url: statusWindowUrl
+		},
+		{ id: 'rackham', label: 'Alice with Rackham illustrations (image-heavy)', url: rackhamUrl },
+		{
+			id: 'serial',
+			label: "The Lamplighter's Ledger (demo serial)",
+			url: '/demo/books/the-lamplighters-ledger.epub'
 		}
 	];
 
@@ -57,6 +71,8 @@
 		kept?: Kept;
 		keptLog: Kept[];
 		highlights: number;
+		locates: number[];
+		highlightMs?: number;
 		visible: string;
 		pages: number;
 		figure?: string;
@@ -65,6 +81,8 @@
 	}
 
 	let bookId = $state('alice');
+	/** P0-05: A wraps every Word in a span; B marks Blocks and keeps a word index of offsets. */
+	let marking = $state<'spans' | 'offsets'>('spans');
 	let show = $state<'both' | EngineId>(
 		typeof window !== 'undefined' && window.innerWidth < 1100 ? 'foliate' : 'both'
 	);
@@ -83,6 +101,7 @@
 			pages: 0,
 			selection: null,
 			keptLog: [],
+			locates: [],
 			highlights: 0
 		}))
 	);
@@ -111,7 +130,9 @@
 	const ms = (n?: number) => (n === undefined ? '–' : `${Math.round(n)} ms`);
 
 	function refresh(pane: Pane) {
+		const t = performance.now();
 		const v = pane.engine?.visibleWords();
+		if (v) pane.locates = [...pane.locates, performance.now() - t];
 		pane.visible = v?.first ? `Words ${v.first}–${v.last} (${v.count})` : '–';
 		pane.pages = pane.engine?.pageCount() ?? 0;
 	}
@@ -126,13 +147,15 @@
 			pane.relayouts = [];
 			pane.kept = undefined;
 			pane.keptLog = [];
+			pane.locates = [];
+			pane.highlightMs = undefined;
 			pane.highlights = 0;
 			pane.figure = undefined;
 			pane.error = undefined;
 		}
 		publication?.release();
 		const buffer = await (await fetch(book.url)).arrayBuffer();
-		publication = await openPublication(buffer, { marking: 'spans', mergeChapters: book.merge });
+		publication = await openPublication(buffer, { marking, mergeChapters: book.merge });
 		chapter = publication.sections.findIndex((s) => s.linear && s.wordCount > 0);
 		for (const pane of visiblePanes) await mount(pane);
 	}
@@ -247,7 +270,9 @@
 	function highlight() {
 		return each(async (pane, engine) => {
 			const v = engine.visibleWords();
+			const t = performance.now();
 			if (v?.first) engine.highlight(v.first, Math.min(v.first + 12, v.last ?? v.first));
+			pane.highlightMs = performance.now() - t;
 			await new Promise((r) => setTimeout(r, 300));
 			pane.highlights = engine.highlightCount();
 		});
@@ -282,6 +307,15 @@
 			userAgent: navigator.userAgent,
 			viewport: `${innerWidth}×${innerHeight}@${devicePixelRatio}`,
 			book: bookId,
+			marking,
+			chapter: publication?.sections[chapter]
+				? {
+						title: publication.sections[chapter]!.title,
+						words: publication.sections[chapter]!.wordCount,
+						bytes: publication.sections[chapter]!.bytes,
+						elements: publication.sections[chapter]!.elements
+					}
+				: null,
 			layout,
 			fontScale,
 			engines: panes.map((p) => ({
@@ -294,6 +328,8 @@
 				keptCorrected: `${p.keptLog.filter((k) => k.corrected).length}/${p.keptLog.length}`,
 				medianCorrectionMs: median(p.keptLog.filter((k) => !k.ok).map((k) => k.correctionMs)),
 				highlights: p.highlights,
+				highlightMs: p.highlightMs,
+				medianLocateMs: median(p.locates),
 				figure: p.figure,
 				error: p.error,
 				feel: scores[p.id]
@@ -340,6 +376,13 @@
 			</select>
 		</label>
 		<label>
+			Word marking
+			<select bind:value={marking} onchange={load}>
+				<option value="spans">A: a span per Word</option>
+				<option value="offsets">B: Blocks + offsets</option>
+			</select>
+		</label>
+		<label>
 			Show
 			<select bind:value={show} onchange={load}>
 				<option value="both">Both, side by side</option>
@@ -382,6 +425,14 @@
 			<button onclick={injectFigure}>Insert figure</button>
 		</div>
 	</div>
+
+	{#if publication?.sections[chapter]}
+		{@const section = publication.sections[chapter]}
+		<p class="muted" data-testid="chapter-stats">
+			This chapter, prepared with {marking === 'spans' ? 'option A' : 'option B'}: {section.wordCount}
+			Words, {(section.bytes / 1024).toFixed(1)} KB of XHTML, {section.elements} elements.
+		</p>
+	{/if}
 
 	<div class="panes" class:single={show !== 'both'}>
 		{#each panes as pane (pane.id)}

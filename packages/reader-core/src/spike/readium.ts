@@ -13,6 +13,8 @@ import {
 	frames,
 	insertFigure,
 	selectionToWords,
+	wordMap,
+	type WordMap,
 	type SpikeEngine,
 	type SpikeLayout,
 	type SpikeOptions,
@@ -143,11 +145,21 @@ export class ReadiumEngine implements SpikeEngine {
 		await Promise.race([relocated, new Promise((r) => setTimeout(r, 1500))]);
 	}
 
+	#index() {
+		const href = this.nav?.currentLocator.href;
+		return this.#pub?.sections.findIndex((s) => s.href === href) ?? -1;
+	}
+
+	#map(): WordMap | null {
+		return this.#pub ? wordMap(this.#pub, this.#index()) : null;
+	}
+
 	#hook(doc: Document) {
 		if (this.#hooked.has(doc)) return;
 		this.#hooked.add(doc);
 		doc.addEventListener('selectionchange', () => {
-			const selection = selectionToWords(doc);
+			const map = this.#map();
+			const selection = map ? selectionToWords(doc, map) : null;
 			for (const cb of this.#selectionListeners) cb(selection);
 		});
 	}
@@ -204,11 +216,17 @@ export class ReadiumEngine implements SpikeEngine {
 			const href = this.nav?.currentLocator.href;
 			if (!href || !this.nav) return resolve();
 			// Readium's go() ignores domRange; it looks for a text quote under a CSS selector.
-			const word = this.documents()[0]?.querySelector(`[data-w="${wordId}"]`)?.textContent ?? '';
+			const map = this.#map();
+			const doc = this.documents()[0];
+			if (!map || !doc) return resolve();
+			const word = map.text(doc, wordId);
+			// Option A targets the Word span; option B its Block (the quote finds the Word inside).
+			const block = map.block(doc, wordId)?.getAttribute('data-b');
+			const cssSelector = map.marking === 'spans' ? `[data-w="${wordId}"]` : `[data-b="${block}"]`;
 			const locator = Locator.deserialize({
 				href,
 				type: XHTML,
-				locations: { cssSelector: `[data-w="${wordId}"]` },
+				locations: { cssSelector },
 				text: { highlight: word }
 			});
 			if (!locator) return resolve();
@@ -252,34 +270,37 @@ export class ReadiumEngine implements SpikeEngine {
 		if (!doc || !this.#container) return null;
 		const href = this.nav?.currentLocator.href;
 		const index = this.#pub?.sections.findIndex((s) => s.href === href) ?? -1;
+		const map = this.#map();
+		if (!map) return null;
 		return findVisibleWords(
 			doc,
+			map,
 			this.#container.getBoundingClientRect(),
 			this.#layout === 'scroll',
 			index
 		);
 	}
 
-	// Readium's own decoration API (the CSS Custom Highlight API inside the frame), addressed by
-	// a DOM range between two Word spans: a clean fit for WordIds.
+	// Readium's own decoration API, which paints with the CSS Custom Highlight API in the frame.
 	highlight(from: number, to: number) {
 		const href = this.nav?.currentLocator.href;
 		if (!href || !this.nav) return;
 		// Readium 2.10's decorator resolves only text quotes across the frame boundary (domRange and
 		// cssSelector locators fail), so send the Anchor's TextQuote: exact text plus 32 characters
 		// either side, as DESIGN.md §6.1 stores it.
-		const doc = this.documents().find((d) => d.querySelector(`[data-w="${from}"]`));
-		const start = doc?.querySelector(`[data-w="${from}"]`);
-		const end = doc?.querySelector(`[data-w="${to}"]`);
+		const map = this.#map();
+		const doc = this.documents()[0];
+		const start = doc && map?.range(doc, from);
+		const end = doc && map?.range(doc, to);
 		if (!doc || !start || !end) return;
 		const exact = doc.createRange();
-		exact.setStartBefore(start);
-		exact.setEndAfter(end);
+		exact.setStart(start.startContainer, start.startOffset);
+		exact.setEnd(end.endContainer, end.endOffset);
 		const before = doc.createRange();
 		before.setStart(doc.body, 0);
-		before.setEndBefore(start);
+		before.setEnd(start.startContainer, start.startOffset);
 		const after = doc.createRange();
-		after.setStartAfter(end);
+		after.setStart(end.endContainer, end.endOffset);
 		after.setEnd(doc.body, doc.body.childNodes.length);
 		const locator = Locator.deserialize({
 			href,
@@ -317,7 +338,9 @@ export class ReadiumEngine implements SpikeEngine {
 	async injectFigure(afterWordId: number, src: string, alt: string) {
 		const before = this.pageCount();
 		const doc = this.documents()[0];
-		if (!doc || !insertFigure(doc, afterWordId, src, alt)) return { before, after: before };
+		const map = this.#map();
+		if (!doc || !map || !insertFigure(doc, map, afterWordId, src, alt))
+			return { before, after: before };
 		const img = doc.querySelector<HTMLImageElement>('[data-injected] img');
 		if (img && !img.complete)
 			await new Promise((r) => img.addEventListener('load', r, { once: true }));

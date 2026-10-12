@@ -40,3 +40,4 @@ fixtures/audio/*
 !fixtures/audio/README.md
 # Too large to commit; downloaded by `npm run fixtures:download` (P0-11)
 fixtures/epub/alice-standard-ebooks.epub
+spike-results

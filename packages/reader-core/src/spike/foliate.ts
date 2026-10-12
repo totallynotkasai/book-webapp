@@ -7,6 +7,7 @@ import {
 	insertFigure,
 	paintHighlight,
 	selectionToWords,
+	wordMap,
 	type SpikeEngine,
 	type SpikeLayout,
 	type SpikeOptions,
@@ -38,8 +39,14 @@ export class FoliateEngine implements SpikeEngine {
 	#relocateListeners = new Set<() => void>();
 	#selectionListeners = new Set<(s: SpikeSelection | null) => void>();
 	#index = 0;
+	#pub?: SpikePublication;
+
+	#map() {
+		return this.#pub ? wordMap(this.#pub, this.#index) : null;
+	}
 
 	async mount(container: HTMLElement, pub: SpikePublication, options: SpikeOptions) {
+		this.#pub = pub;
 		const sections = pub.sections.map((s) => ({
 			id: s.href,
 			linear: s.linear ? 'yes' : 'no',
@@ -74,10 +81,11 @@ export class FoliateEngine implements SpikeEngine {
 			if (typeof current === 'number') this.#index = current;
 			for (const cb of this.#relocateListeners) cb();
 		}) as EventListener);
-		view.addEventListener('load', ((e: CustomEvent<{ doc: Document }>) => {
-			const doc = e.detail.doc;
+		view.addEventListener('load', ((e: CustomEvent<{ doc: Document; index: number }>) => {
+			const { doc, index } = e.detail;
+			const map = wordMap(pub, index);
 			doc.addEventListener('selectionchange', () => {
-				const selection = selectionToWords(doc);
+				const selection = map ? selectionToWords(doc, map) : null;
 				for (const cb of this.#selectionListeners) cb(selection);
 			});
 		}) as EventListener);
@@ -132,7 +140,7 @@ export class FoliateEngine implements SpikeEngine {
 		const done = this.nextRelocate();
 		await this.#view!.renderer.goTo({
 			index: this.#index,
-			anchor: (doc: Document) => doc.querySelector(`[data-w="${wordId}"]`)
+			anchor: (doc: Document) => this.#map()?.range(doc, wordId) ?? null
 		});
 		await Promise.race([done, new Promise((r) => setTimeout(r, 800))]);
 	}
@@ -159,7 +167,7 @@ export class FoliateEngine implements SpikeEngine {
 		const done = this.nextRelocate();
 		renderer.setAttribute('flow', layout === 'scroll' ? 'scrolled' : 'paginated');
 		renderer.setAttribute('max-column-count', layout === 'spread' ? '2' : '1');
-		renderer.setAttribute('max-inline-size', layout === 'spread' ? '1400px' : '720px');
+		renderer.setAttribute('max-inline-size', '720px');
 		renderer.setAttribute('gap', '6%');
 		await Promise.race([done, new Promise((r) => setTimeout(r, 800))]);
 	}
@@ -170,9 +178,11 @@ export class FoliateEngine implements SpikeEngine {
 
 	visibleWords() {
 		const [doc] = this.documents();
-		if (!doc || !this.#view) return null;
+		const map = this.#map();
+		if (!doc || !this.#view || !map) return null;
 		return findVisibleWords(
 			doc,
+			map,
 			this.#view.getBoundingClientRect(),
 			this.#layout === 'scroll',
 			this.#index
@@ -182,7 +192,8 @@ export class FoliateEngine implements SpikeEngine {
 	// foliate-js draws annotations as SVG overlays keyed by CFI; the spike uses its iframe access
 	// with the CSS Custom Highlight API instead, which is what our adapter would do.
 	highlight(from: number, to: number) {
-		for (const doc of this.documents()) paintHighlight(doc, from, to);
+		const map = this.#map();
+		if (map) for (const doc of this.documents()) paintHighlight(doc, map, from, to);
 	}
 
 	clearHighlights() {
@@ -199,7 +210,9 @@ export class FoliateEngine implements SpikeEngine {
 	async injectFigure(afterWordId: number, src: string, alt: string) {
 		const before = this.pageCount();
 		const [doc] = this.documents();
-		if (!doc || !insertFigure(doc, afterWordId, src, alt)) return { before, after: before };
+		const map = this.#map();
+		if (!doc || !map || !insertFigure(doc, map, afterWordId, src, alt))
+			return { before, after: before };
 		const img = doc.querySelector<HTMLImageElement>('[data-injected] img');
 		if (img && !img.complete)
 			await new Promise((r) => img.addEventListener('load', r, { once: true }));

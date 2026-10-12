@@ -1,11 +1,25 @@
 // SPIKE (P0-04/P0-05): throwaway. Reads an EPUB into "prepared" documents that both engines
 // render, standing in for text-pipeline output served through an OpenBook loader:
 //   - resources (images, CSS) are rewritten to blob: URLs, as a local loader would serve them;
-//   - Words are optionally wrapped in <span data-w> (P0-05 option A) with book-wide IDs.
+//   - Words are marked either as <span data-w> (P0-05 option A) or, for option B, only Blocks get
+//     data-b and a word index records each Word's Block and character offsets. WordIds are
+//     identical either way: same segmentation, book-wide, in reading order.
 // Both adapters get exactly the same files, so the comparison is about the engines.
 import { openZip, type ZipArchive } from './zip';
 
-export type WordMarking = 'spans' | 'none';
+export type WordMarking = 'spans' | 'offsets' | 'none';
+
+/** Option B's word index entry: offsets are into the Block's own text (not nested Blocks'). */
+export interface WordEntry {
+	id: number;
+	block: number;
+	start: number;
+	end: number;
+}
+
+/** What counts as a Block for option B (§2 Block). Text outside any of these belongs to <body>. */
+export const BLOCK_SELECTOR =
+	'p, li, h1, h2, h3, h4, h5, h6, blockquote, pre, td, th, figcaption, dt, dd, div, body';
 
 export interface SpikeSection {
 	/** Path inside the archive (or a virtual path). */
@@ -17,6 +31,12 @@ export interface SpikeSection {
 	/** First and last WordId, when marked. */
 	firstWordId: number;
 	lastWordId: number;
+	/** Option B only: every Word's Block and offsets, in reading order. */
+	words: WordEntry[];
+	/** Size of the prepared XHTML, for comparing the options. */
+	bytes: number;
+	/** Element count of the prepared body, for comparing the options. */
+	elements: number;
 }
 
 export interface SpikePublication {
@@ -115,6 +135,57 @@ export function markWords(doc: Document, lang: string, firstId: number): number 
 		node.replaceWith(fragment);
 	}
 	return id;
+}
+
+function textNodesOf(doc: Document): Text[] {
+	const body = doc.body ?? doc.getElementsByTagNameNS(XHTML_NS, 'body')[0];
+	if (!body) return [];
+	const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
+		acceptNode: (node) =>
+			node.parentElement?.closest('script, style, svg')
+				? NodeFilter.FILTER_REJECT
+				: NodeFilter.FILTER_ACCEPT
+	});
+	const nodes: Text[] = [];
+	while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+	return nodes;
+}
+
+/**
+ * Option B: gives each Block a data-b index and returns the word index. Segments text nodes
+ * exactly as markWords does, so the WordIds match option A.
+ */
+export function indexWords(
+	doc: Document,
+	lang: string,
+	firstId: number,
+	firstBlock: number
+): { nextId: number; nextBlock: number; words: WordEntry[] } {
+	const segmenter = new Intl.Segmenter(lang, { granularity: 'word' });
+	const blockIds = new Map<Element, number>();
+	const lengths = new Map<Element, number>();
+	const words: WordEntry[] = [];
+	let id = firstId;
+	let nextBlock = firstBlock;
+	for (const node of textNodesOf(doc)) {
+		const block = node.parentElement?.closest(BLOCK_SELECTOR);
+		if (!block) continue;
+		let b = blockIds.get(block);
+		if (b === undefined) {
+			b = nextBlock++;
+			blockIds.set(block, b);
+			block.setAttribute('data-b', String(b));
+		}
+		const base = lengths.get(block) ?? 0;
+		lengths.set(block, base + node.data.length);
+		if (!/\p{L}|\p{N}/u.test(node.data)) continue;
+		for (const segment of segmenter.segment(node.data)) {
+			if (!segment.isWordLike) continue;
+			const start = base + segment.index;
+			words.push({ id: id++, block: b, start, end: start + segment.segment.length });
+		}
+	}
+	return { nextId: id, nextBlock, words };
 }
 
 export async function openPublication(
@@ -245,6 +316,7 @@ export async function openPublication(
 	const prepared = new Map<string, string>();
 	const sections: SpikeSection[] = [];
 	let nextWordId = 1;
+	let nextBlock = 0;
 	for (const item of planned) {
 		let body: Element[] | undefined;
 		if (item.merge) {
@@ -257,12 +329,20 @@ export async function openPublication(
 		}
 		const doc = await prepare(item.source, body);
 		const first = nextWordId;
+		let words: WordEntry[] = [];
 		if (options.marking === 'spans') nextWordId = markWords(doc, lang, nextWordId);
+		if (options.marking === 'offsets') {
+			const indexed = indexWords(doc, lang, nextWordId, nextBlock);
+			nextWordId = indexed.nextId;
+			nextBlock = indexed.nextBlock;
+			words = indexed.words;
+		}
 		const title =
 			toc.find((t) => t.href.split('#')[0] === item.source)?.label ??
 			doc.querySelector('h1, h2, h3')?.textContent?.trim() ??
 			item.href;
-		prepared.set(item.href, new XMLSerializer().serializeToString(doc));
+		const serialized = new XMLSerializer().serializeToString(doc);
+		prepared.set(item.href, serialized);
 		sections.push({
 			href: item.href,
 			title: item.merge
@@ -271,7 +351,10 @@ export async function openPublication(
 			linear: item.linear,
 			wordCount: nextWordId - first,
 			firstWordId: first,
-			lastWordId: nextWordId - 1
+			lastWordId: nextWordId - 1,
+			words,
+			bytes: new TextEncoder().encode(serialized).byteLength,
+			elements: (doc.body ?? doc.documentElement).getElementsByTagName('*').length
 		});
 	}
 
