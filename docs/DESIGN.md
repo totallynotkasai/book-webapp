@@ -545,7 +545,7 @@ The PoC stores everything locally, and Phase 2 adds sync. To avoid a rewrite, ev
 - Conflicts: last write wins per record by `updatedAt`, except Reading Progress (§9.5).
 - First sign-in offers to upload the device's existing local library and reader data ("Keep my notes and bookmarks").
 
-**`Stores` interfaces** (`packages/core/src/storage.ts`) grow to cover: `library` (imported Books, Revisions, processed content blobs), `annotations`, `placedBookmarks`, `progress`, `preferences` and `layerSelection`. Catalogue Books and all Layers, including the PoC's demo Illustration Packs and Sync Maps, come through `Backend` (§5.6), so Layer code is the same in the PoC and in Phase 3. In the PoC, user-owned data is kept per Persona (`book-reader:<userId>`), which rehearses per-account data.
+**`Stores` interfaces** (`packages/core/src/storage.ts`) grow to cover: `library` (imported Books, Revisions, processed content blobs), `annotations`, `placedBookmarks`, `progress`, `preferences` and `layerSelection`, plus `exportAll()` (every record, for "Export all data") and `deleteAll()` ("Delete my data on this device"), both in the contract suite. Catalogue Books and all Layers, including the PoC's demo Illustration Packs and Sync Maps, come through `Backend` (§5.6), so Layer code is the same in the PoC and in Phase 3. In the PoC, user-owned data is kept per Persona (`book-reader:<userId>`), which rehearses per-account data.
 
 **Local IDs for imported Books:** `revisionId` = SHA-256 of the EPUB file (re-importing the same file is a no-op). `bookId` = the EPUB's `dc:identifier` if present, else a new UUIDv7. A different file with the same `bookId` becomes a new Revision and triggers re-anchoring.
 
@@ -799,9 +799,15 @@ export interface FigureInjection {
 
 export interface EngineEvents {
   relocated: VisibleRange;
-  selection: { anchor: RangeAnchor; text: string; clientRect: DOMRect } | null;
-  wordActivated: { wordId: WordId; anchor: PointAnchor }; // tap/click on a Word
-  contextMenu: { anchor: RangeAnchor | null; x: number; y: number };
+  selection: {                                       // snapped to whole Words, once it settles
+    anchor: RangeAnchor; text: string; clientRect: DOMRect;
+    pointer: 'mouse' | 'touch' | 'pen' | 'keyboard';
+  } | null;
+  wordActivated: { wordId: WordId; anchor: PointAnchor; clientRect: DOMRect }; // tap/click on a Word
+  contextMenu: {                                     // right-click; preventDefault() replaces the browser's menu
+    anchor: RangeAnchor | null; word: PointAnchor | null; x: number; y: number;
+    pointer: 'mouse' | 'touch' | 'pen'; preventDefault: () => void;
+  };
   figureActivated: { id: string };
   tap: { x: number; y: number };                     // outside links and Words (tap zones, §9.2)
   keydown: KeyboardEvent;                            // keys pressed while focus is in the book
@@ -827,6 +833,8 @@ export interface ReaderEngine {
   injectFigures(items: FigureInjection[]): void;            // replaces all figures
 
   getVisibleRange(): VisibleRange | null;
+  select(range: { startOrdinal: number; endOrdinal: number } | null): void; // keyboard selection
+  rectOf(anchor: Anchor): DOMRect | null;                                    // where it is on screen
   on<E extends keyof EngineEvents>(event: E, cb: (payload: EngineEvents[E]) => void): () => void;
 }
 ```
