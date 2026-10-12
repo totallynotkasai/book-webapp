@@ -95,6 +95,19 @@ test('every mode keeps the reader’s place and shows nothing from ahead', async
 	for (const mode of ['Per page', 'Spread', 'In text', 'Off', 'Pop-up'] as const) {
 		const before = await visibleWords(page);
 		await setMode(page, mode);
+		if (mode === 'In text') {
+			// The figures arrive once their images have loaded; measure after that.
+			const frame = page.frames().find((f) => f.url().startsWith('blob:'))!;
+			await expect
+				.poll(
+					() => frame.evaluate(() => document.querySelectorAll('figure[data-injected]').length),
+					{
+						timeout: 15_000
+					}
+				)
+				.toBeGreaterThan(0);
+			await settled(page);
+		}
 		const after = await visibleWords(page);
 		expect(after.first, `${mode}: first Word left the screen`).toBeLessThanOrEqual(before.first);
 		expect(after.last, `${mode}: first Word left the screen`).toBeGreaterThanOrEqual(before.first);
