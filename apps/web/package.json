@@ -18,6 +18,7 @@
 		"cap:open": "cap open android"
 	},
 	"dependencies": {
+		"@book/alignment": "*",
 		"@book/backend-local": "*",
 		"@book/core": "*",
 		"@book/reader-core": "*",

@@ -1,0 +1,16 @@
+{
+	"name": "@book/alignment",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Transcript ↔ Word alignment and the Sync Map writer (DESIGN.md §7.2), plus the time ↔ Word lookups the narration player uses (§8.3). Pure and deterministic; imports only @book/core.",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc -p ."
+	},
+	"dependencies": {
+		"@book/core": "*"
+	}
+}
