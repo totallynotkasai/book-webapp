@@ -6,9 +6,9 @@
  *
  * Modules mirror the planned API modules (IMPLEMENTATION-PLAN.md §4.2). Each task adds the
  * methods it needs, with schemas in `contract.ts` and cases in the contract suite: P0-08 starts
- * `session`, `catalogue`, `library`, `studio` and `events`; `content` (P1-APP-03), `checkout`
- * (P1-STO-02), `support` (P1-STO-04), `layers` (P1-LAY-01), `community` (P1-COM-01) and
- * `moderation` (P1-APP-01, P1-ADM-02) follow.
+ * `session`, `catalogue`, `library`, `studio` and `events`; `moderation` (P1-APP-01, extended
+ * by P1-ADM-02), `content` (P1-APP-03), `checkout` (P1-STO-02), `support` (P1-STO-04), `layers`
+ * (P1-LAY-01) and `community` (P1-COM-01) follow.
  *
  * Every method can reject with a `BackendError`. Lists are paged as `{ items, nextCursor }`.
  */
@@ -16,6 +16,7 @@ import type {
 	BookDetailDto,
 	BookSummaryDto,
 	CreatorDto,
+	FlagDto,
 	LibraryEntryDto,
 	PersonaDto,
 	SessionDto,
@@ -37,6 +38,8 @@ export interface CatalogueApi {
 	getBook(slug: string): Promise<BookDetailDto>;
 	/** Rejects with `NOT_FOUND`. */
 	getCreator(handle: string): Promise<CreatorDto>;
+	/** A Creator's listed Books, for their profile. Rejects with `NOT_FOUND`. */
+	listCreatorBooks(handle: string, page?: PageRequest): Promise<Page<BookSummaryDto>>;
 }
 
 export interface LibraryApi {
@@ -49,8 +52,22 @@ export interface StudioApi {
 	listBooks(page?: PageRequest): Promise<Page<StudioBookDto>>;
 }
 
+export interface ModerationApi {
+	/**
+	 * The admin review queue: open Flags, highest priority first (§10.6). Rejects with
+	 * `FORBIDDEN` for anyone who isn't a moderator or admin, inside the backend (P1-ADM-02).
+	 */
+	listQueue(page?: PageRequest): Promise<Page<FlagDto>>;
+}
+
 /** Topics screens can refresh on. Phase 2 drives them from sync pulls, later push. */
-export const backendTopics = ['session', 'catalogue', 'entitlements', 'studio'] as const;
+export const backendTopics = [
+	'session',
+	'catalogue',
+	'entitlements',
+	'studio',
+	'moderation'
+] as const;
 export type BackendTopic = (typeof backendTopics)[number];
 
 export interface BackendEvents {
@@ -63,5 +80,6 @@ export interface Backend {
 	catalogue: CatalogueApi;
 	library: LibraryApi;
 	studio: StudioApi;
+	moderation: ModerationApi;
 	events: BackendEvents;
 }

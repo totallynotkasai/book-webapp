@@ -1,9 +1,9 @@
 # ADR-002: Word marking: spans, or Block indexes with offsets
 
-- **Status:** Proposed. Waiting for the TalkBack check on the owner's phone (see "Still to do").
+- **Status:** **Accepted** (12 October 2026, owner decision before Phase 1). The TalkBack check moves to the emulator (P1-QA-02). Resolves OPEN-13 and D-016. The tokeniser question this ADR raised (OPEN-14) is settled by D-026: our own deterministic tokeniser instead of `Intl.Segmenter`.
 - **Date:** 12 October 2026
 - **Task:** P0-05 Spike: Word marking. Resolves OPEN-13 (and D-016) once accepted.
-- **Spike code:** `packages/reader-core/src/spike/publication.ts` (`markWords`, `indexWords`) and `engine.ts` (`WordMap`), with the specs in `apps/web/e2e/spike-reader.spec.ts`.
+- **Spike code:** was `packages/reader-core/src/spike/publication.ts` (`markWords`, `indexWords`) and `engine.ts` (`WordMap`); deleted in Phase 1.1. P1-ING-01 and P1-RDR-01 implement option B for real.
 
 ## Context
 
@@ -47,11 +47,11 @@ WebKit reports times only to the millisecond. B's lookups are slower but stay fa
 
 **Screen readers.** On desktop, the accessibility trees are identical: the spans add no roles, and text inside a paragraph stays one run. TalkBack, the case DESIGN.md §11.7 names, still has to be checked on the phone (below). VoiceOver is backlog item IOS-03.
 
-## Still to do before this can be Accepted
+## Still to do (after acceptance)
 
 **TalkBack on the owner's phone**, with the phone unlocked: open the app's `/spike/reader`, choose "A: a span per Word", turn TalkBack on and swipe through a paragraph; then repeat with "B: Blocks + offsets". The question: does A make TalkBack read word by word, or stop at each span, where B reads naturally? If both read naturally, the decision below stands on performance alone.
 
-## Recommendation
+## Decision
 
 **Option B: Block indexes plus an offset word index.** With every Word in a span, the 10,000-Word Chapter that §13.1 criterion 7 names re-lays out 1.6–3.3× slower. On a fast desktop it already takes 186–348 ms against §12.3's 300 ms budget, and a mid-range phone is several times slower than that. B gives the headroom: 56–223 ms on the same machine, with 5× less markup and 29× fewer elements, for a few milliseconds per Word lookup. The Android numbers (ADR-001, "Still to do") will show how much headroom is left on a phone.
 
@@ -62,7 +62,7 @@ WebKit reports times only to the millisecond. B's lookups are slower but stay fa
 3. The word index stores a check per Block: its own text length and a short hash (the first 8 hex digits of SHA-256). On load, `reader-core` compares them and falls back for a mismatched Block: it locates its Words with the Anchor's text quote and logs a warning.
 4. Golden-file tests (§12.1) pin the XHTML and the index together for every fixture.
 
-## Word index format (proposed)
+## Word index format
 
 One JSON file per Chapter, next to its XHTML (`index/{chapterId}.words.json`, §6.7):
 

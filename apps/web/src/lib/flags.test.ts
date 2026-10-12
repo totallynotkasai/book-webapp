@@ -41,6 +41,13 @@ describe('route gating', () => {
 		expect(flagForRoute('/developer')).toBeUndefined();
 	});
 
+	it('ignores route groups such as (app)', () => {
+		expect(flagForRoute('/(app)/store')).toBe('store');
+		expect(flagForRoute('/(app)/admin/flags/[flagId]')).toBe('admin');
+		expect(flagForRoute('/(app)/library')).toBeUndefined();
+		expect(flagForRoute('/(app)')).toBeUndefined();
+	});
+
 	it('keeps the reader and Library open in every profile', () => {
 		const tester = resolveFlags('tester');
 		expect(isRouteEnabled('/', tester)).toBe(true);

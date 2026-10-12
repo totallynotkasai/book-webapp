@@ -148,6 +148,12 @@ export default ts.config(
 		}
 	},
 	{
+		// Components take hrefs the app has already resolved with $app/paths; packages/ui can't
+		// import SvelteKit (it imports only @book/tokens, §5.3).
+		files: ['packages/ui/**/*.svelte'],
+		rules: { 'svelte/no-navigation-without-resolve': 'off' }
+	},
+	{
 		files: ['apps/web/src/lib/services.ts'],
 		rules: { 'no-restricted-imports': ['error', { patterns: [engineRule, webPathRule] }] }
 	}

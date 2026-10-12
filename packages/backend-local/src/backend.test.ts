@@ -61,6 +61,16 @@ describe('simulation controls', () => {
 		expect(typeof backend.events.on('session', () => {})).toBe('function');
 	});
 
+	it('empties every paged list when asked, leaving other calls alone', async () => {
+		const { backend, controls } = await makeLocal();
+		await controls.setSimulation({ emptyLists: true });
+		expect(await backend.catalogue.listBooks()).toEqual({ items: [], nextCursor: null });
+		expect((await backend.library.list()).items).toEqual([]);
+		expect((await backend.session.current()).user).not.toBeNull();
+		await controls.setSimulation({ emptyLists: false });
+		expect((await backend.catalogue.listBooks()).items.length).toBeGreaterThan(0);
+	});
+
 	it('adds latency within the configured range', async () => {
 		const { backend, controls } = await makeLocal({ random: () => 1 });
 		await controls.setSimulation({ latencyMs: { min: 30, max: 60 } });

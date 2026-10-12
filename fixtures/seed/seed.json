@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -274,6 +274,28 @@
 			"productId": "product-book-lamplighters-ledger",
 			"source": "grant",
 			"grantedAt": "2026-01-01T00:00:00.000Z"
+		}
+	],
+	"flags": [
+		{
+			"id": "flag-report-ledger",
+			"targetType": "book",
+			"targetId": "book-lamplighters-ledger",
+			"rule": "report",
+			"state": "open",
+			"priority": 2,
+			"details": "Two readers reported it. Reason given: “Chapter 4 needs a content warning for violence.” (Seeded demo report.)",
+			"createdAt": "2026-10-01T10:30:00.000Z"
+		},
+		{
+			"id": "flag-volume-wren",
+			"targetType": "creator",
+			"targetId": "creator-wren-ashdown",
+			"rule": "upload_volume",
+			"state": "open",
+			"priority": 1,
+			"details": "Published 11 new Revisions of different Books in 30 days (threshold 10). The content is labelled AI-generated, so it stays listed. (Seeded demo Flag.)",
+			"createdAt": "2026-10-05T08:00:00.000Z"
 		}
 	]
 }

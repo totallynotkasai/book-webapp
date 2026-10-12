@@ -8,6 +8,9 @@
 import {
 	aiUseSchema,
 	entitlementSourceSchema,
+	flagRuleSchema,
+	flagStateSchema,
+	flagTargetTypeSchema,
 	moneySchema,
 	productKindSchema,
 	roleSchema
@@ -68,6 +71,17 @@ const entitlementRecord = z.object({
 	revokedAt: z.iso.datetime().nullable().default(null)
 });
 
+const flagRecord = z.object({
+	id,
+	targetType: flagTargetTypeSchema,
+	targetId: id,
+	rule: flagRuleSchema,
+	state: flagStateSchema,
+	priority: z.number().int().nonnegative(),
+	details: z.string(),
+	createdAt: z.iso.datetime()
+});
+
 export const seedSchema = z.object({
 	/** Bump when the seed changes; a different version re-seeds the simulated backend. */
 	version: z.number().int().positive(),
@@ -76,7 +90,9 @@ export const seedSchema = z.object({
 	creators: z.array(creatorRecord),
 	books: z.array(bookRecord),
 	products: z.array(productRecord),
-	entitlements: z.array(entitlementRecord)
+	entitlements: z.array(entitlementRecord),
+	/** Open items for the admin review queue (P1-APP-01); P1-ADM-01 adds the rules that raise them. */
+	flags: z.array(flagRecord).default([])
 });
 
 export type Seed = z.infer<typeof seedSchema>;
@@ -85,6 +101,7 @@ export type CreatorRecord = z.infer<typeof creatorRecord>;
 export type BookRecord = z.infer<typeof bookRecord>;
 export type ProductRecord = z.infer<typeof productRecord>;
 export type SeedEntitlementRecord = z.infer<typeof entitlementRecord>;
+export type FlagRecord = z.infer<typeof flagRecord>;
 
 export class SeedError extends Error {
 	constructor(readonly problems: string[]) {
@@ -121,7 +138,8 @@ export function parseSeed(raw: unknown): Seed {
 		creators: seed.creators,
 		books: seed.books,
 		products: seed.products,
-		entitlements: seed.entitlements
+		entitlements: seed.entitlements,
+		flags: seed.flags
 	})) {
 		for (const dup of duplicates(records.map((r) => r.id)))
 			problems.push(`${name}: duplicate id "${dup}"`);
@@ -163,6 +181,14 @@ export function parseSeed(raw: unknown): Seed {
 			problems.push(`entitlements.${i}.userId: no persona user "${e.userId}"`);
 		if (!products.has(e.productId))
 			problems.push(`entitlements.${i}.productId: no product "${e.productId}"`);
+	});
+
+	seed.flags.forEach((f, i) => {
+		const known =
+			f.targetType === 'book' ? books : f.targetType === 'creator' ? creators : undefined;
+		if (known && !known.has(f.targetId)) {
+			problems.push(`flags.${i}.targetId: no ${f.targetType} "${f.targetId}"`);
+		}
 	});
 
 	if (problems.length > 0) throw new SeedError(problems);

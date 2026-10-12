@@ -3,15 +3,24 @@
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
-	"description": "Design tokens (CSS custom properties) and preset themes.",
+	"description": "Design tokens: Material 3 theme generation from a seed colour (DESIGN.md §11.2), structural tokens, fonts and reader tokens.",
 	"exports": {
 		".": "./src/index.ts",
-		"./tokens.css": "./src/tokens.css"
+		"./tokens.css": "./src/tokens.css",
+		"./default-theme.css": "./src/default-theme.css",
+		"./fonts.css": "./src/fonts.css"
 	},
 	"scripts": {
 		"check": "tsc -p ."
 	},
 	"dependencies": {
-		"@book/core": "*"
+		"@book/core": "*",
+		"@fontsource-variable/literata": "5.3.0",
+		"@fontsource-variable/merriweather": "5.3.0",
+		"@fontsource-variable/nunito": "5.3.0",
+		"@fontsource-variable/source-serif-4": "5.3.0",
+		"@fontsource/atkinson-hyperlegible": "5.3.0",
+		"@fontsource/opendyslexic": "5.3.0",
+		"@material/material-color-utilities": "0.4.0"
 	}
 }

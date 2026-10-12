@@ -1,9 +1,20 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="text-scale" content="scale" />
+		<script>
+			// Paint the user's last theme before the app loads (src/lib/theme.ts writes this cache).
+			try {
+				var cached = JSON.parse(localStorage.getItem('book-theme') || 'null');
+				if (cached && cached.tokens) {
+					var root = document.documentElement;
+					for (var name in cached.tokens) root.style.setProperty(name, cached.tokens[name]);
+					root.style.colorScheme = cached.mode;
+				}
+			} catch (e) {}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

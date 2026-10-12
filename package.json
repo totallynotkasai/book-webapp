@@ -20,19 +20,22 @@
 		"fixtures:epubs": "node fixtures/scripts/build-epubs.mjs",
 		"fixtures:audio": "node fixtures/scripts/download-audio.mjs",
 		"fixtures:download": "node fixtures/scripts/download-fixtures.mjs && node fixtures/scripts/download-audio.mjs",
-		"fixtures:narration": "node --experimental-transform-types --disable-warning=ExperimentalWarning tools/align-spike/align.mjs",
-		"fixtures:word-index": "node tools/align-spike/word-index.mjs"
+		"fixtures:narration": "node --experimental-transform-types --disable-warning=ExperimentalWarning tools/align-spike/align.mjs"
 	},
 	"engines": {
 		"node": ">=22"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
+		"@testing-library/jest-dom": "7.0.1",
+		"@testing-library/svelte": "5.4.2",
+		"@testing-library/user-event": "14.6.7",
 		"eslint": "^10.11.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.23.0",
 		"fake-indexeddb": "^6.2.5",
 		"globals": "^17.12.0",
+		"jsdom": "30.1.1",
 		"prettier": "^3.9.9",
 		"prettier-plugin-svelte": "^4.1.1",
 		"svelte": "^5.57.1",

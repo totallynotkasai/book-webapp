@@ -11,6 +11,7 @@ export const test = base.extend({
 				latencyMs: { min: 0, max: 0 },
 				failureRate: 0,
 				offline: false,
+				emptyLists: false,
 				paymentOutcome: 'succeed',
 				aiDetectorVerdict: 'clean',
 				clockOffsetMs: 0
@@ -31,10 +32,10 @@ export async function openDevPanel(page: Page) {
 
 export async function switchPersona(page: Page, label: string) {
 	await openDevPanel(page);
-	await Promise.all([
-		page.waitForEvent('load'),
-		page.getByRole('radio', { name: new RegExp(`^${label}\\b`) }).check()
-	]);
+	const radio = page.getByRole('radio', { name: new RegExp(`^${label}\\b`) });
+	// Choosing the Persona already signed in changes nothing, so there is no reload to wait for.
+	if (await radio.isChecked()) return;
+	await Promise.all([page.waitForEvent('load'), radio.check()]);
 }
 
 /** Waits until the dev panel's last simulation change has been written. */

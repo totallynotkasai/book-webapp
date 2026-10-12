@@ -1,6 +1,6 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 11 October 2026
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 12 October 2026 (Phase 0 exit: ADR-001 to ADR-005 accepted; D-026 to D-028)
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
 > **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
@@ -355,10 +355,10 @@ Status: **In repo** = already set up. **Phase n** = adopt when that phase starts
 | UI framework | Svelte 5 + SvelteKit, built as an SPA (`adapter-static`, `fallback: 'index.html'`) | In repo | One build runs on the web and in Capacitor. Server-rendered store pages come in Phase 6 (§5.5) |
 | Mobile | Capacitor: Android now, iOS from the backlog (D-024) | Phase 0 | Native plugins only where web APIs fall short: background audio, deep links, filesystem |
 | Simulated backend | `backend-local`: IndexedDB via `idb`, seed data validated with Zod | Phase 0 | §5.6. Replaced by `backend-http` in Phase 2 |
-| Reader engine | foliate-js **or** Readium ts-toolkit | Spike P0-04 (OPEN-01) | Always behind the `ReaderEngine` interface (§9.1) |
+| Reader engine | foliate-js, pinned by git commit (ADR-001) | Phase 1 | Always behind the `ReaderEngine` interface (§9.1) |
 | Local storage | IndexedDB via `idb` | In repo | `@book/storage-local` |
 | Validation | Zod | Phase 1 | For imported data, stored data and (later) API contracts |
-| Design system | Material 3 colour system and tokens (`@material/material-color-utilities`); components per OPEN-02 | Phase 1 | §11 |
+| Design system | Material 3 colour system and tokens (`@material/material-color-utilities`); our own components on Bits UI primitives (ADR-005) | Phase 1 | §11 |
 | Icons | Material Symbols, self-hosted subset | Phase 1 | |
 | Audio playback | HTML audio + Web Audio + Media Session; native plugin on mobile | Phase 1 | Behind a platform interface (§9.7). Howler.js only if ambient audio is ever un-parked |
 | Speech alignment | whisper.cpp (binary) for word timings; alignment logic in TS | Phase 1 (dev tool), 3 (worker) | **Exception:** non-TS binary |
@@ -653,7 +653,7 @@ EPUB 3 (and well-formed EPUB 2) only. Authors can export EPUB from Vellum, Attic
    - Remove references to resources outside the EPUB.
    - Filter CSS to an allowlist (typography, colour, borders, spacing, tables, lists). Author colours are kept but are re-mapped to theme tokens at render time (§9.6).
 3. **Mark Blocks:** give each block-level element a `data-b` index in reading order.
-4. **Tokenise:** walk text nodes in reading order and segment with `Intl.Segmenter(lang, { granularity: 'word' })`; each segment with `isWordLike` is a Word. Never split a Word across element boundaries. Use the Book's `lang` from the OPF. How Words are marked in the output (spans vs. an offset index) is decided by ADR-002.
+4. **Tokenise:** walk text nodes in reading order and split them into Words with `text-pipeline`'s own deterministic, versioned word tokeniser (D-026, resolving OPEN-14): UAX #29-style word rules over Unicode properties, with no `Intl.Segmenter`, so every runtime (Chromium, WebKit, Node) gives the same Words and WordIds. Han, Hiragana, Katakana and Thai text is one Word per character until a later tokeniser version handles those scripts. The tokeniser version is recorded on each Revision. Never split a Word across element boundaries. Use the Book's `lang` from the OPF. Words are marked by Block offsets (ADR-002), not spans.
 5. **Assign WordIds and Ordinals** (§6.2).
 6. **Emit:** sanitised XHTML, the per-Chapter word index (for each Word in reading order: WordId, Block, text, and offsets if ADR-002 needs them), the engine manifest (ADR-001), TOC, and Chapter records with first/last WordId and Ordinal.
 7. **Report:** word count, chapter count, warnings (CSS removed, images missing alt text, and so on). The author sees this before publishing.
@@ -1485,10 +1485,10 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | D-012 | Illustrations: reader chooses `popup` (default), `per-page` (left panel), `spread` (wide area above, for double-page art) or `in-text` (creator placements), or off | Accepted |
 | D-013 | Page turns: none / slide / fade now; page curl later as a skin | Accepted |
 | D-014 | The PoC uses *Alice* only (Tenniel illustrations, LibriVox narration); status windows tested with a hand-made fixture | Accepted; amended by D-023 |
-| D-015 | Reader engine. **Proposed in ADR-001:** foliate-js behind our `ReaderEngine` adapter, pinned by git commit | Proposed (12 Oct 2026); awaiting the owner's feel score and the Android measurements |
-| D-016 | Word marking and word index format. **Proposed in ADR-002:** Blocks carry `data-b`; a per-Chapter word index holds `[wordId, block, start, end]` with a per-Block check | Proposed (12 Oct 2026); awaiting the TalkBack check |
-| D-017 | Alignment model and hosting. **Proposed in ADR-003:** whisper.cpp `base.en` with DTW token timestamps (`-ojf -nfa --dtw`), per-chapter bias correction, CPU hosting (about 0.3–0.6 CPU-hours per audio hour), no GPU | Proposed (12 Oct 2026); awaiting the owner's listening check |
-| D-018 | Mobile audio, selection and file plugins. **Draft in ADR-004:** native playback with a native media session for background narration; native selection plus our toolbar; `<input type=file>`; Capacitor SystemBars insets | Draft (12 Oct 2026); awaiting device checks on the owner's phone |
+| D-015 | Reader engine: foliate-js behind our `ReaderEngine` adapter, pinned by git commit (ADR-001). Resolves OPEN-01 | Accepted (owner decision, 12 Oct 2026); Android checks run on the emulator in Phase 1 (D-028) |
+| D-016 | Word marking and word index format: Blocks carry `data-b`; a per-Chapter word index holds `[wordId, block, start, end]` with a per-Block check (ADR-002). Resolves OPEN-13 | Accepted (owner decision, 12 Oct 2026); TalkBack check in P1-QA-02 |
+| D-017 | Alignment model and hosting: whisper.cpp `base.en` with DTW token timestamps (`-ojf -nfa --dtw`), per-chapter bias correction, CPU hosting (about 0.3–0.6 CPU-hours per audio hour), no GPU (ADR-003) | Accepted (owner decision, 12 Oct 2026) |
+| D-018 | Mobile audio, selection and files (ADR-004): native playback with a native media session for background narration; native selection plus our toolbar; `<input type=file>`; Capacitor SystemBars insets. Amended by D-027 | Accepted (owner decision, 12 Oct 2026); device checks on the emulator in Phase 1 (D-028) |
 | D-019 | AI-generated content allowed but must be labelled; readers can hide it; authors can refuse it on their Books (§10.6). Resolves the former OPEN-09 | Accepted |
 | D-020 | Automatic Flags (upload volume, suspected unlabelled AI, reports, new accounts) with a manual admin review queue and author curation tools, from Phase 2 (§10.6) | Accepted |
 | D-021 | The PoC includes simulated store, Creator Studio, community and moderation areas behind feature flags, so the owner can try every area of the product before a backend exists. Real accounts, sync and money stay in Phase 2 onwards. Phases 0 and 1 are split into smaller phases (0.1–1.9) per `docs/IMPLEMENTATION-PLAN.md` | Accepted (owner decision, 11 Oct 2026) |
@@ -1496,6 +1496,9 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | D-023 | Demo content adds Standard Ebooks filler titles (CC0, no Layers), Arthur Rackham's *Alice* illustrations as the demo community pack, and a short demo serial grown from the status-window fixture (§12.2). Amends D-014 | Accepted (owner decision, 11 Oct 2026) |
 | D-024 | iOS builds and iOS device testing are deferred to `docs/BACKLOG.md` until the owner has a Mac (or a cloud macOS build service) and an iPhone. The PoC targets web and Android, tested on the owner's Android phone rather than an emulator. Code stays iOS-ready: Playwright WebKit on every PR, `lib/platform` adapters only, safe areas everywhere. iOS remains a product target | Accepted (owner decision, 11 Oct 2026) |
 | D-025 | One branch and PR per phase of `docs/IMPLEMENTATION-PLAN.md` (e.g. 0.1, 0.2) instead of one per task, with at least one commit per task carrying its task ID; the PR may be merged once CI is green | Accepted (owner decision, 11 Oct 2026) |
+| D-026 | Words come from `text-pipeline`'s own deterministic, versioned tokeniser (UAX #29-style rules over Unicode properties), not `Intl.Segmenter`. The tokeniser version is stored on each Revision, and a golden test checks Chromium, WebKit and Node give identical WordIds. Han, Hiragana, Katakana and Thai are one Word per character in version 1. Resolves OPEN-14 | Accepted (owner decision, 12 Oct 2026) |
+| D-027 | Background narration on Android uses our own small Capacitor plugin on AndroidX Media3 (ExoPlayer and `MediaSessionService`, Apache-2.0) in the app's Android project. Capawesome Audio Player, which ADR-004 named, is available only with a paid Capawesome Insiders licence. Amends D-018 | Accepted (owner decision, 12 Oct 2026) |
+| D-028 | During Phase 1, Android testing runs on the Android Studio emulator (API 36, Google APIs, x86_64; a Pixel 7 profile and a 360 dp small-phone profile) instead of the owner's phone, which is busy with another project. Hardware-dependent checks are repeated on the phone when it is free. Amends D-024's "rather than an emulator" for Phase 1 only | Accepted (owner decision, 12 Oct 2026) |
 
 ---
 
@@ -1503,8 +1506,8 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 
 | ID | Question | Resolve by |
 |---|---|---|
-| OPEN-01 | foliate-js or Readium ts-toolkit? *Proposed in ADR-001: foliate-js (not yet accepted).* | P0-04 |
-| OPEN-02 | Components: wrap `m3-svelte`, or build our own on headless Bits UI primitives styled with our tokens? Check maintenance, Svelte 5 support and theming. Recommendation: evaluate `m3-svelte` first; fall back to Bits UI *Proposed in ADR-005: our own components on Bits UI, not m3-svelte (not yet accepted).* | P0-10 (before P1-UI-02) |
+| OPEN-01 | *Resolved by D-015 (ADR-001): foliate-js.* | P0-04 |
+| OPEN-02 | *Resolved by ADR-005: our own components on Bits UI primitives, styled with our tokens; not m3-svelte.* | P0-10 |
 | OPEN-03 | Keep content delivery in the API or move it to an edge worker? | When traffic justifies it; before Phase 4 |
 | OPEN-04 | Stripe + Stripe Tax, or a merchant of record for digital-goods VAT/sales tax, given creator payouts later? | Before Phase 4 |
 | OPEN-05 | Mobile purchasing. Default: "reader app" model (buy on the web, read anywhere, as the Kindle app does). Store rules are changing: as recorded on 11 Oct 2026, US iOS link-outs carry no Apple commission while a court sets a fee (Apple has proposed 5–15%), and Google has cut its rate to 10%. Re-check before deciding | Before Phase 4 |
@@ -1515,8 +1518,8 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | OPEN-10 | Chapter-range Products for early-access serial chapters | Before Phase 4 |
 | OPEN-11 | *Resolved by D-008* (no platform-wide subscription; Creator Subscriptions instead). Remaining detail: Creator Subscription rules: plan limits, refunds, what happens to early-access benefits when a serial finishes | Before Phase 4 |
 | OPEN-12 | Age policy and content-rating scheme | Before Phase 5 |
-| OPEN-13 | Word marking: spans or offsets? *Proposed in ADR-002: offsets (not yet accepted).* | P0-05 |
-| OPEN-14 | **Deterministic tokenisation.** §7.1 tokenises with `Intl.Segmenter`, whose word boundaries come from each runtime's ICU data: the P0-05/P0-06 spikes found WebKit and Chromium give the same EPUB different WordIds (off by 4 from chapter 1 of *Alice*). `text-pipeline` runs in the browser for imports and for `backend-local`'s catalogue (§5.4), and in Node from Phase 2, so the same Revision could get different WordIds per device, which would break Sync Maps and cross-device Annotations. *Proposed (not decided):* a versioned, deterministic Word tokeniser in `text-pipeline` (UAX #29 word rules with our own data, no `Intl.Segmenter`), with the tokeniser version recorded on each Revision, plus a cross-runtime golden test (Chromium, WebKit, Node). Hard to reverse once WordIds are stored | P1-ING-01 (before any WordId is stored) |
+| OPEN-13 | *Resolved by D-016 (ADR-002): Block indexes plus an offset word index.* | P0-05 |
+| OPEN-14 | *Resolved by D-026.* Deterministic tokenisation: `Intl.Segmenter` takes its word boundaries from each runtime's ICU data, and the P0-05/P0-06 spikes found WebKit and Chromium gave the same EPUB different WordIds, which would break Sync Maps and cross-device Annotations. `text-pipeline` now uses its own versioned tokeniser | P1-ING-01 |
 
 ---
 

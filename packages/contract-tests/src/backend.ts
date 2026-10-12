@@ -132,6 +132,19 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 				await expectBackendError(backend.catalogue.getCreator('no-such-creator'), 'NOT_FOUND');
 			});
 
+			it('lists a Creator’s own listed Books for their profile', async () => {
+				const [first] = (await backend.catalogue.listBooks()).items;
+				const book = await backend.catalogue.getBook(first!.slug);
+				const books = await backend.catalogue.listCreatorBooks(book.creator.handle);
+				conforms('catalogue', 'listCreatorBooks', books);
+				expect(books.items.map((b) => b.id)).toContain(book.id);
+				for (const b of books.items) expect(b.creatorId).toBe(book.creatorId);
+				await expectBackendError(
+					backend.catalogue.listCreatorBooks('no-such-creator'),
+					'NOT_FOUND'
+				);
+			});
+
 			it('rejects a malformed cursor with VALIDATION_FAILED', async () => {
 				await expectBackendError(
 					backend.catalogue.listBooks({ cursor: 'not-a-cursor' }),
@@ -164,6 +177,24 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 				const books = await backend.studio.listBooks();
 				conforms('studio', 'listBooks', books);
 				for (const book of books.items) expect(book.creatorId).toBe(creator.user.creatorId);
+			});
+		});
+
+		describe('moderation (authorisation enforced in the backend, §10.6)', () => {
+			it('rejects readers and Creators with FORBIDDEN', async () => {
+				await backend.session.signInAs(personaWithRole('reader').id);
+				await expectBackendError(backend.moderation.listQueue(), 'FORBIDDEN');
+				await backend.session.signInAs(personaWithRole('creator').id);
+				await expectBackendError(backend.moderation.listQueue(), 'FORBIDDEN');
+			});
+
+			it('gives moderators the open Flags, highest priority first', async () => {
+				await backend.session.signInAs(personaWithRole('moderator').id);
+				const queue = await backend.moderation.listQueue();
+				conforms('moderation', 'listQueue', queue);
+				for (const flag of queue.items) expect(flag.state).toBe('open');
+				const priorities = queue.items.map((f) => f.priority);
+				expect(priorities).toEqual([...priorities].sort((a, b) => b - a));
 			});
 		});
 	});

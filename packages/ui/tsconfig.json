@@ -1,0 +1,8 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		// svelte-check doesn't pick up @types automatically; the motion test reads component files.
+		"types": ["node"]
+	},
+	"include": ["src"]
+}

@@ -116,3 +116,36 @@ export const studioBookSchema = bookSummarySchema.extend({
 	listingState: z.enum(['draft', 'listed', 'delisted'])
 });
 export type StudioBookDto = z.infer<typeof studioBookSchema>;
+
+/** What a Flag points at (§10.6, `moderation_flags.target_type`). */
+export const flagTargetTypeSchema = z.enum(['book', 'illustration_pack', 'audio_track', 'creator']);
+export type FlagTargetType = z.infer<typeof flagTargetTypeSchema>;
+
+/** The automatic and manual Flag rules (§10.6). */
+export const flagRuleSchema = z.enum([
+	'upload_volume',
+	'ai_untagged_suspected',
+	'report',
+	'rapid_new_account'
+]);
+export type FlagRule = z.infer<typeof flagRuleSchema>;
+
+export const flagStateSchema = z.enum(['open', 'cleared', 'actioned']);
+export type FlagState = z.infer<typeof flagStateSchema>;
+
+/** One item in the admin review queue (§10.6). */
+export const flagSchema = z.object({
+	id,
+	targetType: flagTargetTypeSchema,
+	targetId: id,
+	/** The target's name, for the queue (a Book or pack title, a Creator's display name). */
+	targetTitle: z.string(),
+	rule: flagRuleSchema,
+	state: flagStateSchema,
+	/** Higher first; several reports on one item raise it. */
+	priority: z.number().int().nonnegative(),
+	/** What fired the rule, in plain language. */
+	details: z.string(),
+	createdAt: timestamp
+});
+export type FlagDto = z.infer<typeof flagSchema>;

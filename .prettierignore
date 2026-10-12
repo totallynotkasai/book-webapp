@@ -11,5 +11,7 @@ fixtures/src
 fixtures/epub
 fixtures/audio/alice
 .claude
-spike-results
 fixtures/sync
+packages/tokens/src/default-theme.css
+packages/tokens/src/fonts.css
+packages/ui/src/icons.ts

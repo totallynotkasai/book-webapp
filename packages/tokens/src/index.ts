@@ -1,5 +1,7 @@
 import type { ContrastLevel, FontId, ReaderPreferences, ThemeMode } from '@book/core';
 
+export * from './theme';
+
 export const themeModeLabels: Record<ThemeMode, string> = {
 	system: 'System',
 	light: 'Light',
@@ -22,22 +24,6 @@ export const fontLabels: Record<FontId, string> = {
 	opendyslexic: 'OpenDyslexic',
 	publisher: 'Publisher default'
 };
-
-/** The hand-written themes in tokens.css, until generated M3 schemes replace them (P1-UI-01). */
-export type ThemeAttribute = 'light' | 'dark' | 'sepia' | 'high-contrast';
-
-/**
- * Picks the `data-theme` to apply. High contrast is a contrast level (§11.2); until P1-UI-01
- * generates schemes per level, it maps to the one high-contrast theme and medium maps to standard.
- */
-export function themeAttribute(
-	theme: ReaderPreferences['theme'],
-	systemPrefersDark: boolean
-): ThemeAttribute {
-	if (theme.contrast === 'high') return 'high-contrast';
-	if (theme.mode === 'system') return systemPrefersDark ? 'dark' : 'light';
-	return theme.mode;
-}
 
 /** Base reading size in rem, before the user's font scale is applied. */
 const BASE_READER_SIZE = 1.125;

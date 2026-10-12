@@ -12,7 +12,7 @@ import {
 test('switching Persona reloads the app as that user, with their own Stores data', async ({
 	page
 }) => {
-	await page.goto('/');
+	await page.goto('/you');
 	await expect(page.getByTestId('signed-in-as')).toHaveText('Signed in as Robin Reader.');
 
 	// The Reader makes their text bigger…
@@ -24,9 +24,10 @@ test('switching Persona reloads the app as that user, with their own Stores data
 
 	// …which the Author doesn't see,
 	await switchPersona(page, 'Author');
-	await page.goto('/');
+	await page.goto('/you');
 	await expect(page.getByTestId('signed-in-as')).toHaveText('Signed in as Wren Ashdown.');
-	await expect(page.getByRole('link', { name: "The Lamplighter's Ledger" })).toBeVisible();
+	await page.goto('/library');
+	await expect(page.getByRole('link', { name: /The Lamplighter's Ledger/ })).toBeVisible();
 	await page.goto('/read/sample');
 	await page.getByRole('button', { name: 'Reading preferences' }).click();
 	await expect(page.getByTestId('font-scale')).toHaveText('100%');

@@ -15,6 +15,8 @@ export const simulationSchema = z.object({
 	failureRate: z.number().min(0).max(1),
 	/** Every call fails with `NETWORK_ERROR`. */
 	offline: z.boolean(),
+	/** Every paged list comes back empty, so screens' empty states can be tried (P1-APP-01). */
+	emptyLists: z.boolean().default(false),
 	/** What simulated checkout does (used from P1-STO-02). */
 	paymentOutcome: z.enum(['succeed', 'decline', 'fail']),
 	/** What the stub AI detector says about unlabelled uploads (used from P1-ADM-01). */
@@ -30,6 +32,7 @@ export const ownerSimulationDefaults: SimulationSettings = {
 	latencyMs: { min: 150, max: 400 },
 	failureRate: 0,
 	offline: false,
+	emptyLists: false,
 	paymentOutcome: 'succeed',
 	aiDetectorVerdict: 'clean',
 	clockOffsetMs: 0

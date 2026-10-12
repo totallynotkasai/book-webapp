@@ -1,9 +1,9 @@
 # ADR-003: Narration alignment: whisper.cpp model, flags and hosting
 
-- **Status:** Proposed (for the owner's review; not yet Accepted). Feeds D-017 in DESIGN.md §16, which the lead engineer updates.
+- **Status:** **Accepted** (12 October 2026, owner decision before Phase 1). Records D-017.
 - **Date:** 12 October 2026
 - **Task:** P0-06 Spike: narration alignment.
-- **Code:** `packages/alignment` (kept: it becomes the §7.2 `alignment` package), the Sync Map type and schema in `packages/core/src/sync-map.ts` (kept), `tools/align-spike/` (grows into `tools/align` in P1-LAY-03), and the throwaway spike page `apps/web/src/routes/spike/narration/` with `apps/web/e2e/spike-narration.spec.ts` (deleted at the end of Phase 0.2, DESIGN.md §13.1).
+- **Code:** `packages/alignment` (kept: it becomes the §7.2 `alignment` package), the Sync Map type and schema in `packages/core/src/sync-map.ts` (kept), `tools/align-spike/` (grows into `tools/align` in P1-LAY-03), and the spike page `/spike/narration` (deleted in Phase 1.1; P1-LAY-04 builds the real narration player).
 
 ## Context
 
@@ -104,7 +104,7 @@ Lag is inside the 100 ms budget everywhere except WebKit with foliate-js at 2×,
 5. **Seeking needs HTTP byte ranges.** Chromium can't seek in audio served without `Accept-Ranges` (the position snaps back to 0). The repo's static test server (`apps/web/scripts/serve.mjs`) now serves ranges. Phase 3 storage and CDN do this already, but the Capacitor/WebView path should be checked in P0-07.
 6. **foliate-js visible range** (a P0-04 spike bug found here): the adapter counted the next page, which sits beside the centred column hidden by a clipping container, as visible. The last visible Word came out about 340 Words too late, and auto page-turn fired a page late. Fixed in `packages/reader-core/src/spike/foliate.ts` by clipping to the frame's overflow-clipping ancestors.
 
-## Recommendation
+## Decision
 
 - **Model: `base.en`, with DTW timestamps and per-Chapter bias removal.** Its coverage is within 0.2–0.4 points of small.en, well above both the 0.95 acceptance bar and the 0.90 review threshold. Its timing after bias removal is as good or better (median 40 ms). It costs about a third as much (0.3–0.6 vs 0.9–1.7 CPU-hours per audio hour). Keep `small.en` as a retry for Chapters that come out under the review threshold, and for accents, noisy recordings or vocabulary-heavy fiction (LitRPG stat names), where the bigger model should earn its cost. The launch title's sample chapter (Phase 2) is the next test. Multilingual models (`base`/`small` without `.en`) wait for non-English Books.
 - **Alignment:** keep the §7.2 design as built: banded affine Needleman–Wunsch on normalised tokens, fuzzy matches by edit distance (similarity ≥ 0.6, words of 4+ letters), merge moves for compounds, free transcript ends, interpolation with the `interpolated` flag. The band (±200 tokens, doubling if the path touches its edge) keeps a Chapter at about 0.8 M cells and 0.4 s. Rules to add when real books show the need: abbreviations read in full ("Esq."/"Esquire", "Mr"/"mister"), contractions expanded on one side only ("I'm"/"I am"), and years read as pairs ("1865"/"eighteen sixty-five").
