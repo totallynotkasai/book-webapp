@@ -26,6 +26,8 @@
 		"node": ">=22"
 	},
 	"devDependencies": {
+		"@book/reader-core": "*",
+		"@book/text-pipeline": "*",
 		"@eslint/js": "^10.0.1",
 		"@testing-library/jest-dom": "7.0.1",
 		"@testing-library/svelte": "5.4.2",
