@@ -746,6 +746,7 @@
 	<SelectionToolbar
 		rect={toolbar.rect}
 		pointer={toolbar.pointer}
+		bottomInset={chrome ? 72 : 0}
 		colour={toolbar.kind === 'annotation' ? toolbar.annotation.colour : undefined}
 		hasNote={toolbar.kind === 'annotation' && !!toolbar.annotation.note}
 		canRemove={toolbar.kind === 'annotation' ||

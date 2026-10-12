@@ -16,6 +16,11 @@
 	// device. Say so plainly, show whether the browser has promised to keep it, and offer exports
 	// and a clean delete.
 	let status = $state<StorageStatus>();
+	/**
+	 * In the Android app the data is the app's own (ADR-004 check 2): clearing the cache keeps it,
+	 * and the WebView never grants "persistent" storage, so the browser wording doesn't apply.
+	 */
+	const native = getPlatform().kind !== 'web';
 	let exporting = $state<'json' | 'md' | null>(null);
 	let confirmDelete = $state(false);
 	let deleting = $state(false);
@@ -100,8 +105,10 @@
 			to your other devices yet.
 		</p>
 		<p class="hint">
-			If this browser’s site data is cleared, or the app is uninstalled, it’s gone. Export it now
-			and then to keep a copy.
+			{native
+				? 'If you clear this app’s storage in Android’s settings, or uninstall it, it’s gone.'
+				: 'If this browser’s site data is cleared, it’s gone.'}
+			Export it now and then to keep a copy.
 		</p>
 	</section>
 
@@ -109,7 +116,16 @@
 		<h2 id="storage-heading">Keeping it safe</h2>
 		<Card variant="outlined">
 			<div class="status" data-testid="storage-status">
-				{#if !status}
+				{#if native}
+					<Icon name="verified" />
+					<div>
+						<p class="state">Kept with the app</p>
+						<p class="hint">
+							Android keeps it until you clear the app’s storage or uninstall it. Clearing the app’s
+							cache doesn’t remove it.
+						</p>
+					</div>
+				{:else if !status}
 					<p>Checking…</p>
 				{:else if !status.supported}
 					<Icon name="info" />

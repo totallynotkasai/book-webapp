@@ -373,9 +373,13 @@ export class FoliateEngine implements ReaderEngine {
 			this.#lastSelection = null;
 			return;
 		}
-		// Show the selection as whole Words too, not only report it that way (Invariant 5).
+		// Show a mouse selection as whole Words too, not only report it that way (Invariant 5). Not
+		// on touch: a selection set from script loses Android's handles and menu, and long-press
+		// already selects by Word there (ADR-004 check 5).
 		const words = map.rangeBetween(...snapped);
 		if (
+			pointer === 'mouse' &&
+			!keyboard &&
 			words &&
 			(range.compareBoundaryPoints(Range.START_TO_START, words) !== 0 ||
 				range.compareBoundaryPoints(Range.END_TO_END, words) !== 0)

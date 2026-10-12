@@ -20,6 +20,8 @@
 		canRemove: boolean;
 		/** Move focus into the toolbar when it opens (keyboard selection). */
 		autofocus?: boolean;
+		/** Space at the bottom edge taken by the reader's own bar, when it shows. */
+		bottomInset?: number;
 		onhighlight: (colour: HighlightColour) => void;
 		onnote: () => void;
 		oncopy: () => void;
@@ -34,6 +36,7 @@
 		hasNote,
 		canRemove,
 		autofocus = false,
+		bottomInset = 0,
 		onhighlight,
 		onnote,
 		oncopy,
@@ -59,17 +62,27 @@
 		const above = rect.top - GAP - height;
 		const below = rect.bottom + (touch ? HANDLE_GAP : GAP);
 		const fitsAbove = above >= TOP_RESERVED;
-		const fitsBelow = below + height <= viewportHeight - GAP;
+		const bottom = viewportHeight - Math.max(GAP, bottomInset);
+		const fitsBelow = below + height <= bottom;
+		// Touch: below, else docked at the bottom (above the reader's bar, or over it if that's the
+		// only way to clear the selection); never up into the space Android's own menu uses.
+		const clears = (y: number) => y >= rect.bottom + GAP;
+		const docked = bottom - height;
+		const dockedOverBar = viewportHeight - GAP - height;
 		const top = touch
-			? fitsBelow || !fitsAbove
+			? fitsBelow
 				? below
-				: above
+				: clears(docked)
+					? docked
+					: clears(dockedOverBar) || !fitsAbove
+						? dockedOverBar
+						: above
 			: fitsAbove || !fitsBelow
 				? Math.max(GAP, above)
 				: below;
 		const centre = rect.left + rect.width / 2;
 		const left = Math.min(Math.max(GAP, centre - width / 2), viewportWidth - width - GAP);
-		return { top: Math.min(top, viewportHeight - height - GAP), left: Math.max(GAP, left) };
+		return { top: Math.min(top, viewportHeight - GAP - height), left: Math.max(GAP, left) };
 	});
 
 	$effect(() => {
@@ -204,8 +217,30 @@
 		background: var(--md-sys-color-outline-variant);
 	}
 
-	/* Phones: colours on one row, actions on the next, with full-size touch targets. */
+	/* Phones: one row of 40 px buttons (each still a 48 px touch area, overlapping its neighbours'
+	   padding, as the icon buttons do), so it fits below the selection more often. */
 	@media (max-width: 420px) {
+		.toolbar {
+			gap: 0;
+			padding: var(--space-1);
+		}
+
+		.swatches {
+			gap: 0;
+		}
+
+		.swatch {
+			width: 40px;
+		}
+
+		.swatch::before {
+			inset: 12px 8px;
+		}
+
+		.swatch[aria-pressed='true']::before {
+			inset: 10px 6px;
+		}
+
 		.divider {
 			display: none;
 		}
