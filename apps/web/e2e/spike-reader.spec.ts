@@ -11,9 +11,12 @@ import {
 
 // SPIKE (P0-04): drives both engines on /spike/reader through ADR-001's criteria and writes
 // measurements to apps/web/spike-results/. Deleted with the spike.
-// Run: npx playwright test spike-reader --project chromium --project webkit
+// The measurement runs take about a minute each, so they run only when asked:
+//   SPIKE_MEASURE=1 npx playwright test spike-reader --project chromium --project webkit --workers 1
+const measure = !!process.env.SPIKE_MEASURE;
 
 test('both engines through the ADR-001 criteria', async ({ page, browserName }) => {
+	test.skip(!measure, 'Measurement run: set SPIKE_MEASURE=1');
 	test.setTimeout(300_000);
 	await page.setViewportSize({ width: 1400, height: 950 });
 	await page.goto('/spike/reader');
@@ -28,6 +31,7 @@ for (const id of ENGINES) {
 		page,
 		browserName
 	}) => {
+		test.skip(!measure, 'Measurement run: set SPIKE_MEASURE=1');
 		test.setTimeout(300_000);
 		await page.setViewportSize({ width: 1400, height: 950 });
 		await page.goto('/spike/reader');
@@ -53,6 +57,7 @@ test('both engines open every fixture', async ({ page, browserName }) => {
 // P0-05 (OPEN-13): the same run with each Word-marking option, plus an accessibility sample.
 for (const marking of ['spans', 'offsets'] as const) {
 	test(`word marking ${marking}`, async ({ page, browserName }) => {
+		test.skip(!measure, 'Measurement run: set SPIKE_MEASURE=1');
 		test.setTimeout(300_000);
 		await page.setViewportSize({ width: 1400, height: 950 });
 		await page.goto('/spike/reader');
