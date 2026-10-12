@@ -74,3 +74,52 @@ export function storedPreferences(page: Page, userId: string) {
 export async function expectStoredFontScale(page: Page, userId: string, fontScale: number) {
 	await expect.poll(() => storedPreferences(page, userId)).toMatchObject({ fontScale });
 }
+
+/** Opens a Book in the reader and waits until its first page is laid out. */
+export async function openReader(page: Page, bookId: string) {
+	await page.goto(`/read/${bookId}`);
+	await expect(page.getByTestId('reader')).toHaveAttribute('data-ready', 'true', {
+		timeout: 30_000
+	});
+	await expect(page.getByTestId('reader')).toHaveAttribute('data-first', /\d+/);
+}
+
+/** The visible Words' Ordinals and the first Word's text, as the reader reports them. */
+export async function visibleWords(page: Page) {
+	const reader = page.getByTestId('reader');
+	return {
+		first: Number(await reader.getAttribute('data-first')),
+		last: Number(await reader.getAttribute('data-last')),
+		word: (await reader.getAttribute('data-first-word')) ?? ''
+	};
+}
+
+/** Waits for the reader to settle on a new position after an action. */
+export async function settled(page: Page) {
+	await page.waitForTimeout(250);
+	await expect
+		.poll(async () => {
+			const a = await visibleWords(page);
+			await page.waitForTimeout(150);
+			const b = await visibleWords(page);
+			return a.first === b.first && a.last === b.last;
+		})
+		.toBe(true);
+}
+
+/** Opens the reading preferences sheet on a tab. */
+export async function openPreferences(page: Page, tab: 'Text' | 'Page' | 'Theme') {
+	await showChrome(page);
+	await page.getByRole('button', { name: 'Reading preferences' }).click();
+	await page.getByRole('tab', { name: tab }).click();
+}
+
+/** Makes sure the reading controls are showing (they fade after a page turn). */
+export async function showChrome(page: Page) {
+	const reader = page.getByTestId('reader');
+	if (await reader.evaluate((el) => el.classList.contains('chrome-hidden'))) {
+		await page.keyboard.press('Escape');
+	}
+	await expect(reader).not.toHaveClass(/chrome-hidden/);
+	await page.waitForTimeout(300);
+}

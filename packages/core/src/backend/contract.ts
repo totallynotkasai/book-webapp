@@ -12,6 +12,7 @@ import {
 	creatorSchema,
 	flagSchema,
 	libraryEntrySchema,
+	openBookSchema,
 	personaSchema,
 	sessionSchema,
 	studioBookSchema
@@ -46,6 +47,13 @@ export const backendContract = {
 	},
 	library: {
 		list: { input: optionalPage, output: pageSchema(libraryEntrySchema) }
+	},
+	content: {
+		open: { input: slug, output: openBookSchema },
+		read: {
+			input: z.tuple([z.string().min(1), z.string().min(1)]),
+			output: z.instanceof(Blob)
+		}
 	},
 	studio: {
 		listBooks: { input: optionalPage, output: pageSchema(studioBookSchema) }

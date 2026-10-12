@@ -1,0 +1,59 @@
+{
+	"revisionId": "12cbc3610260503383ad7ecf800beb0d885a6011e15900b2bf61cecfc571d6c8",
+	"title": "Alice's Adventures in Wonderland",
+	"wordCount": 29898,
+	"chapters": 15,
+	"toc": 16,
+	"report": {
+		"title": "Alice's Adventures in Wonderland",
+		"chapterCount": 14,
+		"wordCount": 29898,
+		"imageCount": 1,
+		"warnings": [
+			{
+				"code": "css_removed",
+				"severity": "info",
+				"message": "Removed 5 style rules this reader doesn’t use.",
+				"count": 5,
+				"chapterIds": []
+			}
+		]
+	},
+	"files": {
+		"content/8761230412384829988_11-h-0.htm.xhtml": "d457a0dad8968f8e583176052011f7bcf53c7d5100705bfad1adf6a2b948e885",
+		"content/8761230412384829988_11-h-1.htm.xhtml": "b5053d174d337a5555b2a69d1725ff4786deadfbf29a431eb1d1e2db6bb15255",
+		"content/8761230412384829988_11-h-10.htm.xhtml": "c78640e7e71548fff20cd8e64766ac5920c27c6929942c7ed62afea4ddea2b57",
+		"content/8761230412384829988_11-h-11.htm.xhtml": "920ecc4a216c3f12cabdc535b6bdfc5f94fc88913284f8aa39433292c1c7ef8b",
+		"content/8761230412384829988_11-h-12.htm.xhtml": "8dbcfea1fce5b767c3214f053ac27c469662e1911f9f9ae523cb1b87e764bc1a",
+		"content/8761230412384829988_11-h-13.htm.xhtml": "fc7d10a0e96c522138773f76534d17082394be8997d659e7b4ef3d7280f3cae8",
+		"content/8761230412384829988_11-h-2.htm.xhtml": "bc4a5160aeaf610c8b0adc3f56327e4110ce42d57c074203b17864a8f2e48076",
+		"content/8761230412384829988_11-h-3.htm.xhtml": "0a91c072e221c68f1eaf7be07174f9db7581c350d72257adb6316d76a6433c9a",
+		"content/8761230412384829988_11-h-4.htm.xhtml": "993f7599b616457558cdc1a956e7b44d3656805f59cee6a565fe281e032bb9ae",
+		"content/8761230412384829988_11-h-5.htm.xhtml": "1f401889c3bf7d70009cf4ad7a6a91c6ac9dcd17f211ffa1e9e26db79528cdc3",
+		"content/8761230412384829988_11-h-6.htm.xhtml": "ff94c71babf7663bcfe99cba9c470b99aaa93e3323db9e0546e4cd38437f5158",
+		"content/8761230412384829988_11-h-7.htm.xhtml": "3e659d87d993d92fbec0663ea3ba9e30bb4cb377b444c08be10b7329a3a49381",
+		"content/8761230412384829988_11-h-8.htm.xhtml": "5988b5f2b1bd8b8dda1ffbb95007ea944dfbaf0466f7eb90fe0df359ca1c89f1",
+		"content/8761230412384829988_11-h-9.htm.xhtml": "381e047f2ecb9176351d85d82559dd2619bc88bb0f5aba9665d4b2f86499082f",
+		"content/wrap0000.xhtml": "ea5d213c85cb2c85c5ac8e96f3868db790739f3ba1c31a51c6a78080184ea4bc",
+		"index/8761230412384829988_11-h-0.htm.xhtml.words.json": "e8def5813440df363bb6e169581f5cd05a2c67633a3f9bd17ef4e8db4cb99dc8",
+		"index/8761230412384829988_11-h-1.htm.xhtml.words.json": "2c7e41167ca8e421eb3c6f25ecf8072e9918d9307ff4d647634c9c78b926e23e",
+		"index/8761230412384829988_11-h-10.htm.xhtml.words.json": "bf5f0517c43bfdedfc1943253c8b6149059d6e3d57cae98e77f18725a338877e",
+		"index/8761230412384829988_11-h-11.htm.xhtml.words.json": "ceafa58f805cc309011ec41ada99bf3fc47e7fcf466088efe93b99766b82b9f9",
+		"index/8761230412384829988_11-h-12.htm.xhtml.words.json": "e7bfaaa3a6c3d5844792ec8b081642cb14f9831e7ca5b178de036474d8e68ff2",
+		"index/8761230412384829988_11-h-13.htm.xhtml.words.json": "aedd3fa6d5926d9839a87d3f5f0e541008e1b4a9c2646a9e5f6dd182e7694be9",
+		"index/8761230412384829988_11-h-2.htm.xhtml.words.json": "e07ad0451c4e32dd8a02f23dd5695ccf65cf1735a22c67b2f3a5124eedc09cdd",
+		"index/8761230412384829988_11-h-3.htm.xhtml.words.json": "9504f9c0c396cdcabf04f40d32495988c25f598000a76515970018de976532ed",
+		"index/8761230412384829988_11-h-4.htm.xhtml.words.json": "32dc7dc8ba85ed3adc59c7f2b26545945fd457508388a2c40de0c93926c06b98",
+		"index/8761230412384829988_11-h-5.htm.xhtml.words.json": "b563a150fa5547adc062734cf9f2c8648b6986abeba756bbd3d17fbc4bf15485",
+		"index/8761230412384829988_11-h-6.htm.xhtml.words.json": "64973e8e4857384f650ec8fb7ce796723be2945989eacf957cc84c20a1d217d0",
+		"index/8761230412384829988_11-h-7.htm.xhtml.words.json": "bdd51231dbc9d23ed08e041b0b65963de2d236a40bef1d9cd871da051c6da4a2",
+		"index/8761230412384829988_11-h-8.htm.xhtml.words.json": "f2214ed8243c064afa0ac7273afe0dd75dbc65de0971a3b7e997cd74172d7dbb",
+		"index/8761230412384829988_11-h-9.htm.xhtml.words.json": "639cd31d86cbe28e1dea3ab0976a07ce277c0f62babe7d5774b62fb2a50bba90",
+		"index/wrap0000.xhtml.words.json": "453871318aff26d722cc6a42ed7f9d65bc98b99141234d90ef467d764908f0d4",
+		"manifest.json": "75127ee7baae8a93c4ffca92cc521292268b269bfe8c4a2d3b311228d55ac72c",
+		"res/0.css": "1add0b64bdc64170ff785a63874ab532d93a618f7b5ae630ba6a29dc59be78ed",
+		"res/1.css": "489b0f250368150c8abd1e0d7bb30e1cecf1b2a30016cb2f6646c77ba37d5168",
+		"res/3809243430796983855_cover.jpg": "2a34efaa254af4e36d509c64dc4ca5483c163da89414a3a2dcaaf3e80b331eef",
+		"res/pgepub.css": "33bdfd3841977adc5dc927b28e7292eea3cce2bfe1a3c4e00d63980499c2f64d"
+	}
+}

@@ -6,3 +6,4 @@ export * from './storage';
 export * from './backend';
 export * from './money';
 export * from './sync-map';
+export * from './content';

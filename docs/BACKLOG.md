@@ -41,3 +41,11 @@ Suggested order when picked up: IOS-01, IOS-02, IOS-04, IOS-05, then the rest.
 | IOS-14 | Sign in with Apple, and the App Store's rules on sign-in options | P2-AUTH-01 | Phase 2; DESIGN.md §5.2 already flags the App Store sign-in rules |
 
 Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 4).
+
+---
+
+## Reader
+
+| ID | Item | Deferred from | Why deferred, and what brings it back |
+|---|---|---|---|
+| RDR-01 | **Table viewer:** tap a table that's squeezed (wider than its page at the current text size) to open it full screen, where it can be panned and zoomed, as images already are | P1-RDR-08 | Tables that don't fit now wrap their cells (hyphenating first, then breaking anywhere), so nothing is cut off, but a four-column stat table on a 360 px phone at 200% wraps a letter or two per line. A viewer is a feature of its own (and nested scrolling fights foliate-js's page swipes). Brought back by tester feedback on stat-heavy books, or with the launch title (Phase 2) |

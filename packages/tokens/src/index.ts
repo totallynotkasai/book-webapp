@@ -25,6 +25,20 @@ export const fontLabels: Record<FontId, string> = {
 	publisher: 'Publisher default'
 };
 
+/**
+ * Reading font stacks (§11.3), the same as tokens.css's --font-* tokens, as plain strings for the
+ * reader's frames, which can't see the app's CSS. `publisher` keeps the EPUB's own fonts.
+ */
+export const fontStacks: Record<FontId, string | null> = {
+	literata: "'Literata', Georgia, 'Times New Roman', serif",
+	'source-serif-4': "'Source Serif 4', 'Source Serif Pro', Georgia, serif",
+	merriweather: "'Merriweather', Georgia, serif",
+	nunito: "'Nunito', system-ui, sans-serif",
+	'atkinson-hyperlegible': "'Atkinson Hyperlegible', Verdana, sans-serif",
+	opendyslexic: "'OpenDyslexic', 'Atkinson Hyperlegible', 'Comic Sans MS', sans-serif",
+	publisher: null
+};
+
 /** Base reading size in rem, before the user's font scale is applied. */
 const BASE_READER_SIZE = 1.125;
 

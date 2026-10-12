@@ -47,6 +47,8 @@ const bookRecord = z.object({
 	aiUse: aiUseSchema,
 	description: z.string(),
 	coverUrl: z.string().nullable(),
+	/** Static path of the Book's EPUB, processed by text-pipeline on first open (plan §4.3). */
+	epubUrl: z.string().nullable().default(null),
 	listingState: z.enum(['draft', 'listed', 'delisted'])
 });
 

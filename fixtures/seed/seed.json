@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 4,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -101,6 +101,7 @@
 			"aiUse": "none",
 			"description": "Alice follows a White Rabbit down a rabbit hole into a world of nonsense, riddles and an alarming Queen.",
 			"coverUrl": null,
+			"epubUrl": "/books/alice.epub",
 			"listingState": "listed"
 		},
 		{
@@ -112,6 +113,7 @@
 			"aiUse": "generated",
 			"description": "A short demo LitRPG serial with status windows. Written by an AI for this proof of concept.",
 			"coverUrl": "/demo/covers/the-lamplighters-ledger.jpg",
+			"epubUrl": "/demo/books/the-lamplighters-ledger.epub",
 			"listingState": "listed"
 		},
 		{
@@ -123,6 +125,7 @@
 			"aiUse": "none",
 			"description": "A cyclone carries Dorothy from Kansas to the Land of Oz, where she follows the yellow brick road to the Emerald City with three unlikely companions.",
 			"coverUrl": "/demo/covers/the-wonderful-wizard-of-oz.jpg",
+			"epubUrl": "/demo/books/the-wonderful-wizard-of-oz.epub",
 			"listingState": "listed"
 		},
 		{
@@ -134,6 +137,7 @@
 			"aiUse": "none",
 			"description": "Princess Irene and the miner’s son Curdie uncover a goblin plot in the mountains beneath her castle.",
 			"coverUrl": "/demo/covers/the-princess-and-the-goblin.jpg",
+			"epubUrl": "/demo/books/the-princess-and-the-goblin.epub",
 			"listingState": "listed"
 		},
 		{
@@ -145,6 +149,7 @@
 			"aiUse": "none",
 			"description": "Young Jim Hawkins finds a pirate’s map and sails for buried treasure with a crew that includes the one-legged cook, Long John Silver.",
 			"coverUrl": "/demo/covers/treasure-island.jpg",
+			"epubUrl": "/demo/books/treasure-island.epub",
 			"listingState": "listed"
 		},
 		{
@@ -156,6 +161,7 @@
 			"aiUse": "none",
 			"description": "A Victorian inventor travels hundreds of thousands of years into the future and finds humanity divided into two strange peoples.",
 			"coverUrl": "/demo/covers/the-time-machine.jpg",
+			"epubUrl": "/demo/books/the-time-machine.epub",
 			"listingState": "listed"
 		}
 	],

@@ -62,7 +62,7 @@ export const errorCopy: Record<ErrorCode, ErrorCopy> = {
 	},
 	NETWORK_ERROR: {
 		title: 'You’re offline',
-		message: 'Check your connection and try again. Books you’ve opened still work.',
+		message: 'Check your connection and try again. Books you imported still work.',
 		retry: true
 	},
 	SERVER_ERROR: {

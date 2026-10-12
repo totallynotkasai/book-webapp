@@ -5,13 +5,13 @@
  * can't pass by skipping its own validation.
  *
  * It assumes only what any seeded environment provides: at least one Persona per role (reader,
- * creator, moderator), at least two listed Books, and a library entry for the reader Persona.
+ * creator, moderator), at least two listed Books, a library entry for the reader Persona whose
+ * text opens, and a listed Book the reader doesn't own.
  */
 import {
 	BackendError,
 	backendContract,
 	type Backend,
-	type Clock,
 	type ErrorCode,
 	type PersonaDto,
 	type Role
@@ -20,7 +20,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ManualClock } from './clock';
 
 /** Must return a freshly seeded, independent backend on every call, signed in as the default. */
-export type MakeBackend = (context: { clock: Clock }) => Promise<Backend>;
+export type MakeBackend = (context: { clock: ManualClock }) => Promise<Backend>;
 
 export async function expectBackendError(promise: Promise<unknown>, code: ErrorCode) {
 	const error = await promise.then(
@@ -50,6 +50,7 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 	describe(`Backend contract: ${name}`, () => {
 		let backend: Backend;
 		let personas: PersonaDto[];
+		let clock: ManualClock;
 
 		const personaWithRole = (role: Role) => {
 			const persona = personas.find((p) => p.user.role === role);
@@ -58,7 +59,8 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 		};
 
 		beforeEach(async () => {
-			backend = await makeBackend({ clock: new ManualClock() });
+			clock = new ManualClock();
+			backend = await makeBackend({ clock });
 			personas = await backend.session.listPersonas();
 		});
 
@@ -161,6 +163,55 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 				expect(library.items.length).toBeGreaterThan(0);
 				for (const entry of library.items) expect(entry.entitlements.length).toBeGreaterThan(0);
 			});
+		});
+
+		describe('content (Entitlements first, Invariants 15 and 16)', () => {
+			async function ownedAndNot() {
+				await backend.session.signInAs(personaWithRole('reader').id);
+				const owned = (await backend.library.list({ limit: 100 })).items.map((e) => e.book.id);
+				const all = (await backend.catalogue.listBooks({ limit: 100 })).items;
+				const notOwned = all.find((b) => !owned.includes(b.id));
+				if (!notOwned) throw new Error('The seed needs a Book the reader does not own');
+				return { owned: owned[0]!, notOwned: notOwned.id };
+			}
+
+			it('opens an owned Book and reads its files with the token', async () => {
+				const { owned } = await ownedAndNot();
+				const opened = await backend.content.open(owned);
+				conforms('content', 'open', opened);
+				expect(opened.bookId).toBe(owned);
+				const manifestFile = await backend.content.read(opened.contentToken, 'manifest.json');
+				conforms('content', 'read', manifestFile);
+				const manifest = JSON.parse(await manifestFile.text()) as {
+					bookId: string;
+					revisionId: string;
+				};
+				expect(manifest).toMatchObject({ bookId: owned, revisionId: opened.revisionId });
+				await expectBackendError(
+					backend.content.read(opened.contentToken, 'no/such/file'),
+					'NOT_FOUND'
+				);
+			}, 60_000);
+
+			it('refuses a Book without an Entitlement, and unknown Books', async () => {
+				const { notOwned } = await ownedAndNot();
+				await expectBackendError(backend.content.open(notOwned), 'ENTITLEMENT_REQUIRED');
+				await expectBackendError(backend.content.open('no-such-book'), 'NOT_FOUND');
+			});
+
+			it('stops honouring a token once it expires, or one it never issued', async () => {
+				const { owned } = await ownedAndNot();
+				const opened = await backend.content.open(owned);
+				await expectBackendError(
+					backend.content.read('f'.repeat(48), 'manifest.json'),
+					'UNAUTHENTICATED'
+				);
+				clock.advance(Date.parse(opened.expiresAt) - clock.now().getTime() + 1);
+				await expectBackendError(
+					backend.content.read(opened.contentToken, 'manifest.json'),
+					'UNAUTHENTICATED'
+				);
+			}, 60_000);
 		});
 
 		describe('studio (authorisation enforced in the backend, §10.6)', () => {

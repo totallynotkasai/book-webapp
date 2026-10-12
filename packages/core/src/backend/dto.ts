@@ -149,3 +149,19 @@ export const flagSchema = z.object({
 	createdAt: timestamp
 });
 export type FlagDto = z.infer<typeof flagSchema>;
+
+/**
+ * An opened Book (§10.3): which Revision to read, and a short-lived content token for reading its
+ * files. In Phase 2 the token is an HMAC-signed path prefix under /v1/content; the reader asks
+ * again before it expires.
+ */
+export const openBookSchema = z.object({
+	bookId: id,
+	revisionId: id,
+	title: z.string(),
+	creatorName: z.string(),
+	lang: z.string().min(2),
+	contentToken: z.string().min(16),
+	expiresAt: timestamp
+});
+export type OpenBookDto = z.infer<typeof openBookSchema>;

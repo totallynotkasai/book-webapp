@@ -15,6 +15,24 @@ export interface BackendDB extends DBSchema {
 	products: { key: string; value: ProductRecord };
 	entitlements: { key: string; value: EntitlementRecord; indexes: { userId: string } };
 	flags: { key: string; value: FlagRecord };
+	/** Processed catalogue Revisions (derived from static files, so kept by "Reset demo data"). */
+	revisions: { key: string; value: RevisionRecord; indexes: { bookId: string } };
+	content: { key: [string, string]; value: ContentFile };
+}
+
+export interface RevisionRecord {
+	/** SHA-256 of the EPUB (§6.3). */
+	id: string;
+	bookId: string;
+	processedAt: string;
+}
+
+/** A processed file, as bytes plus a media type (some WebKit builds can't store Blobs). */
+export interface ContentFile {
+	revisionId: string;
+	path: string;
+	type: string;
+	bytes: ArrayBuffer;
 }
 
 export type BackendDatabase = IDBPDatabase<BackendDB>;
@@ -55,7 +73,7 @@ export const SEEDED_STORES = [
 ] as const;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 2;
+const VERSION = 3;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -79,6 +97,11 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 			if (oldVersion < 2) {
 				// P1-APP-01: the admin review queue. Re-seeded with everything else on a seed change.
 				db.createObjectStore('flags', { keyPath: 'id' });
+			}
+			if (oldVersion < 3) {
+				// P1-APP-03: catalogue Books processed by text-pipeline, cached per Revision.
+				db.createObjectStore('revisions', { keyPath: 'id' }).createIndex('bookId', 'bookId');
+				db.createObjectStore('content', { keyPath: ['revisionId', 'path'] });
 			}
 		}
 	});

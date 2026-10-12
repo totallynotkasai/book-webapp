@@ -2,6 +2,10 @@
 	import { resolve } from '$app/paths';
 	import type { PersonaDto } from '@book/core';
 	import { featureFlags, flags, profile } from '$lib/flags';
+	import ImportDialog from '$lib/library/ImportDialog.svelte';
+	// Test books for the Phase 1.2 Try-it list, bundled as files (never inlined).
+	import statusWindowUrl from '../../../../../../fixtures/epub/status-window.epub?url';
+	import rackhamUrl from '../../../../../../fixtures/epub/alice-rackham-gutenberg.epub?url';
 	import {
 		getDevControls,
 		wipeDeviceData,
@@ -78,6 +82,12 @@
 		busy = true;
 		await wipeDeviceData();
 		location.assign(resolve('/'));
+	}
+
+	let importer = $state<ImportDialog>();
+	async function importTestBook(name: string, url: string) {
+		const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+		await importer?.run(name, bytes);
 	}
 
 	const percent = (rate: number) => Math.round(rate * 100);
@@ -245,6 +255,19 @@
 		</div>
 	</section>
 
+	<section aria-labelledby="test-books-heading">
+		<h2 id="test-books-heading">Test books</h2>
+		<p class="muted">Imported into this Persona’s library, like any EPUB of your own.</p>
+		<div class="row">
+			<button onclick={() => importTestBook('status-window.epub', statusWindowUrl)}
+				>Import the status-window fixture</button
+			>
+			<button onclick={() => importTestBook('alice-rackham-gutenberg.epub', rackhamUrl)}
+				>Import Rackham’s illustrated Alice</button
+			>
+		</div>
+	</section>
+
 	<section aria-labelledby="tools-heading">
 		<h2 id="tools-heading">Tools</h2>
 		<ul class="flags">
@@ -264,6 +287,8 @@
 		</ul>
 	</section>
 </div>
+
+<ImportDialog bind:this={importer} />
 
 <style>
 	.dev {

@@ -219,7 +219,7 @@ test.describe('every screen copes with slow, failing, empty and offline backends
 			await page.goto(screen.path);
 			const alert = page.getByRole('alert').first();
 			await expect(alert).toContainText('You’re offline');
-			await expect(alert).toContainText('Books you’ve opened still work');
+			await expect(alert).toContainText('Books you imported still work');
 		}
 		// The navigation still knows who you are (a cached session, as in Phase 2).
 		await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
