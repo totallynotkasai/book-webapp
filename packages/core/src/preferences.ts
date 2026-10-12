@@ -63,7 +63,11 @@ export const readerPreferencesSchema = z.object({
 	illustrations: z.enum(illustrationModes).catch('popup'),
 	narration: z.preprocess(objectOrEmpty, narrationSchema),
 	/** One-off hints the reader has dismissed (e.g. `illustrations`), kept with their settings. */
-	hintsSeen: z.array(z.string()).catch([])
+	hintsSeen: z.array(z.string()).catch([]),
+	/** Hide AI-generated Books and Layers in the store, the Layers menu and community (§10.6). */
+	hideAiGenerated: z.boolean().catch(false),
+	/** The Bookmark Design new Placed Bookmarks use; the default design when unset (P1-STO-03). */
+	bookmarkDesignProductId: z.string().min(1).optional().catch(undefined)
 });
 
 export type ReaderPreferences = z.infer<typeof readerPreferencesSchema>;

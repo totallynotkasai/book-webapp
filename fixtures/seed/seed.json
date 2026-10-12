@@ -1,5 +1,5 @@
 {
-	"version": 6,
+	"version": 7,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -102,7 +102,9 @@
 			"description": "Alice follows a White Rabbit down a rabbit hole into a world of nonsense, riddles and an alarming Queen.",
 			"coverUrl": null,
 			"epubUrl": "/books/alice.epub",
-			"listingState": "listed"
+			"listingState": "listed",
+			"contentRating": "all_ages",
+			"contentWarnings": []
 		},
 		{
 			"id": "book-lamplighters-ledger",
@@ -114,7 +116,15 @@
 			"description": "A short demo LitRPG serial with status windows. Written by an AI for this proof of concept.",
 			"coverUrl": "/demo/covers/the-lamplighters-ledger.jpg",
 			"epubUrl": "/demo/books/the-lamplighters-ledger.epub",
-			"listingState": "listed"
+			"listingState": "listed",
+			"contentRating": "teen",
+			"contentWarnings": ["Peril", "Mild violence"],
+			"isSerial": true,
+			"earlyAccess": {
+				"chapters": 2,
+				"freeAt": "2027-06-30T00:00:00.000Z",
+				"productId": "product-early-lamplighters-ledger"
+			}
 		},
 		{
 			"id": "book-wonderful-wizard-of-oz",
@@ -126,7 +136,9 @@
 			"description": "A cyclone carries Dorothy from Kansas to the Land of Oz, where she follows the yellow brick road to the Emerald City with three unlikely companions.",
 			"coverUrl": "/demo/covers/the-wonderful-wizard-of-oz.jpg",
 			"epubUrl": "/demo/books/the-wonderful-wizard-of-oz.epub",
-			"listingState": "listed"
+			"listingState": "listed",
+			"contentRating": "all_ages",
+			"contentWarnings": []
 		},
 		{
 			"id": "book-princess-and-the-goblin",
@@ -138,7 +150,9 @@
 			"description": "Princess Irene and the miner’s son Curdie uncover a goblin plot in the mountains beneath her castle.",
 			"coverUrl": "/demo/covers/the-princess-and-the-goblin.jpg",
 			"epubUrl": "/demo/books/the-princess-and-the-goblin.epub",
-			"listingState": "listed"
+			"listingState": "listed",
+			"contentRating": "all_ages",
+			"contentWarnings": ["Peril"]
 		},
 		{
 			"id": "book-treasure-island",
@@ -150,7 +164,9 @@
 			"description": "Young Jim Hawkins finds a pirate’s map and sails for buried treasure with a crew that includes the one-legged cook, Long John Silver.",
 			"coverUrl": "/demo/covers/treasure-island.jpg",
 			"epubUrl": "/demo/books/treasure-island.epub",
-			"listingState": "listed"
+			"listingState": "listed",
+			"contentRating": "teen",
+			"contentWarnings": ["Violence", "Alcohol"]
 		},
 		{
 			"id": "book-time-machine",
@@ -162,7 +178,9 @@
 			"description": "A Victorian inventor travels hundreds of thousands of years into the future and finds humanity divided into two strange peoples.",
 			"coverUrl": "/demo/covers/the-time-machine.jpg",
 			"epubUrl": "/demo/books/the-time-machine.epub",
-			"listingState": "listed"
+			"listingState": "listed",
+			"contentRating": "teen",
+			"contentWarnings": ["Frightening scenes"]
 		}
 	],
 	"illustrationPacks": [
@@ -207,7 +225,13 @@
 			"trackUrl": "/demo/sync/alice/track.json",
 			"chapterCount": 3,
 			"durationMs": 2203854,
-			"listingState": "listed"
+			"listingState": "listed",
+			"sample": {
+				"chapter": 0,
+				"title": "Chapter I: Down the Rabbit-Hole",
+				"startMs": 16500,
+				"durationMs": 30000
+			}
 		}
 	],
 	"products": [
@@ -297,7 +321,7 @@
 			"creatorId": "creator-lewis-carroll",
 			"isOfficial": true,
 			"price": {
-				"amountMinor": 0,
+				"amountMinor": 149,
 				"currency": "GBP"
 			},
 			"status": "active"
@@ -310,7 +334,7 @@
 			"creatorId": "creator-ink-and-quill",
 			"isOfficial": false,
 			"price": {
-				"amountMinor": 0,
+				"amountMinor": 99,
 				"currency": "GBP"
 			},
 			"status": "active"
@@ -323,7 +347,90 @@
 			"creatorId": "creator-lewis-carroll",
 			"isOfficial": true,
 			"price": {
+				"amountMinor": 199,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-bundle-alice-complete",
+			"kind": "bundle",
+			"refId": "bundle-alice-complete",
+			"bookId": "book-alice",
+			"creatorId": "creator-lewis-carroll",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 249,
+				"currency": "GBP"
+			},
+			"status": "active",
+			"childProductIds": [
+				"product-book-alice",
+				"product-pack-alice-tenniel",
+				"product-track-alice-librivox"
+			]
+		},
+		{
+			"id": "product-early-lamplighters-ledger",
+			"kind": "early_access",
+			"refId": "book-lamplighters-ledger",
+			"bookId": "book-lamplighters-ledger",
+			"creatorId": "creator-wren-ashdown",
+			"isOfficial": true,
+			"price": {
 				"amountMinor": 0,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-design-classic",
+			"kind": "bookmark_design",
+			"refId": "design-classic",
+			"bookId": null,
+			"creatorId": "creator-lewis-carroll",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 0,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-design-gilt",
+			"kind": "bookmark_design",
+			"refId": "design-gilt",
+			"bookId": null,
+			"creatorId": "creator-ink-and-quill",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 49,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-design-queen-of-hearts",
+			"kind": "bookmark_design",
+			"refId": "design-queen-of-hearts",
+			"bookId": "book-alice",
+			"creatorId": "creator-lewis-carroll",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 79,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-design-lamplight",
+			"kind": "bookmark_design",
+			"refId": "design-lamplight",
+			"bookId": "book-lamplighters-ledger",
+			"creatorId": "creator-wren-ashdown",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 79,
 				"currency": "GBP"
 			},
 			"status": "active"
@@ -370,7 +477,8 @@
 			"userId": "user-reader",
 			"productId": "product-pack-alice-tenniel",
 			"source": "grant",
-			"grantedAt": "2026-01-01T00:00:00.000Z"
+			"grantedAt": "2026-01-01T00:00:00.000Z",
+			"profiles": ["tester"]
 		},
 		{
 			"id": "ent-author-alice-tenniel",
@@ -398,7 +506,8 @@
 			"userId": "user-reader",
 			"productId": "product-pack-alice-rackham",
 			"source": "grant",
-			"grantedAt": "2026-01-01T00:00:00.000Z"
+			"grantedAt": "2026-01-01T00:00:00.000Z",
+			"profiles": ["tester"]
 		},
 		{
 			"id": "ent-author-alice-rackham",
@@ -419,7 +528,8 @@
 			"userId": "user-reader",
 			"productId": "product-track-alice-librivox",
 			"source": "grant",
-			"grantedAt": "2026-01-01T00:00:00.000Z"
+			"grantedAt": "2026-01-01T00:00:00.000Z",
+			"profiles": ["tester"]
 		},
 		{
 			"id": "ent-author-alice-narration",
@@ -432,6 +542,41 @@
 			"id": "ent-illustrator-alice-narration",
 			"userId": "user-illustrator",
 			"productId": "product-track-alice-librivox",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-reader-design-classic",
+			"userId": "user-reader",
+			"productId": "product-design-classic",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-author-design-classic",
+			"userId": "user-author",
+			"productId": "product-design-classic",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-illustrator-design-classic",
+			"userId": "user-illustrator",
+			"productId": "product-design-classic",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-moderator-design-classic",
+			"userId": "user-moderator",
+			"productId": "product-design-classic",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-author-early-lamplighters-ledger",
+			"userId": "user-author",
+			"productId": "product-early-lamplighters-ledger",
 			"source": "grant",
 			"grantedAt": "2026-01-01T00:00:00.000Z"
 		}
@@ -456,6 +601,111 @@
 			"priority": 1,
 			"details": "Published 11 new Revisions of different Books in 30 days (threshold 10). The content is labelled AI-generated, so it stays listed. (Seeded demo Flag.)",
 			"createdAt": "2026-10-05T08:00:00.000Z"
+		}
+	],
+	"bookmarkDesigns": [
+		{
+			"id": "design-classic",
+			"name": "Classic ribbon",
+			"description": "A plain silk ribbon in the app’s colour. Everyone has this one.",
+			"creatorId": "creator-lewis-carroll",
+			"look": {
+				"shape": "ribbon",
+				"colour": "#00696b",
+				"accent": "#4fd8d9",
+				"mark": "none"
+			},
+			"isDefault": true
+		},
+		{
+			"id": "design-gilt",
+			"name": "Gilt edge",
+			"description": "Deep green with a gold notch, like an old library binding.",
+			"creatorId": "creator-ink-and-quill",
+			"look": {
+				"shape": "notched",
+				"colour": "#1f4d3a",
+				"accent": "#d4a72c",
+				"mark": "star"
+			},
+			"isDefault": false
+		},
+		{
+			"id": "design-queen-of-hearts",
+			"name": "Queen of Hearts",
+			"description": "Crimson, with a heart. Off with its page!",
+			"creatorId": "creator-lewis-carroll",
+			"look": {
+				"shape": "ribbon",
+				"colour": "#b3123c",
+				"accent": "#ffd9df",
+				"mark": "heart"
+			},
+			"isDefault": false
+		},
+		{
+			"id": "design-lamplight",
+			"name": "Lamplight",
+			"description": "An amber tab that glows like the Saltgate lamps. From the Lamplighter’s Ledger.",
+			"creatorId": "creator-wren-ashdown",
+			"look": {
+				"shape": "tab",
+				"colour": "#8a4b00",
+				"accent": "#ffb85c",
+				"mark": "flame"
+			},
+			"isDefault": false
+		}
+	],
+	"plans": [
+		{
+			"id": "plan-lamplighters-circle",
+			"creatorId": "creator-wren-ashdown",
+			"name": "Lamplighter’s Circle",
+			"description": "Read new chapters of The Lamplighter’s Ledger before anyone else.",
+			"price": {
+				"amountMinor": 300,
+				"currency": "GBP"
+			},
+			"benefits": [
+				{
+					"kind": "early_access",
+					"bookId": "book-lamplighters-ledger",
+					"productId": "product-early-lamplighters-ledger",
+					"description": "Early access to the newest chapters of The Lamplighter’s Ledger"
+				}
+			]
+		}
+	],
+	"shelves": [
+		{
+			"id": "shelf-illustrated",
+			"title": "Illustrated and narrated",
+			"description": "Pictures where the story is, and a voice to read it to you.",
+			"bookIds": ["book-alice"]
+		},
+		{
+			"id": "shelf-serials",
+			"title": "New chapters every month",
+			"description": "Serials you can follow as they’re written.",
+			"bookIds": ["book-lamplighters-ledger"]
+		},
+		{
+			"id": "shelf-free",
+			"title": "Free classics",
+			"description": "Out of copyright and free to keep.",
+			"bookIds": ["book-alice", "book-wonderful-wizard-of-oz", "book-treasure-island"]
+		},
+		{
+			"id": "shelf-adventure",
+			"title": "Adventure and wonder",
+			"description": "Treasure maps, time machines and goblin caves.",
+			"bookIds": [
+				"book-treasure-island",
+				"book-time-machine",
+				"book-princess-and-the-goblin",
+				"book-wonderful-wizard-of-oz"
+			]
 		}
 	]
 }

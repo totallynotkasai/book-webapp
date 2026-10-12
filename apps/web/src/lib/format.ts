@@ -1,7 +1,7 @@
 /**
  * Display formatting. Money stays integer minor units until this last step (Invariant 17).
  */
-import type { AiUse, FlagRule, Money, Role } from '@book/core';
+import type { AiUse, ContentRating, FlagRule, Money, Role } from '@book/core';
 
 const formatters = new Map<string, Intl.NumberFormat>();
 
@@ -24,6 +24,13 @@ export function aiLabel(aiUse: AiUse): string | null {
 	if (aiUse === 'assisted') return 'AI-assisted';
 	return null;
 }
+
+/** SIMULATION: placeholder rating names until OPEN-12 decides the scheme (§10.4). */
+export const contentRatingLabels: Record<ContentRating, string> = {
+	all_ages: 'All ages',
+	teen: 'Teen',
+	mature: 'Mature'
+};
 
 export const roleLabels: Record<Role, string> = {
 	reader: 'Reader',

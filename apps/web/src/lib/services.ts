@@ -7,6 +7,7 @@ import type { Backend, Stores } from '@book/core';
 import type { LocalBackend, LocalBackendControls, SimulationSettings } from '@book/backend-local';
 import type { LocalStores } from '@book/storage-local';
 import { asset } from '$app/paths';
+import { profile } from '$lib/flags';
 import { ingestInWorker } from '$lib/import/ingest';
 // Fetched at runtime, never bundled, to protect the reader route's JavaScript budget (plan §4.3).
 import seedUrl from '../../../../fixtures/seed/seed.json?url';
@@ -29,6 +30,8 @@ function localBackend(): Promise<LocalBackend> {
 			},
 			simulationDefaults: globalThis.__BOOK_E2E_SIMULATION__ ?? ownerSimulationDefaults,
 			validate: import.meta.env.DEV,
+			// Tester builds have no store, so the seed starts them with Alice's Layers (plan §6 1.6).
+			profile,
 			// Seeded EPUBs are static files; text-pipeline processes them in a Web Worker (§5.4).
 			loadFile: async (url) => {
 				const response = await fetch(asset(url as `/${string}`));

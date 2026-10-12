@@ -7,6 +7,7 @@
  */
 import {
 	aiUseSchema,
+	contentRatingSchema,
 	entitlementSourceSchema,
 	flagRuleSchema,
 	flagStateSchema,
@@ -49,7 +50,19 @@ const bookRecord = z.object({
 	coverUrl: z.string().nullable(),
 	/** Static path of the Book's EPUB, processed by text-pipeline on first open (plan §4.3). */
 	epubUrl: z.string().nullable().default(null),
-	listingState: z.enum(['draft', 'listed', 'delisted'])
+	listingState: z.enum(['draft', 'listed', 'delisted']),
+	contentRating: contentRatingSchema.default('all_ages'),
+	contentWarnings: z.array(z.string()).default([]),
+	/** Its Chapters come out over time. */
+	isSerial: z.boolean().default(false),
+	/**
+	 * SIMULATION (OPEN-10): the newest `chapters` Chapters are early access until `freeAt`,
+	 * open now to holders of `productId` (granted by a Creator Subscription, P1-STO-04).
+	 */
+	earlyAccess: z
+		.object({ chapters: z.number().int().positive(), freeAt: z.iso.datetime(), productId: id })
+		.nullable()
+		.default(null)
 });
 
 /** An Illustration Pack (§8.2): its record here, its Illustrations in a built `pack.json`. */
@@ -65,7 +78,8 @@ const illustrationPackRecord = z.object({
 	/** Static path of the pack's `pack.json`, built by `npm run layers` (P1-LAY-06). */
 	packUrl: z.string().min(1),
 	illustrationCount: z.number().int().nonnegative(),
-	listingState: z.enum(['draft', 'listed', 'delisted'])
+	listingState: z.enum(['draft', 'listed', 'delisted']),
+	contentRating: contentRatingSchema.default('all_ages')
 });
 
 /** A narration Audio Track (§8.3): its record here, its Chapters in a `track.json` (P1-LAY-03). */
@@ -83,7 +97,60 @@ const audioTrackRecord = z.object({
 	trackUrl: z.string().min(1),
 	chapterCount: z.number().int().nonnegative(),
 	durationMs: z.number().int().nonnegative(),
-	listingState: z.enum(['draft', 'listed', 'delisted'])
+	listingState: z.enum(['draft', 'listed', 'delisted']),
+	/** The store page's sample: a stretch of one of its Chapters (index into `track.json`). */
+	sample: z
+		.object({
+			chapter: z.number().int().nonnegative(),
+			/** The Chapter's title as the store page shows it. */
+			title: z.string().min(1),
+			startMs: z.number().int().nonnegative(),
+			durationMs: z.number().int().positive()
+		})
+		.nullable()
+		.default(null)
+});
+
+/** A Bookmark Design (§6.5, P1-STO-03): a cosmetic that works in every Book. */
+const bookmarkDesignRecord = z.object({
+	id,
+	name: z.string().min(1),
+	description: z.string(),
+	creatorId: id,
+	look: z.object({
+		shape: z.enum(['ribbon', 'notched', 'tab']),
+		colour: z.string().regex(/^#[0-9a-f]{6}$/),
+		accent: z.string().regex(/^#[0-9a-f]{6}$/),
+		mark: z.enum(['none', 'heart', 'star', 'flame', 'key']).default('none')
+	}),
+	/** Everyone owns it from sign-up (§6.5). Exactly one. */
+	isDefault: z.boolean().default(false)
+});
+
+/** A Creator Subscription plan (§6.5, P1-STO-04). */
+const planRecord = z.object({
+	id,
+	creatorId: id,
+	name: z.string().min(1),
+	description: z.string(),
+	price: moneySchema,
+	/** SIMULATION (OPEN-10, OPEN-11): early access to a serial, as an `early_access` Product. */
+	benefits: z.array(
+		z.object({
+			kind: z.literal('early_access'),
+			bookId: id,
+			productId: id,
+			description: z.string()
+		})
+	)
+});
+
+/** A curated shelf on the store's front page (P1-STO-01). */
+const shelfRecord = z.object({
+	id,
+	title: z.string().min(1),
+	description: z.string(),
+	bookIds: z.array(id)
 });
 
 const productRecord = z.object({
@@ -95,7 +162,9 @@ const productRecord = z.object({
 	creatorId: id,
 	isOfficial: z.boolean(),
 	price: moneySchema,
-	status: z.enum(['active', 'retired'])
+	status: z.enum(['active', 'retired']),
+	/** A Bundle's children (§6.5). */
+	childProductIds: z.array(id).default([])
 });
 
 const entitlementRecord = z.object({
@@ -104,7 +173,13 @@ const entitlementRecord = z.object({
 	productId: id,
 	source: entitlementSourceSchema,
 	grantedAt: z.iso.datetime(),
-	revokedAt: z.iso.datetime().nullable().default(null)
+	revokedAt: z.iso.datetime().nullable().default(null),
+	parentId: id.nullable().default(null),
+	/**
+	 * Which builds start with it (plan §6 Phase 1.6): tester builds, which have no store, start
+	 * with what owner builds leave the Reader to get. Both when absent.
+	 */
+	profiles: z.array(z.enum(['owner', 'tester'])).optional()
 });
 
 const flagRecord = z.object({
@@ -127,6 +202,9 @@ export const seedSchema = z.object({
 	books: z.array(bookRecord),
 	illustrationPacks: z.array(illustrationPackRecord).default([]),
 	audioTracks: z.array(audioTrackRecord).default([]),
+	bookmarkDesigns: z.array(bookmarkDesignRecord).default([]),
+	plans: z.array(planRecord).default([]),
+	shelves: z.array(shelfRecord).default([]),
 	products: z.array(productRecord),
 	entitlements: z.array(entitlementRecord),
 	/** Open items for the admin review queue (P1-APP-01); P1-ADM-01 adds the rules that raise them. */
@@ -140,6 +218,9 @@ export type BookRecord = z.infer<typeof bookRecord>;
 export type ProductRecord = z.infer<typeof productRecord>;
 export type IllustrationPackRecord = z.infer<typeof illustrationPackRecord>;
 export type AudioTrackRecord = z.infer<typeof audioTrackRecord>;
+export type BookmarkDesignRecord = z.infer<typeof bookmarkDesignRecord>;
+export type PlanRecord = z.infer<typeof planRecord>;
+export type ShelfRecord = z.infer<typeof shelfRecord>;
 export type SeedEntitlementRecord = z.infer<typeof entitlementRecord>;
 export type FlagRecord = z.infer<typeof flagRecord>;
 
@@ -179,6 +260,9 @@ export function parseSeed(raw: unknown): Seed {
 		books: seed.books,
 		illustrationPacks: seed.illustrationPacks,
 		audioTracks: seed.audioTracks,
+		bookmarkDesigns: seed.bookmarkDesigns,
+		plans: seed.plans,
+		shelves: seed.shelves,
 		products: seed.products,
 		entitlements: seed.entitlements,
 		flags: seed.flags
@@ -211,6 +295,7 @@ export function parseSeed(raw: unknown): Seed {
 		}
 	});
 	const packs = ids(seed.illustrationPacks);
+	const designs = ids(seed.bookmarkDesigns);
 	seed.illustrationPacks.forEach((pack, i) => {
 		if (!books.has(pack.bookId))
 			problems.push(`illustrationPacks.${i}.bookId: no book "${pack.bookId}"`);
@@ -241,6 +326,39 @@ export function parseSeed(raw: unknown): Seed {
 			problems.push(`products.${i}.refId: no illustration pack "${p.refId}"`);
 		if (p.kind === 'audio_track' && !tracks.has(p.refId))
 			problems.push(`products.${i}.refId: no audio track "${p.refId}"`);
+		if (p.kind === 'bookmark_design' && !designs.has(p.refId))
+			problems.push(`products.${i}.refId: no bookmark design "${p.refId}"`);
+		if (p.kind === 'early_access' && !books.has(p.refId))
+			problems.push(`products.${i}.refId: no book "${p.refId}"`);
+		if (p.kind === 'bundle') {
+			if (!p.childProductIds.length) problems.push(`products.${i}: a bundle needs children`);
+			for (const child of p.childProductIds) {
+				if (!products.has(child))
+					problems.push(`products.${i}.childProductIds: no product "${child}"`);
+			}
+		}
+	});
+	if (seed.bookmarkDesigns.length && seed.bookmarkDesigns.filter((d) => d.isDefault).length !== 1) {
+		problems.push('bookmarkDesigns: exactly one design is the default');
+	}
+	seed.bookmarkDesigns.forEach((d, i) => {
+		if (!seed.products.some((p) => p.kind === 'bookmark_design' && p.refId === d.id)) {
+			problems.push(`bookmarkDesigns.${i}: design "${d.id}" has no Product`);
+		}
+	});
+	seed.plans.forEach((plan, i) => {
+		if (!creators.has(plan.creatorId))
+			problems.push(`plans.${i}.creatorId: no creator "${plan.creatorId}"`);
+		for (const benefit of plan.benefits) {
+			if (!seed.products.some((p) => p.id === benefit.productId && p.kind === 'early_access')) {
+				problems.push(`plans.${i}.benefits: no early_access product "${benefit.productId}"`);
+			}
+		}
+	});
+	seed.shelves.forEach((shelf, i) => {
+		for (const bookId of shelf.bookIds) {
+			if (!books.has(bookId)) problems.push(`shelves.${i}.bookIds: no book "${bookId}"`);
+		}
 	});
 	seed.entitlements.forEach((e, i) => {
 		if (!users.has(e.userId))

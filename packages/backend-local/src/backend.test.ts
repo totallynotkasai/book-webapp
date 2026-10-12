@@ -228,3 +228,71 @@ describe('contract validation', () => {
 		expect(book.products[0]).not.toHaveProperty('refId');
 	});
 });
+
+describe('store simulation (P1-STO-02, P1-STO-04)', () => {
+	const ALICE_BUNDLE = 'product-bundle-alice-complete';
+
+	it('a declined payment creates nothing; a failed one says nothing was charged', async () => {
+		const { backend, controls } = await makeLocal();
+		await controls.setSimulation({ paymentOutcome: 'decline' });
+		await expectBackendError(
+			backend.checkout.purchase(ALICE_BUNDLE, 'key-declined-1'),
+			'PAYMENT_DECLINED'
+		);
+		await expectBackendError(
+			backend.support.subscribe('plan-lamplighters-circle', 'key-declined-2'),
+			'PAYMENT_DECLINED'
+		);
+		await controls.setSimulation({ paymentOutcome: 'fail' });
+		const failed = await backend.checkout.purchase(ALICE_BUNDLE, 'key-failed-1').catch((e) => e);
+		expect((failed as BackendError).code).toBe('SERVER_ERROR');
+		expect((failed as BackendError).message).toMatch(/Nothing was charged/);
+		expect((await backend.checkout.listOrders()).items).toEqual([]);
+		// Trying again once payments work buys it.
+		await controls.setSimulation({ paymentOutcome: 'succeed' });
+		await backend.checkout.purchase(ALICE_BUNDLE, 'key-ok-1');
+		expect((await backend.checkout.listOrders()).items).toHaveLength(1);
+	});
+
+	it('refunding a Bundle (dev panel) revokes the Book’s Layers it granted', async () => {
+		const { backend, controls } = await makeLocal();
+		const order = await backend.checkout.purchase(ALICE_BUNDLE, 'key-refund-1');
+		const held = async () =>
+			(await backend.layers.list('book-alice')).filter((l) => l.entitled).map((l) => l.id);
+		expect(await held()).toEqual(['pack-alice-tenniel', 'track-alice-librivox-shallenberg']);
+		await controls.refundOrder(order.id);
+		expect(await held()).toEqual([]);
+		// The Book itself came free before the Bundle, so it stays.
+		await expect(backend.content.open('book-alice')).resolves.toMatchObject({ access: 'full' });
+		expect((await controls.orders())[0]).toMatchObject({ id: order.id, status: 'refunded' });
+	}, 60_000);
+
+	it('renewals follow the dev clock and stop when a renewal is declined', async () => {
+		const clock = new ManualClock();
+		const { backend, controls } = await makeLocal({ clock });
+		const sub = await backend.support.subscribe('plan-lamplighters-circle', 'key-renew-1');
+		await controls.advanceClock(40 * 24 * 60 * 60 * 1000);
+		const renewed = (await backend.support.listSubscriptions())[0]!;
+		expect(renewed).toMatchObject({ id: sub.id, status: 'active' });
+		expect(Date.parse(renewed.currentPeriodEnd)).toBeGreaterThan(Date.parse(sub.currentPeriodEnd));
+		await controls.setSimulation({ paymentOutcome: 'decline' });
+		await controls.advanceClock(40 * 24 * 60 * 60 * 1000);
+		expect((await backend.support.listSubscriptions())[0]).toMatchObject({
+			status: 'ended',
+			endedAt: renewed.currentPeriodEnd
+		});
+	});
+
+	it('tester builds start the Reader with Alice’s Layers; owner builds leave them to get', async () => {
+		const owner = await makeLocal();
+		const tester = await makeLocal({ profile: 'tester' });
+		const entitled = async (b: Backend) =>
+			(await b.layers.list('book-alice')).filter((l) => l.entitled).map((l) => l.id);
+		expect(await entitled(owner.backend)).toEqual([]);
+		expect(await entitled(tester.backend)).toEqual([
+			'pack-alice-tenniel',
+			'pack-alice-rackham',
+			'track-alice-librivox-shallenberg'
+		]);
+	});
+});

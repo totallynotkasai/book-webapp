@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { BookSummaryDto } from '@book/core';
+	import { Icon } from '@book/ui';
 	import { formatPrice } from '$lib/format';
 	import AiLabel from './AiLabel.svelte';
 	import BookCover from './BookCover.svelte';
@@ -22,8 +23,14 @@
 	<span class="title">{book.title}</span>
 	<span class="creator">{book.creatorName}</span>
 	<span class="meta">
-		{#if detail}<span>{detail}</span>{:else if showPrice}<span class="price"
-				>{formatPrice(book.price)}</span
+		{#if detail}<span>{detail}</span>{:else if showPrice && book.inLibrary}<span class="owned"
+				>In your library</span
+			>{:else if showPrice}<span class="price">{formatPrice(book.price)}</span>{/if}
+		{#if book.hasIllustrations}<span class="layer" title="Illustrated"
+				><Icon name="image" size={16} /><span class="visually-hidden">Illustrated</span></span
+			>{/if}
+		{#if book.hasNarration}<span class="layer" title="Narrated"
+				><Icon name="headphones" size={16} /><span class="visually-hidden">Narrated</span></span
 			>{/if}
 		<AiLabel aiUse={book.aiUse} />
 	</span>
@@ -83,5 +90,41 @@
 	.price {
 		color: var(--md-sys-color-on-surface);
 		font-weight: var(--md-sys-typescale-weight-medium);
+	}
+
+	.owned,
+	.layer {
+		color: var(--md-sys-color-primary);
+	}
+
+	.layer {
+		display: inline-flex;
+	}
+
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	.owned {
+		color: var(--md-sys-color-primary);
+	}
+
+	.layer {
+		display: inline-flex;
+		color: var(--md-sys-color-primary);
+	}
+
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>

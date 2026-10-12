@@ -23,7 +23,11 @@ export const productKindSchema = z.enum([
 	'audio_track',
 	'cover',
 	'bookmark_design',
-	'bundle'
+	'bundle',
+	// SIMULATION: a placeholder for OPEN-10 (Chapter-range Products for early-access serial
+	// Chapters): a Book's early-access Chapters as one Product, granted by Creator Subscriptions
+	// and never sold on its own in the PoC (P1-STO-04).
+	'early_access'
 ]);
 export type ProductKind = z.infer<typeof productKindSchema>;
 
@@ -75,6 +79,14 @@ export const productSchema = z.object({
 });
 export type ProductDto = z.infer<typeof productSchema>;
 
+/**
+ * SIMULATION: a placeholder scheme until OPEN-12 decides the age policy and rating scheme.
+ * Set by the Book's creator (§10.4).
+ */
+export const contentRatings = ['all_ages', 'teen', 'mature'] as const;
+export const contentRatingSchema = z.enum(contentRatings);
+export type ContentRating = z.infer<typeof contentRatingSchema>;
+
 export const bookSummarySchema = z.object({
 	id,
 	slug: z.string().min(1),
@@ -86,14 +98,21 @@ export const bookSummarySchema = z.object({
 	/** Static path or URL; resolved by the app against its own origin. */
 	coverUrl: z.string().nullable(),
 	/** The Book's own Product (not Bundles). */
-	price: moneySchema
+	price: moneySchema,
+	contentRating: contentRatingSchema,
+	/** It has listed Illustration Packs or a narration Audio Track (badges on cards). */
+	hasIllustrations: z.boolean(),
+	hasNarration: z.boolean(),
+	/** The signed-in reader holds its Book Product. */
+	inLibrary: z.boolean()
 });
 export type BookSummaryDto = z.infer<typeof bookSummarySchema>;
 
 export const bookDetailSchema = bookSummarySchema.extend({
 	description: z.string(),
 	creator: creatorSchema,
-	products: z.array(productSchema)
+	products: z.array(productSchema),
+	contentWarnings: z.array(z.string())
 });
 export type BookDetailDto = z.infer<typeof bookDetailSchema>;
 
@@ -101,7 +120,9 @@ export const entitlementSchema = z.object({
 	id,
 	productId: id,
 	source: entitlementSourceSchema,
-	grantedAt: timestamp
+	grantedAt: timestamp,
+	/** The Bundle Entitlement that granted it (§6.5): refunding the Bundle revokes it. */
+	parentId: id.nullable().default(null)
 });
 export type EntitlementDto = z.infer<typeof entitlementSchema>;
 
@@ -151,17 +172,42 @@ export const flagSchema = z.object({
 export type FlagDto = z.infer<typeof flagSchema>;
 
 /**
+ * A Chapter the reader can't open yet (P1-STO-01 samples, P1-STO-04 early access). Locked
+ * content always explains itself: whose it is, when it becomes free, and how to get it.
+ */
+export const lockedChapterSchema = z.object({
+	chapterId: id,
+	reason: z.enum(['sample', 'early_access']),
+	/** When early access ends and it becomes free for every owner. */
+	freeAt: timestamp.nullable(),
+	/** The plan that opens it now (early access). */
+	planId: id.nullable(),
+	creatorName: z.string(),
+	creatorHandle: z.string()
+});
+export type LockedChapterDto = z.infer<typeof lockedChapterSchema>;
+
+/**
  * An opened Book (§10.3): which Revision to read, and a short-lived content token for reading its
  * files. In Phase 2 the token is an HMAC-signed path prefix under /v1/content; the reader asks
  * again before it expires.
  */
 export const openBookSchema = z.object({
 	bookId: id,
+	/** Its store page, for links from the reader ("Get the book", "See it in the store"). */
+	slug: id,
 	revisionId: id,
 	title: z.string(),
 	creatorName: z.string(),
 	lang: z.string().min(2),
 	contentToken: z.string().min(16),
-	expiresAt: timestamp
+	expiresAt: timestamp,
+	/** `sample`: "Read sample" for a reader who doesn't own the Book (P1-STO-01). */
+	access: z.enum(['full', 'sample']).default('full'),
+	/**
+	 * Chapters this reader can't open yet, in reading order: the rest of the Book in a sample,
+	 * or early-access Chapters (P1-STO-04). Their files can't be read under the token.
+	 */
+	locked: z.array(lockedChapterSchema).default([])
 });
 export type OpenBookDto = z.infer<typeof openBookSchema>;

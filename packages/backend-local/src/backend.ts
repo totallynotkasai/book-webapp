@@ -6,10 +6,10 @@ import {
 	type Backend,
 	type BackendEvents,
 	type BackendTopic,
-	type BookSummaryDto,
 	type Clock,
 	type FlagDto,
 	type MethodContract,
+	type OrderDto,
 	type PersonaDto,
 	type UserDto
 } from '@book/core';
@@ -22,10 +22,13 @@ import {
 	setMeta,
 	type BackendDatabase
 } from './db';
+import { createCatalogueApi } from './catalogue';
+import { createCheckoutApi } from './checkout';
 import { createContentApi, type IngestFn } from './content';
 import { createLayersApi } from './layers';
 import { paginate } from './paging';
-import { parseSeed, type BookRecord, type Seed } from './seed';
+import { parseSeed, type Seed } from './seed';
+import { createSupportApi } from './support';
 import {
 	ownerSimulationDefaults,
 	SimulatedClock,
@@ -52,7 +55,14 @@ export interface LocalBackendOptions {
 	 * in this thread (fine for tests).
 	 */
 	ingest?: IngestFn;
+	/**
+	 * The build profile. Tester builds have no store, so their seed starts the Reader with what
+	 * owner builds leave them to get (plan §6 Phase 1.6). Owner by default.
+	 */
+	profile?: Profile;
 }
+
+type Profile = 'owner' | 'tester';
 
 async function ingestInThread(bytes: Uint8Array, options: { bookId: string }) {
 	const { ingestEpub } = await import('@book/text-pipeline');
@@ -74,6 +84,10 @@ export interface LocalBackendControls {
 	advanceClock(ms: number): Promise<void>;
 	/** Wipes the simulated backend and loads the seed again. */
 	resetDemoData(): Promise<void>;
+	/** Every Persona's orders, newest first (P1-STO-02). */
+	orders(): Promise<(OrderDto & { userId: string })[]>;
+	/** Refunds an order: what it granted is revoked, a Bundle's children too (§6.5). */
+	refundOrder(orderId: string): Promise<void>;
 	close(): void;
 }
 
@@ -97,7 +111,7 @@ function eventHub(): BackendEvents & { emit(topic: BackendTopic): void } {
 	};
 }
 
-async function writeSeed(db: BackendDatabase, seed: Seed): Promise<void> {
+async function writeSeed(db: BackendDatabase, seed: Seed, profile: Profile): Promise<void> {
 	const tx = db.transaction([...SEEDED_STORES, 'meta'], 'readwrite');
 	for (const name of SEEDED_STORES) await tx.objectStore(name).clear();
 	for (const persona of seed.personas) await tx.objectStore('personas').put(persona);
@@ -105,11 +119,21 @@ async function writeSeed(db: BackendDatabase, seed: Seed): Promise<void> {
 	for (const book of seed.books) await tx.objectStore('books').put(book);
 	for (const pack of seed.illustrationPacks) await tx.objectStore('illustrationPacks').put(pack);
 	for (const track of seed.audioTracks) await tx.objectStore('audioTracks').put(track);
+	for (const design of seed.bookmarkDesigns) await tx.objectStore('bookmarkDesigns').put(design);
+	for (const plan of seed.plans) await tx.objectStore('plans').put(plan);
+	for (const [order, shelf] of seed.shelves.entries()) {
+		await tx.objectStore('shelves').put({ ...shelf, order });
+	}
 	for (const product of seed.products) await tx.objectStore('products').put(product);
-	for (const entitlement of seed.entitlements)
-		await tx.objectStore('entitlements').put(entitlement);
+	for (const { profiles, ...entitlement } of seed.entitlements) {
+		// Tester builds have no store, so they start with what owner builds leave to buy.
+		if (!profiles || profiles.includes(profile)) {
+			await tx.objectStore('entitlements').put(entitlement);
+		}
+	}
 	for (const flag of seed.flags) await tx.objectStore('flags').put(flag);
 	await tx.objectStore('meta').put({ key: 'seedVersion', value: seed.version });
+	await tx.objectStore('meta').put({ key: 'seedProfile', value: profile });
 	await tx.objectStore('meta').put({ key: 'currentPersonaId', value: seed.defaultPersonaId });
 	await tx.done;
 }
@@ -144,8 +168,12 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 
 	// The seed is validated before anything is written, so a bad file can't leave a half-seeded DB.
 	const seed = parseSeed(await options.loadSeed());
+	const profile: Profile = options.profile ?? 'owner';
 	const storedVersion = await getMeta(db, 'seedVersion');
-	if (storedVersion !== seed.version) await writeSeed(db, seed);
+	const storedProfile = (await getMeta(db, 'seedProfile')) ?? 'owner';
+	if (storedVersion !== seed.version || storedProfile !== profile) {
+		await writeSeed(db, seed, profile);
+	}
 
 	const storedSimulation = simulationSchema.safeParse(await getMeta(db, 'simulation'));
 	let simulation: SimulationSettings = storedSimulation.success
@@ -174,26 +202,6 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		return user;
 	}
 
-	async function toSummary(book: BookRecord): Promise<BookSummaryDto> {
-		const [creator, products] = await Promise.all([
-			db.get('creators', book.creatorId),
-			db.getAll('products')
-		]);
-		const product = products.find((p) => p.kind === 'book' && p.refId === book.id);
-		if (!product) throw new BackendError('SERVER_ERROR', `Book ${book.id} has no Product.`);
-		return {
-			id: book.id,
-			slug: book.slug,
-			title: book.title,
-			creatorId: book.creatorId,
-			creatorName: creator?.displayName ?? '',
-			lang: book.lang,
-			aiUse: book.aiUse,
-			coverUrl: book.coverUrl,
-			price: product.price
-		};
-	}
-
 	const byTitle = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title);
 
 	async function signIn(personaId: string) {
@@ -210,7 +218,10 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 	// ---- module implementations (no simulation; that's applied below) ----
 
 	// Modules defined below this object (moderation) are added to the Backend separately.
-	const implementation: Omit<Backend, 'events' | 'moderation' | 'content' | 'layers'> = {
+	const implementation: Omit<
+		Backend,
+		'events' | 'moderation' | 'content' | 'layers' | 'catalogue' | 'checkout' | 'support'
+	> = {
 		session: {
 			async current() {
 				return { user: currentUser };
@@ -225,53 +236,6 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 				}));
 			},
 			signInAs: signIn
-		},
-		catalogue: {
-			async listBooks(page) {
-				const books = (await db.getAll('books')).filter((b) => b.listingState === 'listed');
-				const summaries = await Promise.all(books.sort(byTitle).map(toSummary));
-				return paginate(summaries, page);
-			},
-			async getBook(slug) {
-				const book = await db.getFromIndex('books', 'slug', slug);
-				if (!book || book.listingState !== 'listed') {
-					throw new BackendError('NOT_FOUND', 'That book isn’t in the store.');
-				}
-				const [summary, creator, products] = await Promise.all([
-					toSummary(book),
-					db.get('creators', book.creatorId),
-					db.getAll('products')
-				]);
-				if (!creator) throw new BackendError('SERVER_ERROR', `Book ${book.id} has no Creator.`);
-				return {
-					...summary,
-					description: book.description,
-					creator,
-					products: products
-						.filter((p) => p.bookId === book.id && p.status === 'active')
-						.map(({ id, kind, bookId, creatorId, isOfficial, price }) => ({
-							id,
-							kind,
-							bookId,
-							creatorId,
-							isOfficial,
-							price
-						}))
-				};
-			},
-			async getCreator(handle) {
-				const creator = await db.getFromIndex('creators', 'handle', handle);
-				if (!creator) throw new BackendError('NOT_FOUND', 'There is no creator with that name.');
-				return creator;
-			},
-			async listCreatorBooks(handle, page) {
-				const creator = await db.getFromIndex('creators', 'handle', handle);
-				if (!creator) throw new BackendError('NOT_FOUND', 'There is no creator with that name.');
-				const books = (await db.getAllFromIndex('books', 'creatorId', creator.id)).filter(
-					(b) => b.listingState === 'listed'
-				);
-				return paginate(await Promise.all(books.sort(byTitle).map(toSummary)), page);
-			}
 		},
 		library: {
 			async list(page) {
@@ -293,12 +257,13 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 					const book = await db.get('books', bookId);
 					if (!book) continue;
 					entries.push({
-						book: await toSummary(book),
-						entitlements: owned.map(({ id, productId, source, grantedAt }) => ({
+						book: (await catalogue.summaries([book]))[0]!,
+						entitlements: owned.map(({ id, productId, source, grantedAt, parentId }) => ({
 							id,
 							productId,
 							source,
-							grantedAt
+							grantedAt,
+							parentId: parentId ?? null
 						}))
 					});
 				}
@@ -312,12 +277,9 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 				const books = user.creatorId
 					? await db.getAllFromIndex('books', 'creatorId', user.creatorId)
 					: [];
-				const result = await Promise.all(
-					books.sort(byTitle).map(async (b) => ({
-						...(await toSummary(b)),
-						listingState: b.listingState
-					}))
-				);
+				const sorted = books.sort(byTitle);
+				const summaries = await catalogue.summaries(sorted);
+				const result = sorted.map((b, i) => ({ ...summaries[i]!, listingState: b.listingState }));
 				return paginate(result, page);
 			}
 		}
@@ -343,10 +305,27 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		}
 	};
 
+	const paymentOutcome = () => simulation.paymentOutcome;
+	const checkout = createCheckoutApi({
+		db,
+		clock,
+		requireUser,
+		paymentOutcome,
+		changed: () => events.emit('entitlements')
+	});
+	const support = createSupportApi({
+		db,
+		clock,
+		requireUser,
+		paymentOutcome,
+		changed: () => events.emit('entitlements'),
+		supportChanged: () => events.emit('support')
+	});
 	const content = createContentApi({
 		db,
 		clock,
 		requireUser,
+		beforeAccess: (userId) => support.refresh(userId),
 		loadFile:
 			options.loadFile ??
 			(async () => {
@@ -365,6 +344,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 			}),
 		content
 	});
+	const catalogue = createCatalogueApi({ db, clock, currentUser: () => currentUser, layers });
 
 	// ---- simulation and contract validation, applied to every method ----
 
@@ -436,8 +416,10 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 
 	const backend: Backend = {
 		session: wrapModule('session', implementation.session, backendContract.session),
-		catalogue: wrapModule('catalogue', implementation.catalogue, backendContract.catalogue),
+		catalogue: wrapModule('catalogue', catalogue, backendContract.catalogue),
 		library: wrapModule('library', implementation.library, backendContract.library),
+		checkout: wrapModule('checkout', checkout, backendContract.checkout),
+		support: wrapModule('support', support, backendContract.support),
 		content: wrapModule('content', content, backendContract.content),
 		layers: wrapModule('layers', layers, backendContract.layers),
 		studio: wrapModule('studio', implementation.studio, backendContract.studio),
@@ -467,12 +449,14 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 			events.emit('entitlements');
 		},
 		async resetDemoData() {
-			await writeSeed(db, seed);
+			await writeSeed(db, seed, profile);
 			currentPersonaId = seed.defaultPersonaId;
 			currentUser = (await db.get('personas', currentPersonaId))?.user ?? null;
 			await controls.setSimulation({ clockOffsetMs: 0 });
 			for (const topic of backendTopics) events.emit(topic);
 		},
+		orders: () => checkout.allOrders(),
+		refundOrder: (orderId) => checkout.refund(orderId),
 		close() {
 			db.close();
 		}

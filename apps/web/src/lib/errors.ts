@@ -45,6 +45,11 @@ export const errorCopy: Record<ErrorCode, ErrorCopy> = {
 		message: 'Get it from the store to read it.',
 		retry: false
 	},
+	PAYMENT_DECLINED: {
+		title: 'The payment didn’t go through',
+		message: 'Nothing was charged. Try again, or use another way to pay.',
+		retry: true
+	},
 	RATE_LIMITED: {
 		title: 'Too many requests at once',
 		message: 'Wait a minute, then try again.',

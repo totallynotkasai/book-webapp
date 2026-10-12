@@ -29,14 +29,14 @@
 			label: 'Purchases and subscriptions',
 			description: 'Books, add-ons, Tips and Creator Subscriptions',
 			icon: 'shopping_bag',
-			phase: '1.6',
+			href: resolve('/you/purchases'),
 			show: flags.store
 		},
 		{
 			label: 'Bookmark designs',
 			description: 'The look of your bookmarks, in every book',
 			icon: 'bookmark',
-			phase: '1.6',
+			href: resolve('/you/bookmarks'),
 			show: flags.store
 		},
 		{

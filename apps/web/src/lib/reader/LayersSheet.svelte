@@ -17,9 +17,20 @@
 		mode: IllustrationMode;
 		illustrations: BookIllustrations;
 		onmode: (mode: IllustrationMode) => void;
+		/** The Book's store page, where packs the reader doesn't have can be got. */
+		storeHref?: string | null;
+		/** "Hide AI-generated content" (P1-STO-05). */
+		hideAi?: boolean;
 	}
 
-	let { open = $bindable(), mode, illustrations, onmode }: Props = $props();
+	let {
+		open = $bindable(),
+		mode,
+		illustrations,
+		onmode,
+		storeHref = null,
+		hideAi = false
+	}: Props = $props();
 
 	const MODE_LABELS: Record<IllustrationMode, string> = {
 		popup: 'Pop-up',
@@ -41,13 +52,15 @@
 		generated: 'AI-generated'
 	};
 
-	/** Enabled packs first, in priority order, then the rest. */
-	const ordered = $derived([
-		...illustrations.enabled
-			.map((id) => illustrations.packs.find((p) => p.id === id))
-			.filter((p): p is IllustrationPackSummaryDto => !!p),
-		...illustrations.packs.filter((p) => !illustrations.enabled.includes(p.id))
-	]);
+	/** Enabled packs first, in priority order, then the rest (less AI-generated ones if hidden). */
+	const ordered = $derived(
+		[
+			...illustrations.enabled
+				.map((id) => illustrations.packs.find((p) => p.id === id))
+				.filter((p): p is IllustrationPackSummaryDto => !!p),
+			...illustrations.packs.filter((p) => !illustrations.enabled.includes(p.id))
+		].filter((p) => !(hideAi && p.aiUse === 'generated'))
+	);
 </script>
 
 <AdaptiveSheet bind:open title="Illustrations" side="end" height="half" scrim={false}>
@@ -79,7 +92,11 @@
 							</p>
 							<p class="credit">{pack.credit}</p>
 							{#if !pack.entitled}
-								<p class="hint">You don’t have this pack yet.</p>
+								<p class="hint">
+									You don’t have this pack yet.
+									<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved by the reader -->
+									{#if storeHref}<a href={storeHref}>Get it in the store</a>{/if}
+								</p>
 							{/if}
 						</div>
 						<div class="controls">

@@ -9,6 +9,8 @@ export const errorCodes = [
 	'NOT_FOUND',
 	'CONFLICT',
 	'ENTITLEMENT_REQUIRED',
+	/** A payment didn't go through (simulated in the PoC: the dev panel's payment outcome). */
+	'PAYMENT_DECLINED',
 	'RATE_LIMITED',
 	'UPLOAD_TOO_LARGE',
 	'INGEST_FAILED',

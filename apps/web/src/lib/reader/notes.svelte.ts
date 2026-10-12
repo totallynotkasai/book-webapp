@@ -132,12 +132,14 @@ export class BookNotes {
 		return this.liveBookmarks.filter((b) => first <= b.anchor.ordinal && b.anchor.ordinal <= last);
 	}
 
-	async addBookmark(anchor: PointAnchor, label?: string) {
+	/** `designProductId`: the Bookmark Design to draw it with; the reader's default when unset. */
+	async addBookmark(anchor: PointAnchor, label?: string, designProductId?: string) {
 		const created = await this.#stores.placedBookmarks.create({
 			bookId: this.#bookId,
 			anchor,
 			anchorStatus: 'ok',
-			...(label ? { label } : {})
+			...(label ? { label } : {}),
+			...(designProductId ? { bookmarkDesignProductId: designProductId } : {})
 		});
 		this.bookmarks = [...this.bookmarks, created];
 		void requestPersistentStorage();
@@ -147,6 +149,14 @@ export class BookNotes {
 	async renameBookmark(id: string, label: string) {
 		const updated = await this.#stores.placedBookmarks.update(id, {
 			label: label.trim() || undefined
+		});
+		this.bookmarks = this.bookmarks.map((b) => (b.id === id ? updated : b));
+	}
+
+	/** Draws a Placed Bookmark with another Bookmark Design (P1-STO-03). */
+	async designBookmark(id: string, designProductId: string) {
+		const updated = await this.#stores.placedBookmarks.update(id, {
+			bookmarkDesignProductId: designProductId
 		});
 		this.bookmarks = this.bookmarks.map((b) => (b.id === id ? updated : b));
 	}
