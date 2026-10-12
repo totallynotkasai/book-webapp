@@ -18,24 +18,25 @@ Both options are produced from the same segmentation (`Intl.Segmenter`, word-lik
 
 ## Results
 
-10,854-Word chapter (*Alice* chapters 1–5 merged); desktop; sequential runs:
+10,854-Word chapter (*Alice* chapters 1–5 merged); desktop (Intel i5-13600KF); both engines on screen; one test at a time with nothing else running:
 
 | | A: span per Word | B: Blocks + offsets |
 |---|---|---|
 | Prepared XHTML | 348.7 KB | **65.4 KB** (5.3× smaller) |
 | Elements in the body | 11,237 | **383** (29× fewer) |
-| Re-layout after a text-size change, foliate-js: Chromium / WebKit | 549 / 676 ms | **127 / 401 ms** |
-| Re-layout, Readium: Chromium / WebKit | 627 / 827 ms | **197 / 501 ms** |
-| Page turn, foliate-js Chromium (the measurement includes finding the visible Words) | 14 ms | 45 ms |
+| Re-layout after a text-size change, foliate-js: Chromium / WebKit | 186 / 303 ms | **56 / 186 ms** |
+| Re-layout, Readium: Chromium / WebKit | 242 / 348 ms | **118 / 223 ms** |
+| Page turn, foliate-js: Chromium / WebKit | 33 / 66 ms | **15 / 34 ms** |
 
-A normal *Alice* chapter (about 2,200 Words): foliate-js re-layout in Chromium was 93 ms with A and 54 ms with B.
+On a normal *Alice* chapter (about 2,200 Words) the gap is small in Chromium: foliate-js re-lays out in 60 ms with A and 58 ms with B. In WebKit it is 186 ms against 119 ms.
 
 | Cost per operation (median, Chromium / WebKit) | A | B |
 |---|---|---|
-| Find the first and last visible Words (binary search over Words) | 0.7 / 1 ms | 1.8 / 4 ms |
-| Paint a 13-Word highlight (CSS Custom Highlight API) | 0.6 / 1 ms | 2.2 / 5 ms |
+| Find the first and last visible Words, normal chapter | 0.4 / ≤ 1 ms | 0.8 / 1 ms |
+| The same, 10,854-Word chapter | 1.3 / 2 ms | 5 / 8 ms |
+| Paint a 13-Word highlight (CSS Custom Highlight API) | 0.5 / 1 ms | 0.8 / 2 ms |
 
-Both are far inside every budget, and neither changes the DOM to highlight, so highlighting never re-paginates (§9.1).
+WebKit reports times only to the millisecond. B's lookups are slower but stay far inside every budget, and neither option changes the DOM to highlight, so highlighting never re-paginates (§9.1). An earlier set of runs overlapped the narration spike's whisper jobs and was two to three times slower overall; the comparison came out the same.
 
 | Behaviour | A | B |
 |---|---|---|
@@ -52,7 +53,7 @@ Both are far inside every budget, and neither changes the DOM to highlight, so h
 
 ## Recommendation
 
-**Option B: Block indexes plus an offset word index.** With every Word in a span, a long Chapter's re-layout is 1.6–4× slower, and the gap is largest exactly where budgets are tightest. At 549–827 ms on a desktop PC for the 10,000-Word Chapter that §13.1 criterion 7 names, option A cannot meet §12.3's 300 ms re-layout budget on a mid-range phone. B costs a few milliseconds per lookup, which is invisible.
+**Option B: Block indexes plus an offset word index.** With every Word in a span, the 10,000-Word Chapter that §13.1 criterion 7 names re-lays out 1.6–3.3× slower. On a fast desktop it already takes 186–348 ms against §12.3's 300 ms budget, and a mid-range phone is several times slower than that. B gives the headroom: 56–223 ms on the same machine, with 5× less markup and 29× fewer elements, for a few milliseconds per Word lookup. The Android numbers (ADR-001, "Still to do") will show how much headroom is left on a phone.
 
 **B's risk, and how we contain it.** B depends on the text the reader sees being byte-identical to the text that was indexed. Mitigations:
 

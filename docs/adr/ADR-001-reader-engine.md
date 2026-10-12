@@ -16,14 +16,14 @@ DESIGN.md §9.1 puts the engine behind our `ReaderEngine` interface, so the choi
 
 **Same input for both.** The spike prepares each Book once, the way `text-pipeline` output will reach the reader through an `OpenBook` loader: resources rewritten to `blob:` URLs, and Words marked (option A spans or option B Block offsets, see ADR-002) with identical book-wide WordIds. foliate-js gets a hand-built "book" object over those files; Readium gets a Readium Web Publication Manifest and a custom `Fetcher` over the same files. Both adapters implement one small spike interface, so every measurement is the same code for both.
 
-**How it was measured.** `/spike/reader` shows both engines side by side, or one at full width, with live metrics. `e2e/spike-reader.spec.ts` drives them through every criterion in Chromium and WebKit, and `scripts/spike-phone.ts` runs the same steps inside the Android app's WebView over adb. Fixtures: *Alice* (Gutenberg), *Alice* chapters 1–5 merged into one 10,854-Word chapter, the status-window fixture, the Rackham-illustrated *Alice* and the demo serial. Page turn is measured from input to the first animation frame showing different Words. Re-layout is measured from a text-size change to relocation. Numbers below are medians from sequential runs (one test at a time) on the owner's desktop PC; WebKit is Playwright's Windows build, our stand-in for iOS (D-024).
+**How it was measured.** `/spike/reader` shows both engines side by side, or one at full width, with live metrics. `e2e/spike-reader.spec.ts` drives them through every criterion in Chromium and WebKit, and `scripts/spike-phone.ts` runs the same steps inside the Android app's WebView over adb. Fixtures: *Alice* (Gutenberg), *Alice* chapters 1–5 merged into one 10,854-Word chapter, the status-window fixture, the Rackham-illustrated *Alice* and the demo serial. Page turn is measured from input to the first animation frame showing different Words. Re-layout is measured from a text-size change to relocation. Numbers below are medians from sequential runs (one test at a time, nothing else running) on the owner's desktop PC (Intel i5-13600KF); WebKit is Playwright's Windows build, our stand-in for iOS (D-024).
 
 ## Results
 
 | # | Criterion | foliate-js | Readium |
 |---|---|---|---|
 | 1 | Single, spread and scroll | ✅ All three. Spread shows two columns when two fit at 720 px each. | ✅ All three (`columnCount: 2`, `scroll: true`). |
-| 2 | Text-size change keeps the first visible Word | ⚠️ Natively it keeps the Word you last *turned* to, not the current first Word (3 of 9 changes kept it), but it never drifts: going A+ then A− lands on the same page. With our adapter jumping back to the anchor Word: **9/9**, median 30–110 ms extra. | ⚠️ Keeps a fraction of the chapter, which drifts by a page or more (2–6 of 9). With the jump back: **9/9**, median 50–140 ms extra. |
+| 2 | Text-size change keeps the first visible Word | ⚠️ Natively it keeps the Word you last *turned* to, not the current first Word (3 of 9 changes kept it), but it never drifts: going A+ then A− lands on the same page. With our adapter jumping back to the anchor Word: **9/9**, median 32–62 ms extra. | ⚠️ Keeps a fraction of the chapter, which drifts by a page or more (6 of 9 kept). With the jump back: **9/9**, median 28–92 ms extra. |
 | 3 | Decorations for highlights and narration | ✅ Full iframe access, so we paint with the CSS Custom Highlight API ourselves (§9.1). Its built-in annotations are SVG overlays keyed by CFI, which we wouldn't use. | ✅ Its decorator paints with the CSS Custom Highlight API, but in 2.10 it only resolves **text-quote** locators across the frame boundary (DOM-range and CSS-selector locators fail with "Can't locate DOM range"). We can also paint ourselves, as with foliate-js. |
 | 4 | Selections mappable to Word ranges | ✅ A selection from mid-Word to mid-Word snaps to whole Words, both marking options, Chromium and WebKit. | ✅ Same. |
 | 5 | Injecting a `<figure>` re-paginates | ✅ Re-paginates by itself (it watches the section's size): 7 → 8–9 pages. | ✅ Re-paginates by itself: 6–7 → 8–9 pages. |
@@ -35,16 +35,18 @@ DESIGN.md §9.1 puts the engine behind our `ReaderEngine` interface, so the choi
 
 ### Performance (§12.3)
 
-Option A (a span per Word), desktop, sequential runs:
+Each engine alone at full width, option A (a span per Word), desktop, one test at a time with nothing else running:
 
 | | foliate-js Chromium | Readium Chromium | foliate-js WebKit | Readium WebKit |
 |---|---|---|---|---|
-| Page turn, *Alice* chapter (budget < 100 ms) | **8 ms** | 39 ms | 145 ms | 192 ms |
-| Page turn, 10,854-Word chapter | **14 ms** | 84 ms | 158 ms | 206 ms |
-| Re-layout after text size, *Alice* (budget < 300 ms) | **93 ms** | 267 ms | 387 ms | 536 ms |
-| Re-layout, 10,854-Word chapter | 549 ms | 627 ms | 676 ms | 827 ms |
+| Page turn, *Alice* chapter (budget < 100 ms) | **11 ms** | 34 ms | **28 ms** | 58 ms |
+| Page turn, 10,854-Word chapter | **5 ms** | 32 ms | **41 ms** | 86 ms |
+| Re-layout after text size, *Alice* (budget < 300 ms) | **54 ms** | 185 ms | **104 ms** | 194 ms |
+| Re-layout, 10,854-Word chapter | **180 ms** | 259 ms | **248 ms** | 251 ms |
 
-With option B (Blocks + offsets, ADR-002), the long chapter's re-layout drops to **127 ms** (foliate-js) and 197 ms (Readium) in Chromium, and 401 ms and 501 ms in WebKit.
+With option B (Blocks + offsets, ADR-002), the long chapter's re-layout drops to **56 ms** (foliate-js) and 118 ms (Readium) in Chromium, and 186 ms and 223 ms in WebKit (both engines on screen together).
+
+An earlier set of runs overlapped whisper transcriptions from the narration spike and came out two to three times slower across the board. The ranking was the same.
 
 | JavaScript (gzipped) | foliate-js | Readium |
 |---|---|---|
@@ -52,7 +54,7 @@ With option B (Blocks + offsets, ADR-002), the long chapter's re-layout drops to
 
 §12.3's 250 KB reader-route budget excludes the engine, but the engine still lands on the first open over 4G (budget < 2 s).
 
-foliate-js was faster on every timing in both browsers: page turns roughly 2–5× quicker and re-layout 1.3–3× quicker.
+foliate-js was faster on every timing in both browsers: page turns roughly 2–6× quicker and re-layout up to 3.4× quicker. On the 10,000-Word chapter in WebKit the two re-lay out at about the same speed.
 
 ### What only one of them brings
 
