@@ -20,8 +20,7 @@
 		"fixtures:epubs": "node fixtures/scripts/build-epubs.mjs",
 		"fixtures:audio": "node fixtures/scripts/download-audio.mjs",
 		"fixtures:download": "node fixtures/scripts/download-fixtures.mjs && node fixtures/scripts/download-audio.mjs",
-		"fixtures:narration": "node --experimental-transform-types --disable-warning=ExperimentalWarning tools/align-spike/align.mjs",
-		"fixtures:word-index": "node tools/align-spike/word-index.mjs"
+		"fixtures:narration": "node --experimental-transform-types --disable-warning=ExperimentalWarning tools/align-spike/align.mjs"
 	},
 	"engines": {
 		"node": ">=22"

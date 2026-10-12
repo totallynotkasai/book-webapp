@@ -1,9 +1,9 @@
 # ADR-001: Reader engine: foliate-js or Readium ts-toolkit
 
-- **Status:** Proposed. Waiting for the owner's feel score (desktop and phone) and the Android measurements (see "Still to do").
+- **Status:** **Accepted** (12 October 2026, owner decision before Phase 1). The owner accepted the recommendation before scoring feel; the Android checks move to the Android Studio emulator during Phase 1 (see "Still to do"). Resolves OPEN-01 and D-015.
 - **Date:** 12 October 2026
 - **Task:** P0-04 Spike: reader engine. Resolves OPEN-01 (and D-015) once accepted.
-- **Spike code:** `packages/reader-core/src/spike/` (both adapters, prepared documents, Word marking), `apps/web/src/routes/spike/reader/`, `apps/web/e2e/spike-reader*.ts`, `apps/web/scripts/spike-phone.ts`. Deleted once ADR-001 and ADR-002 are accepted (DESIGN.md §13.1).
+- **Spike code:** was `packages/reader-core/src/spike/`, `apps/web/src/routes/spike/reader/`, `apps/web/e2e/spike-reader*.ts` and `apps/web/scripts/spike-phone.ts`; deleted in Phase 1.1 together with `@readium/*` (it is in the git history before the Phase 1.1 PR). P1-RDR-01 rebuilds the foliate-js adapter and the Word mapping from it.
 
 ## Context
 
@@ -63,12 +63,12 @@ foliate-js was faster on every timing in both browsers: page turns roughly 2–6
 
 Neither is needed to meet DESIGN.md: our preferences are token-driven (§9.4, §11), we don't store CFIs (Invariant 2), and narration uses our own Sync Maps (§7.2).
 
-## Still to do before this can be Accepted
+## Still to do (after acceptance)
 
 1. **Android numbers (criteria 6 and 7).** With the phone unlocked, the screen on and USB debugging connected, from `apps/web`: `npm run cap:android`, then `node scripts/spike-phone.ts`. Results land in `apps/web/spike-results/`. If the phone is much faster than the reference class (§12.3), repeat with CPU throttling.
 2. **The owner's feel score.** On desktop (`npm run dev`, then `/spike/reader`) and on the phone (the app's `/spike/reader`, or `npm run dev:host` in the phone's browser): turn pages, change the text size, try spread and scroll, select text, then score each engine 1–5 on the page and use "Copy results for ADR-001".
 
-## Recommendation (provisional)
+## Decision
 
 **foliate-js**, through our `ReaderEngine` adapter, pinned by git commit. It met or tied every criterion. It was clearly faster on every timing in both browsers, which matters most on mid-range Android (§12.3, §18). It is about a seventh of the size. And because it renders whatever book object we hand it, our own `text-pipeline` output and both URL schemes fit without a service worker.
 

@@ -18,5 +18,4 @@ exist. To redo the alignment as well, install whisper.cpp and its models and run
 `tools/align-spike/align.mjs` lists its options and environment variables; ADR-003 has the
 measurements.
 
-Without these files `/spike/narration` still opens the book and the Sync Map, and explains how to
-get the audio.
+Without these files the reader still opens the book, but narration has nothing to play.

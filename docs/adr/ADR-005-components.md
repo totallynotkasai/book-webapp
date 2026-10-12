@@ -1,9 +1,9 @@
 # ADR-005: UI components: our own on Bits UI primitives, or wrap m3-svelte
 
-- **Status:** Proposed (for the owner's review; not yet Accepted)
+- **Status:** **Accepted** (12 October 2026, owner decision before Phase 1). Resolves OPEN-02.
 - **Date:** 11 October 2026
 - **Task:** P0-10 Spike: UI components. Resolves OPEN-02 once accepted.
-- **Spike code:** `apps/web/src/routes/spike/components/` (page, both sets, theme generation, `bundle-size.mjs`) and `apps/web/e2e/spike-components.spec.ts`. Deleted at the end of Phase 0.2 (DESIGN.md §13.1).
+- **Spike code:** was `apps/web/src/routes/spike/components/` and `apps/web/e2e/spike-components.spec.ts`; deleted in Phase 1.1 with `m3-svelte` and `vite-plugin-functions-mixins`. P1-UI-02 builds `packages/ui` on Bits UI.
 
 ## Context
 
@@ -117,7 +117,7 @@ These figures were taken on 11 October 2026 with `npm view` and `gh api`, coveri
 
 `@material/material-color-utilities` (Google, Apache-2.0) is needed under either option. It has had one release in 12 months (0.4.0, Jan 2026). That release has extensionless relative ESM imports which Node rejects (open upstream issue #195), so Vitest has to inline it (`vitest.config.ts`, `web` project).
 
-## Recommendation
+## Decision
 
 **Option B: build our own `packages/ui` components on Bits UI primitives, styled only with our generated `--md-sys-color-*` tokens and `packages/tokens`.** This reverses the plan's starting recommendation ("evaluate m3-svelte first"), for these measured reasons:
 
@@ -127,7 +127,7 @@ These figures were taken on 11 October 2026 with `npm view` and `gh api`, coveri
 
 **What we give up:** about 30 kB gzipped of JS for the first overlay components (paid once), and writing the M3 look ourselves (about 50 lines of CSS per component). m3-svelte's CSS remains a useful reference for M3 measurements and states. Anything copied from it must be taken under Apache-2.0, with its notice kept.
 
-## Proposed resolution of OPEN-02
+## Resolution of OPEN-02
 
 > **OPEN-02 → resolved by D-0xx (proposed):** build our own components in `packages/ui` on headless Bits UI primitives (`bits-ui` 2.x), styled only with the generated `--md-sys-color-*` role tokens and `packages/tokens`; don't wrap m3-svelte. Evidence: ADR-005.
 
