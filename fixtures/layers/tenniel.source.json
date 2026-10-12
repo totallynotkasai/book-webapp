@@ -1,0 +1,434 @@
+{
+	"id": "pack-alice-tenniel",
+	"bookId": "book-alice",
+	"epub": "apps/web/static/books/alice.epub",
+	"creatorId": "creator-lewis-carroll",
+	"name": "John Tenniel’s illustrations",
+	"description": "The 42 wood engravings from the first edition (1865), placed where Carroll’s text describes them.",
+	"isOfficial": true,
+	"aiUse": "none",
+	"credit": "Illustrations by John Tenniel (1865), public domain. Images: Standard Ebooks, CC0.",
+	"images": "fixtures/images/tenniel",
+	"illustrations": [
+		{
+			"id": "tenniel-01",
+			"file": "01-king-and-queen-of-hearts.jpg",
+			"alt": "The King and Queen of Hearts are seated side-by-side on thrones looking out at the court. The Knave of Hearts is in the foreground, arms crossed and nose in the air.",
+			"caption": "The King and Queen of Hearts were seated on their throne, with a great crowd assembled about them—all sorts of little birds and beasts, as well as the whole pack of cards.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "with a great crowd assembled about them—all sorts of little birds and beasts"
+		},
+		{
+			"id": "tenniel-02",
+			"file": "02-white-rabbit-with-watch.jpg",
+			"alt": "A white rabbit wearing a waistcoat stands upright consulting a pocket-watch.",
+			"caption": "When the Rabbit actually took a watch out of its waistcoat-pocket, and looked at it, and then hurried on, Alice started to her feet.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "when the Rabbit actually took a watch out of its waistcoat-pocket, and looked"
+		},
+		{
+			"id": "tenniel-03",
+			"file": "03-little-door-behind-curtain.jpg",
+			"alt": "Alice pulls back a curtain to reveal a small door. She holds a tiny key in her right hand.",
+			"caption": "She came upon a low curtain she had not noticed before, and behind it was a little door about fifteen inches high.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "she came upon a low curtain she had not noticed before, and behind it"
+		},
+		{
+			"id": "tenniel-04",
+			"file": "04-drink-me.jpg",
+			"alt": "Alice stands at a small table, holding a bottle labelled “Drink Me.”",
+			"caption": "Round the neck of the bottle was a paper label, with the words “Drink Me” beautifully printed on it in large letters.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "round the neck of the bottle was a paper label, with the words “DRINK"
+		},
+		{
+			"id": "tenniel-05",
+			"file": "05-alice-grows-tall.jpg",
+			"alt": "Alice stands with arms raised in surprise, as she grows taller and her neck stretches out.",
+			"caption": "“Now I’m opening out like the largest telescope that ever was! Goodbye, feet!”",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "now I’m opening out like the largest telescope that ever was"
+		},
+		{
+			"id": "tenniel-06",
+			"file": "06-rabbit-hurries-away.jpg",
+			"alt": "Alice kneels in a low corridor, watching a white rabbit hurry away.",
+			"caption": "The Rabbit skurried away into the darkness as hard as he could go.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "skurried away into the darkness as hard as he could go"
+		},
+		{
+			"id": "tenniel-07",
+			"file": "07-pool-of-tears.jpg",
+			"alt": "Alice is swept off her feet by a flood of water which reaches over her shoulders.",
+			"caption": "She was in the pool of tears which she had wept when she was nine feet high.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "she was in the pool of tears which she had wept when she was"
+		},
+		{
+			"id": "tenniel-08",
+			"file": "08-mouse-swims-away.jpg",
+			"alt": "Alice is swimming in a pool watching a mouse as big as herself swim away.",
+			"caption": "The Mouse was swimming away from her as hard as it could go, and making quite a commotion in the pool as it went.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "the Mouse was swimming away from her as hard as it could go, and"
+		},
+		{
+			"id": "tenniel-09",
+			"file": "09-party-on-the-bank.jpg",
+			"alt": "A large crowd of creatures stand around listening to a mouse. The creatures include an owl, a dodo, and a crab.",
+			"caption": "They were indeed a queer-looking party that assembled on the bank.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "They were indeed a queer-looking party that assembled on the bank"
+		},
+		{
+			"id": "tenniel-10",
+			"file": "10-dodo-presents-thimble.jpg",
+			"alt": "Alice accepts a humble handed to her by a dodo who is taller than herself. The dodo leans upon a stick.",
+			"caption": "They all crowded round her once more, while the Dodo solemnly presented the thimble.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "they all crowded round her once more, while the Dodo solemnly presented the thimble"
+		},
+		{
+			"id": "tenniel-11",
+			"file": "11-alice-in-rabbits-house.jpg",
+			"alt": "A gigantic Alice is crammed inside a small room, her arm of the window.",
+			"caption": "She tried the effect of lying down with one elbow against the door, and the other arm curled round her head.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "she tried the effect of lying down with one elbow against the door, and"
+		},
+		{
+			"id": "tenniel-12",
+			"file": "12-giant-hand-and-rabbit.jpg",
+			"alt": "Alice’s giant hand comes down from above. A white rabbit in a waistcoat has fallen back into a cucumber-frame.",
+			"caption": "She did not get hold of anything, but she heard a little shriek and a fall, and a crash of broken glass.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "She did not get hold of anything, but she heard a little shriek and"
+		},
+		{
+			"id": "tenniel-13",
+			"file": "13-there-goes-bill.jpg",
+			"alt": "A lizard is being shot upwards out of a smoking chimney.",
+			"caption": "The first thing she heard was a general chorus of “There goes Bill!”",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The first thing she heard was a general chorus of “There goes Bill"
+		},
+		{
+			"id": "tenniel-14",
+			"file": "14-enormous-puppy.jpg",
+			"alt": "A tiny Alice hesitantly proffers a stick to a puppy dog which is far larger than herself.",
+			"caption": "An enormous puppy was looking down at her with large round eyes.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "An enormous puppy was looking down at her with large round eyes"
+		},
+		{
+			"id": "tenniel-15",
+			"file": "15-caterpillar-on-mushroom.jpg",
+			"alt": "Alice peers over the edge of a mushroom as tall as herself to stare at an upright caterpillar smoking a hookah.",
+			"caption": "The Caterpillar and Alice looked at each other for some time in silence.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The Caterpillar and Alice looked at each other for some time in silence"
+		},
+		{
+			"id": "tenniel-16",
+			"file": "16-father-william-on-head.jpg",
+			"alt": "A young man in rural costume stares at an old fat man who is standing on his head.",
+			"caption": "A young man in rural costume stares at an old fat man who is standing on his head.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "And yet you incessantly stand on your head"
+		},
+		{
+			"id": "tenniel-17",
+			"file": "17-father-william-somersault.jpg",
+			"alt": "A young man in rural costume backs away from a doorway as an old fat man somersaults through it.",
+			"caption": "Yet you turned a back-somersault in at the door.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "Yet you turned a back-somersault in at the door"
+		},
+		{
+			"id": "tenniel-18",
+			"file": "18-father-william-goose.jpg",
+			"alt": "A young man in rural costume lifts the covers from a empty plates and stares at a fat old man sitting by a fireplace.",
+			"caption": "Yet you finished the goose, with the bones and the beak.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "Yet you finished the goose, with the bones and the beak"
+		},
+		{
+			"id": "tenniel-19",
+			"file": "19-father-william-eel.jpg",
+			"alt": "A young man in rural costume stares in amazement at an old fat man who is balancing a wriggling eel on his nose.",
+			"caption": "Yet you balanced an eel on the end of your nose.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "Yet you balanced an eel on the end of your nose"
+		},
+		{
+			"id": "tenniel-20",
+			"file": "20-fish-and-frog-footmen.jpg",
+			"alt": "A frog dressed as a footman stands in a pillared doorway accepting a huge envelope from a fish also dressed as a footman.",
+			"caption": "The Fish-Footman began by producing from under his arm a great letter.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The Fish-Footman began by producing from under his arm a great letter"
+		},
+		{
+			"id": "tenniel-21",
+			"file": "21-duchess-kitchen.jpg",
+			"alt": "The interior of a kitchen. A servant stirs a pot on the stove while an ugly woman dressed as a duchess sits nursing a squalling baby.",
+			"caption": "The Duchess was sitting on a three-legged stool in the middle, nursing a baby.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "the Duchess was sitting on a three-legged stool in the middle, nursing a"
+		},
+		{
+			"id": "tenniel-22",
+			"file": "22-baby-turns-to-pig.jpg",
+			"alt": "Alice stands in a garden holding a pig in her arms as though it were a baby.",
+			"caption": "It was neither more nor less than a pig, and she felt that it would be quite absurd for her to carry it further.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "it was neither more nor less than a pig, and she felt that it"
+		},
+		{
+			"id": "tenniel-23",
+			"file": "23-cheshire-cat-in-tree.jpg",
+			"alt": "Alice stands with her hands clasped behind her, looking up at a grinning cat on the branch of a tree.",
+			"caption": "She was a little startled by seeing the Cheshire Cat sitting on a bough of a tree a few yards off.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "she was a little startled by seeing the Cheshire Cat sitting on a bough"
+		},
+		{
+			"id": "tenniel-24",
+			"file": "24-cheshire-cat-grin.jpg",
+			"alt": "A cat on a tree-branch is fading away, leaving only its grin.",
+			"caption": "This time it vanished quite slowly, beginning with the end of the tail, and ending with the grin.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "this time it vanished quite slowly, beginning with the end of the tail, and"
+		},
+		{
+			"id": "tenniel-25",
+			"file": "25-mad-tea-party.jpg",
+			"alt": "An outside table is set for tea. Alice sits at one end, looking cross. A hare and a hatter sit with a dormouse between them.",
+			"caption": "The Hatter opened his eyes very wide on hearing this.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The Hatter opened his eyes very wide on hearing this"
+		},
+		{
+			"id": "tenniel-26",
+			"file": "26-twinkle-little-bat.jpg",
+			"alt": "A hatter sits at a tea-table, singing. He seems to be elbowing a dormouse in the eye.",
+			"caption": "Twinkle, twinkle, little bat!",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "Twinkle, twinkle, little bat! How I wonder what you’re at"
+		},
+		{
+			"id": "tenniel-27",
+			"file": "27-dormouse-in-teapot.jpg",
+			"alt": "A hare and a hatter are stuffing a dormouse into the top of a teapot.",
+			"caption": "The last time she saw them, they were trying to put the Dormouse into the teapot.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "the last time she saw them, they were trying to put the Dormouse into"
+		},
+		{
+			"id": "tenniel-28",
+			"file": "28-painting-the-roses.jpg",
+			"alt": "Three playing-cards with heads, arms and legs stand around a rose-tree arguing.",
+			"caption": "The roses were white, but there were three gardeners busily painting them red.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "were white, but there were three gardeners"
+		},
+		{
+			"id": "tenniel-29",
+			"file": "29-off-with-her-head.jpg",
+			"alt": "The King and Queen of Hearts, surrounded by courtiers, stand in a garden. The Queen points accusingly at Alice. At right, a servant holds a cushion bearing a large crown.",
+			"caption": "The Queen turned crimson with fury, and screamed “Off with her head!”",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The Queen turned crimson with fury, and"
+		},
+		{
+			"id": "tenniel-30",
+			"file": "30-flamingo-croquet.jpg",
+			"alt": "Alice stands with one foot on a hedgehog, holding on to a flamingo which stares her in the face.",
+			"caption": "The chief difficulty Alice found at first was in managing her flamingo.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The chief difficulty Alice found at first was in managing her flamingo"
+		},
+		{
+			"id": "tenniel-31",
+			"file": "31-cheshire-cat-over-crowd.jpg",
+			"alt": "A large cat’s head floats above a crowd which includes the King and Queen of Hearts.",
+			"caption": "When she got back to the Cheshire Cat, she was surprised to find quite a large crowd collected round it.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "When she got back to the Cheshire Cat, she was surprised to find quite"
+		},
+		{
+			"id": "tenniel-32",
+			"file": "32-alice-and-duchess.jpg",
+			"alt": "Alice walks side-by-side with an ugly duchess. Alice is holding a flamingo under her arm.",
+			"caption": "She was exactly the right height to rest her chin upon Alice’s shoulder, and it was an uncomfortably sharp chin.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "she was exactly the right height to rest her chin upon Alice’s shoulder, and"
+		},
+		{
+			"id": "tenniel-33",
+			"file": "33-gryphon-asleep.jpg",
+			"alt": "A gryphon lies on the ground, asleep. It is a creature with the fore-parts of an eagle and the hind-parts of a lion.",
+			"caption": "They very soon came upon a Gryphon, lying fast asleep in the sun.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "They very soon came upon a Gryphon, lying fast asleep in the sun"
+		},
+		{
+			"id": "tenniel-34",
+			"file": "34-mock-turtle-weeping.jpg",
+			"alt": "A gryphon sits on the ground next to Alice. On a rock stands a turtle with the head of a calf, weeping.",
+			"caption": "“When we were little,” the Mock Turtle went on at last, more calmly, “we went to school in the sea.”",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "When we were little,” the Mock Turtle went on at last, more calmly"
+		},
+		{
+			"id": "tenniel-35",
+			"file": "35-lobster-quadrille.jpg",
+			"alt": "A turtle with the head of a calf and a gryphon dance around Alice.",
+			"caption": "So they began solemnly dancing round and round Alice, every now and then treading on her toes.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "So they began solemnly dancing round and round Alice, every now and then treading"
+		},
+		{
+			"id": "tenniel-36",
+			"file": "36-voice-of-the-lobster.jpg",
+			"alt": "A lobster stands upright before a dressing-table, holding a hair-brush.",
+			"caption": "Her head was so full of the Lobster Quadrille, that she hardly knew what she was saying.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "her head was so full of the Lobster Quadrille, that she hardly knew what"
+		},
+		{
+			"id": "tenniel-37",
+			"file": "37-white-rabbit-herald.jpg",
+			"alt": "A white rabbit stands upright, dressed in livery patterned with hearts. With one hand he is blowing a small trumpet and holding a scroll in his other hand.",
+			"caption": "The White Rabbit blew three blasts on the trumpet.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "blew three blasts on the trumpet, and then unrolled the parchment scroll"
+		},
+		{
+			"id": "tenniel-38",
+			"file": "38-hatter-in-the-witness-box.jpg",
+			"alt": "A hatter stands holding a cup of tea in one hand and a sandwich in the other. He is in his stockinged feet, with his shoes cast aside.",
+			"caption": "“I’m a poor man, your Majesty,” the Hatter began, in a trembling voice.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "I’m a poor man, your Majesty,” the Hatter began, in a trembling voice"
+		},
+		{
+			"id": "tenniel-39",
+			"file": "39-hatter-leaves-court.jpg",
+			"alt": "A hatter runs off to the right. He is holding a cup of tea and a sandwich.",
+			"caption": "“I’d rather finish my tea,” said the Hatter, with an anxious look at the Queen.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "I’d rather finish my tea,” said the Hatter, with an anxious look at the"
+		},
+		{
+			"id": "tenniel-40",
+			"file": "40-jury-box-upset.jpg",
+			"alt": "Alice is in the process of standing up, and in doing so, upsetting a jury-box filled with small animals.",
+			"caption": "She jumped up in such a hurry that she tipped over the jury-box with the edge of her skirt.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "she jumped up in such a hurry that she tipped over the jury-box"
+		},
+		{
+			"id": "tenniel-41",
+			"file": "41-king-and-the-tarts.jpg",
+			"alt": "The King of Hearts is seated on a throne, wearing spectacles. Below him stands the Knave of Hearts and on a table is a plate of tarts.",
+			"caption": "“Why, there they are!” said the King triumphantly, pointing to the tarts on the table.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "Why, there they are!” said the King triumphantly, pointing to the tarts on the"
+		},
+		{
+			"id": "tenniel-42",
+			"file": "42-pack-of-cards.jpg",
+			"alt": "Alice is standing, trying to fend off a cloud of playing-cards which swirl up around her. At her feet are many small animals.",
+			"caption": "At this the whole pack rose up into the air, and came flying down upon her.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "At this the whole pack rose up into the air, and came flying down"
+		}
+	]
+}
