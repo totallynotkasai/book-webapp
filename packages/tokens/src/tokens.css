@@ -61,11 +61,14 @@
 	/* Touch: minimum hit area for interactive controls (§11.7) */
 	--touch-target: 48px;
 
-	/* Device safe areas (notches, home indicators) for PWA and Capacitor */
-	--safe-top: env(safe-area-inset-top, 0px);
-	--safe-right: env(safe-area-inset-right, 0px);
-	--safe-bottom: env(safe-area-inset-bottom, 0px);
-	--safe-left: env(safe-area-inset-left, 0px);
+	/*
+	 * Device safe areas (notches, home indicators). Capacitor 8's SystemBars injects
+	 * --safe-area-inset-*, because env() is wrong in Android WebView before 140 (P0-07, ADR-004).
+	 */
+	--safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+	--safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+	--safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+	--safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
 
 	/* Motion */
 	--duration-fast: 120ms;
