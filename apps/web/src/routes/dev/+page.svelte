@@ -266,7 +266,7 @@
 	}
 
 	.muted {
-		color: var(--color-text-muted);
+		color: var(--md-sys-color-on-surface-variant);
 	}
 
 	.block {
@@ -291,7 +291,7 @@
 		align-items: center;
 		min-height: var(--touch-target);
 		padding: var(--space-2) var(--space-3);
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--md-sys-color-outline-variant);
 		border-radius: var(--radius-md);
 		cursor: pointer;
 	}
@@ -330,9 +330,9 @@
 	button {
 		min-height: var(--touch-target);
 		padding: 0 var(--space-3);
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--md-sys-color-outline-variant);
 		border-radius: var(--radius-md);
-		background: var(--color-bg);
+		background: var(--md-sys-color-surface);
 	}
 
 	input[type='range'] {

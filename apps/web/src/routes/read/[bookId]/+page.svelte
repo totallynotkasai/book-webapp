@@ -11,7 +11,7 @@
 		type ThemeMode
 	} from '@book/core';
 	import { contrastLabels, fontLabels, readerTokens, themeModeLabels } from '@book/tokens';
-	import { preferences } from '$lib/preferences.svelte';
+	import { preferences } from '$lib/state/preferences.svelte';
 
 	const SCALE_STEP = 0.1;
 
@@ -116,7 +116,7 @@
 		align-items: center;
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-3);
-		color: var(--color-text-muted);
+		color: var(--md-sys-color-on-surface-variant);
 	}
 
 	.toolbar a,
@@ -152,8 +152,8 @@
 		flex-wrap: wrap;
 		gap: var(--space-4);
 		padding: var(--space-3) var(--space-4);
-		background: var(--color-surface);
-		border-block: 1px solid var(--color-border);
+		background: var(--md-sys-color-surface-container-low);
+		border-block: 1px solid var(--md-sys-color-outline-variant);
 	}
 
 	.preferences label,
@@ -167,9 +167,9 @@
 	.size button {
 		min-height: var(--touch-target);
 		padding: 0 var(--space-3);
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--md-sys-color-outline-variant);
 		border-radius: var(--radius-sm);
-		background: var(--color-bg);
+		background: var(--md-sys-color-surface);
 	}
 
 	/* Narrow screens: illustration above the book. */
@@ -192,9 +192,9 @@
 		display: grid;
 		place-items: center;
 		margin: var(--space-2);
-		border: 1px dashed var(--color-border);
+		border: 1px dashed var(--md-sys-color-outline-variant);
 		border-radius: var(--radius-lg);
-		color: var(--color-text-muted);
+		color: var(--md-sys-color-on-surface-variant);
 	}
 
 	.page {

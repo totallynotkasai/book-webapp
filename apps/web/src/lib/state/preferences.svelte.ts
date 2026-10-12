@@ -4,7 +4,7 @@ import {
 	type ReaderPreferences,
 	type ReaderPreferencesPatch
 } from '@book/core';
-import { getStores } from './services';
+import { getStores } from '$lib/services';
 
 /**
  * Reactive global Reader Preferences (docs/DESIGN.md §9.4), persisted through `Stores`.

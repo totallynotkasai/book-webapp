@@ -98,7 +98,7 @@
 	}
 
 	.muted {
-		color: var(--color-text-muted);
+		color: var(--md-sys-color-on-surface-variant);
 	}
 
 	a {
@@ -109,17 +109,17 @@
 
 	.problem {
 		padding: var(--space-3) var(--space-4);
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--md-sys-color-outline-variant);
 		border-radius: var(--radius-md);
-		background: var(--color-surface);
+		background: var(--md-sys-color-surface-container-low);
 	}
 
 	button {
 		min-height: var(--touch-target);
 		padding: 0 var(--space-4);
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--md-sys-color-outline-variant);
 		border-radius: var(--radius-md);
-		background: var(--color-bg);
+		background: var(--md-sys-color-surface);
 		cursor: pointer;
 	}
 </style>
