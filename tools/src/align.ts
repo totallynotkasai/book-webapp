@@ -37,6 +37,7 @@ import {
 	wordsFromWhisper,
 	type ChapterWord
 } from '@book/alignment';
+import { AUDIO_TRACK_FILE_VERSION, audioTrackFileSchema } from '@book/core';
 import type { RevisionChapter } from '@book/text-pipeline';
 import { loadBook, ROOT } from './book';
 
@@ -293,23 +294,17 @@ for (const n of chapters) {
 }
 
 const chapterOrder = book.manifest.chapters.map((c) => c.chapterId);
-writeFileSync(
-	trackPath,
-	`${JSON.stringify(
-		{
-			version: 1,
-			id: TRACK_ID,
-			bookId: 'book-alice',
-			revisionId: book.manifest.revisionId,
-			chapters: track.chapters.sort(
-				(a, b) =>
-					chapterOrder.indexOf(String(a.chapterId)) - chapterOrder.indexOf(String(b.chapterId))
-			)
-		},
-		null,
-		'\t'
-	)}\n`
-);
+// Checked against the schema backend-local reads it with (P1-LAY-04).
+const trackFile = audioTrackFileSchema.parse({
+	version: AUDIO_TRACK_FILE_VERSION,
+	id: TRACK_ID,
+	bookId: 'book-alice',
+	revisionId: book.manifest.revisionId,
+	chapters: track.chapters.sort(
+		(a, b) => chapterOrder.indexOf(String(a.chapterId)) - chapterOrder.indexOf(String(b.chapterId))
+	)
+});
+writeFileSync(trackPath, `${JSON.stringify(trackFile, null, '\t')}\n`);
 writeFileSync(
 	REPORT,
 	`${JSON.stringify({ ...report, generated: 'tools/src/align.ts', revisionId: book.manifest.revisionId, primaryModel: primary }, null, '\t')}\n`

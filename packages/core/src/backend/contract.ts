@@ -17,7 +17,7 @@ import {
 	sessionSchema,
 	studioBookSchema
 } from './dto';
-import { layerSummarySchema, openPackSchema } from '../layers';
+import { layerSummarySchema, openPackSchema, openTrackSchema } from '../layers';
 import { pageRequestSchema, pageSchema } from './paging';
 
 const optionalPage = z.tuple([pageRequestSchema.optional()]);
@@ -58,7 +58,8 @@ export const backendContract = {
 	},
 	layers: {
 		list: { input: slug, output: z.array(layerSummarySchema) },
-		openPack: { input: slug, output: openPackSchema }
+		openPack: { input: slug, output: openPackSchema },
+		openTrack: { input: slug, output: openTrackSchema }
 	},
 	studio: {
 		listBooks: { input: optionalPage, output: pageSchema(studioBookSchema) }

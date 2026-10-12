@@ -23,7 +23,7 @@ import type {
 	SessionDto,
 	StudioBookDto
 } from './dto';
-import type { LayerSummaryDto, OpenPackDto } from '../layers';
+import type { LayerSummaryDto, OpenPackDto, OpenTrackDto } from '../layers';
 import type { Page, PageRequest } from './paging';
 
 export interface SessionApi {
@@ -58,6 +58,11 @@ export interface LayersApi {
 	 * for an unknown pack.
 	 */
 	openPack(packId: string): Promise<OpenPackDto>;
+	/**
+	 * An Audio Track's Chapters: each one's Sync Map, read with `content.read` under the returned
+	 * token, and a URL for its audio (§8.3). Checks Entitlements first, like `openPack`.
+	 */
+	openTrack(trackId: string): Promise<OpenTrackDto>;
 }
 
 export interface ContentApi {

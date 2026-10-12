@@ -11,6 +11,7 @@ import {
 	latestAtOrBefore,
 	type Backend,
 	type IllustrationDto,
+	type IllustrationPackSummaryDto,
 	type LayerSummaryDto,
 	type PointAnchor,
 	type Stores
@@ -19,7 +20,7 @@ import { defaultIllustrationPackIds, usableIllustrationPackIds } from '@book/dom
 import { SvelteMap } from 'svelte/reactivity';
 
 export interface OpenedPack {
-	pack: LayerSummaryDto;
+	pack: IllustrationPackSummaryDto;
 	/** Illustrations on the open Revision, in reading order. */
 	illustrations: IllustrationDto[];
 	token: string;
@@ -27,14 +28,14 @@ export interface OpenedPack {
 
 /** A pack's current Illustration, with the one before it (spread mode shows both). */
 export interface Current {
-	pack: LayerSummaryDto;
+	pack: IllustrationPackSummaryDto;
 	illustration: IllustrationDto;
 	previous: IllustrationDto | null;
 }
 
 export class BookIllustrations {
 	/** Every listed pack for the Book, held or not (the Layers menu shows them all). */
-	packs = $state.raw<LayerSummaryDto[]>([]);
+	packs = $state.raw<IllustrationPackSummaryDto[]>([]);
 	/** Enabled packs, in priority order. */
 	enabled = $state.raw<string[]>([]);
 	readonly opened = new SvelteMap<string, OpenedPack>();
@@ -57,8 +58,9 @@ export class BookIllustrations {
 	/** True once the Book has any pack the reader could turn on. */
 	available = $derived(this.packs.some((p) => p.entitled));
 
-	async load() {
-		this.packs = await this.#backend.layers.list(this.#bookId);
+	/** `layers`: the Book's Layers from `Backend.layers.list`, of which the packs are used. */
+	async load(layers: LayerSummaryDto[]) {
+		this.packs = layers.filter((l) => l.kind === 'illustration_pack');
 		const saved = await this.#stores.layerSelection.get(this.#bookId);
 		this.enabled = saved
 			? usableIllustrationPackIds(saved.illustrationPackIds, this.packs)

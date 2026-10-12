@@ -1,5 +1,5 @@
 {
-	"version": 5,
+	"version": 6,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -193,6 +193,23 @@
 			"listingState": "listed"
 		}
 	],
+	"audioTracks": [
+		{
+			"id": "track-alice-librivox-shallenberg",
+			"bookId": "book-alice",
+			"creatorId": "creator-lewis-carroll",
+			"name": "Narration by Kara Shallenberg",
+			"description": "LibriVox’s solo reading of chapters 1–3, synced word by word to this edition.",
+			"narrator": "Kara Shallenberg",
+			"isOfficial": true,
+			"aiUse": "none",
+			"credit": "Read by Kara Shallenberg for LibriVox (public domain). Aligned with whisper.cpp.",
+			"trackUrl": "/demo/sync/alice/track.json",
+			"chapterCount": 3,
+			"durationMs": 2203854,
+			"listingState": "listed"
+		}
+	],
 	"products": [
 		{
 			"id": "product-book-alice",
@@ -297,6 +314,19 @@
 				"currency": "GBP"
 			},
 			"status": "active"
+		},
+		{
+			"id": "product-track-alice-librivox",
+			"kind": "audio_track",
+			"refId": "track-alice-librivox-shallenberg",
+			"bookId": "book-alice",
+			"creatorId": "creator-lewis-carroll",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 0,
+				"currency": "GBP"
+			},
+			"status": "active"
 		}
 	],
 	"entitlements": [
@@ -381,6 +411,27 @@
 			"id": "ent-illustrator-alice-rackham",
 			"userId": "user-illustrator",
 			"productId": "product-pack-alice-rackham",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-reader-alice-narration",
+			"userId": "user-reader",
+			"productId": "product-track-alice-librivox",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-author-alice-narration",
+			"userId": "user-author",
+			"productId": "product-track-alice-librivox",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-illustrator-alice-narration",
+			"userId": "user-illustrator",
+			"productId": "product-track-alice-librivox",
 			"source": "grant",
 			"grantedAt": "2026-01-01T00:00:00.000Z"
 		}
