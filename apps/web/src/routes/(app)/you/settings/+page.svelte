@@ -2,14 +2,21 @@
 	import { resolve } from '$app/paths';
 	import { contrastLevels, themeModes, type ContrastLevel, type ThemeMode } from '@book/core';
 	import { contrastLabels, PLACEHOLDER_SEED, themeModeLabels } from '@book/tokens';
-	import { Button, Card, Chip, SegmentedButton } from '@book/ui';
+	import { Button, Card, Chip, prefersReducedMotion, SegmentedButton } from '@book/ui';
+	import { MediaQuery } from 'svelte/reactivity';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import SeedPicker from '$lib/components/SeedPicker.svelte';
+	import ReadingControls from '$lib/reader/ReadingControls.svelte';
 	import { preferences } from '$lib/state/preferences.svelte';
 
 	// P1-UI-03: Settings → Appearance (IMPLEMENTATION-PLAN.md §6, Phase 1.1 UX notes). Every change
 	// applies to the whole app at once; the preview shows the reading page too, where sepia lives.
+	// Reading defaults (P1-RDR-04) are the reader's own Text and Page controls, for every Book
+	// without overrides of its own.
 	const theme = $derived(preferences.current.theme);
+	let windowWidth = $state(typeof innerWidth === 'number' ? innerWidth : 1024);
+	const reducedMotionQuery = new MediaQuery('prefers-reduced-motion: reduce');
+	const reducedMotion = $derived(reducedMotionQuery.current || prefersReducedMotion());
 
 	const modeOptions = themeModes.map((mode) => ({
 		value: mode,
@@ -25,6 +32,7 @@
 </script>
 
 <svelte:head><title>Settings · Book Reader</title></svelte:head>
+<svelte:window bind:innerWidth={windowWidth} />
 
 <div class="settings">
 	<PageHeader title="Settings" back={{ href: resolve('/you'), label: 'Back to You' }} />
@@ -104,9 +112,31 @@
 	<section aria-labelledby="reading-heading">
 		<h2 id="reading-heading">Reading defaults</h2>
 		<p class="hint">
-			Fonts, text size, spacing and layout are set from the Aa menu in any book, for all books or
-			just that one. They arrive with the reader in phase 1.2.
+			For every book that doesn’t have its own settings. In a book, the Aa menu changes these too,
+			or just that book’s.
 		</p>
+		<div class="reading">
+			<section aria-labelledby="reading-text-heading">
+				<h3 id="reading-text-heading">Text</h3>
+				<ReadingControls
+					group="text"
+					prefs={preferences.current}
+					onchange={(changes) => preferences.update(changes)}
+					{windowWidth}
+					{reducedMotion}
+				/>
+			</section>
+			<section aria-labelledby="reading-page-heading">
+				<h3 id="reading-page-heading">Page</h3>
+				<ReadingControls
+					group="page"
+					prefs={preferences.current}
+					onchange={(changes) => preferences.update(changes)}
+					{windowWidth}
+					{reducedMotion}
+				/>
+			</section>
+		</div>
 	</section>
 
 	<section aria-labelledby="accessibility-heading">
@@ -134,6 +164,27 @@
 	.appearance {
 		display: grid;
 		gap: var(--space-6);
+	}
+
+	h3 {
+		margin: 0 0 var(--space-3);
+		font-size: var(--md-sys-typescale-title-medium-size);
+		font-weight: var(--md-sys-typescale-weight-medium);
+	}
+
+	.reading {
+		display: grid;
+		gap: var(--space-6);
+		margin-top: var(--space-4);
+		max-width: 40rem;
+	}
+
+	@media (min-width: 840px) {
+		.reading {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+			align-items: start;
+			max-width: none;
+		}
 	}
 
 	@media (min-width: 840px) {
