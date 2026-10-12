@@ -183,10 +183,37 @@ export class FoliateEngine implements SpikeEngine {
 		return findVisibleWords(
 			doc,
 			map,
-			this.#view.getBoundingClientRect(),
+			this.#visibleArea(doc),
 			this.#layout === 'scroll',
 			this.#index
 		);
+	}
+
+	/**
+	 * The part of the view where text shows. foliate-js centres the page in a column narrower than
+	 * the view (max-inline-size), and the neighbouring pages sit beside it, hidden by a clipping
+	 * container inside its shadow DOM; the view's own box would count them as on screen (found by
+	 * P0-06, whose auto page-turn needs the real last visible Word).
+	 */
+	#visibleArea(doc: Document): DOMRect {
+		const view = this.#view!.getBoundingClientRect();
+		let left = view.left;
+		let top = view.top;
+		let right = view.right;
+		let bottom = view.bottom;
+		let el: Element | null = doc.defaultView?.frameElement ?? null;
+		while (el && el !== this.#view) {
+			if (getComputedStyle(el).overflow !== 'visible') {
+				const box = el.getBoundingClientRect();
+				left = Math.max(left, box.left);
+				top = Math.max(top, box.top);
+				right = Math.min(right, box.right);
+				bottom = Math.min(bottom, box.bottom);
+			}
+			const root = el.getRootNode();
+			el = el.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
+		}
+		return new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top));
 	}
 
 	// foliate-js draws annotations as SVG overlays keyed by CFI; the spike uses its iframe access

@@ -40,6 +40,27 @@ async function fileFor(urlPath) {
 
 createServer(async (req, res) => {
 	const file = (await fileFor(req.url ?? '/')) ?? join(root, 'index.html');
-	res.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' });
+	const type = TYPES[extname(file)] ?? 'application/octet-stream';
+	const { size } = await stat(file);
+	// Byte ranges, as static hosts serve them: browsers need them to seek in audio (P0-06).
+	const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+	if (range && (range[1] || range[2])) {
+		const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+		const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+		if (start > end || start >= size) {
+			res.writeHead(416, { 'content-range': `bytes */${size}` });
+			return res.end();
+		}
+		res.writeHead(206, {
+			'content-type': type,
+			'accept-ranges': 'bytes',
+			'content-range': `bytes ${start}-${end}/${size}`,
+			'content-length': end - start + 1
+		});
+		if (req.method === 'HEAD') return res.end();
+		return createReadStream(file, { start, end }).pipe(res);
+	}
+	res.writeHead(200, { 'content-type': type, 'accept-ranges': 'bytes', 'content-length': size });
+	if (req.method === 'HEAD') return res.end();
 	createReadStream(file).pipe(res);
 }).listen(port, host, () => console.log(`Serving ${root} at http://${host}:${port}`));
