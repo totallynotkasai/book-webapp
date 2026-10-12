@@ -32,9 +32,21 @@ export interface PickFilesOptions {
 	multiple?: boolean;
 }
 
+export interface SaveFileOptions {
+	/** The suggested file name, with its extension. */
+	name: string;
+	mimeType: string;
+	data: string | Blob;
+}
+
 export interface FilesAdapter {
 	/** Resolves with no files if the user cancels. */
 	pickFiles(options: PickFilesOptions): Promise<File[]>;
+	/**
+	 * Hands a file to the reader: a download on the web; on Android the share sheet, where it can
+	 * be saved to Files or Drive or sent to an app.
+	 */
+	saveFile(options: SaveFileOptions): Promise<'saved' | 'cancelled'>;
 }
 
 export interface ShareContent {

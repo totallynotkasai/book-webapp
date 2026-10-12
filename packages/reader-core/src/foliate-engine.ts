@@ -132,6 +132,9 @@ export class FoliateEngine implements ReaderEngine {
 	#pinned: PointAnchor | null = null;
 	#adjusting = 0;
 	#selectionTimer: ReturnType<typeof setTimeout> | undefined;
+	/** The last selection reported, so an unchanged one isn't reported twice. */
+	#lastSelection: string | null = null;
+	#selectingByKeyboard = false;
 	#destroyed = false;
 	/** Set while following a link in the book, so the next relocation says so. */
 	#linking = false;
@@ -234,19 +237,86 @@ export class FoliateEngine implements ReaderEngine {
 		this.#paintDecorations(doc, map);
 		this.#placeFigures(doc, map);
 
+		// foliate-js scrolls to whatever gains focus, so Tab can reach a link on another page. A
+		// click into the book focuses its <body>, which would jump back to the Chapter's first page.
+		doc.addEventListener(
+			'focusin',
+			(event) => {
+				if (event.target === doc.body || event.target === doc.documentElement) {
+					event.stopPropagation();
+				}
+			},
+			true
+		);
+
+		// A mouse selection is reported when the button comes up; a touch selection (whose native
+		// handles send no pointer events) once it has been still for a moment.
+		let mouseDown = false;
+		let pointer: 'mouse' | 'touch' | 'pen' = 'mouse';
+		// Mouse drags select through our own code. In Chromium, on any page but a Chapter's first,
+		// a native drag inside foliate-js's scrolled view loses its starting point and leaves only
+		// a caret. Double- and triple-clicks stay native (word, paragraph); Shift+click extends.
+		let dragFrom: [Node, number] | null = null;
+		doc.addEventListener('mousedown', (event) => {
+			if (event.button !== 0 || event.detail > 1 || pointer !== 'mouse') return;
+			if ((event.target as Element | null)?.closest?.('a[href]')) return;
+			const point = caretPoint(doc, event.clientX, event.clientY);
+			const selection = doc.getSelection();
+			if (!point || !selection) return;
+			event.preventDefault();
+			if (event.shiftKey && selection.rangeCount && selection.anchorNode) {
+				selection.setBaseAndExtent(
+					selection.anchorNode,
+					selection.anchorOffset,
+					point[0],
+					point[1]
+				);
+				dragFrom = [selection.anchorNode, selection.anchorOffset];
+				return;
+			}
+			selection.removeAllRanges();
+			dragFrom = point;
+		});
+		doc.addEventListener('mousemove', (event) => {
+			if (!dragFrom || !(event.buttons & 1)) return;
+			const point = caretPoint(doc, event.clientX, event.clientY);
+			if (point) doc.getSelection()?.setBaseAndExtent(dragFrom[0], dragFrom[1], point[0], point[1]);
+		});
+		doc.addEventListener('mouseup', () => (dragFrom = null));
+		doc.addEventListener('pointerdown', (event) => {
+			pointer =
+				event.pointerType === 'touch' || event.pointerType === 'pen' ? event.pointerType : 'mouse';
+			mouseDown = pointer === 'mouse' && event.button === 0;
+		});
+		doc.addEventListener('pointerup', () => {
+			if (!mouseDown) return;
+			mouseDown = false;
+			clearTimeout(this.#selectionTimer);
+			this.#selectionTimer = setTimeout(() => this.#onSelection(doc, map, pointer), 0);
+		});
 		doc.addEventListener('selectionchange', () => {
 			clearTimeout(this.#selectionTimer);
-			this.#selectionTimer = setTimeout(() => this.#onSelection(doc, map), 120);
+			if (mouseDown) return;
+			const wait = this.#selectingByKeyboard ? 0 : pointer === 'mouse' ? 120 : 250;
+			this.#selectionTimer = setTimeout(() => this.#onSelection(doc, map, pointer), wait);
 		});
 		doc.addEventListener('click', (event) => this.#onClick(event, doc, map));
 		doc.addEventListener('contextmenu', (event) => {
 			const selection = doc.getSelection();
-			const snapped = selection && selection.rangeCount ? map.snap(selection.getRangeAt(0)) : null;
+			const snapped =
+				selection && selection.rangeCount && !selection.isCollapsed
+					? map.snap(selection.getRangeAt(0))
+					: null;
+			const point = caretPoint(doc, event.clientX, event.clientY);
+			const i = point ? map.wordAt(point[0], point[1]) : -1;
 			const frame = doc.defaultView?.frameElement?.getBoundingClientRect();
 			this.#emit('contextMenu', {
 				anchor: snapped ? map.rangeAnchor(...snapped) : null,
+				word: i >= 0 ? map.pointAnchor(i) : null,
 				x: event.clientX + (frame?.left ?? 0),
-				y: event.clientY + (frame?.top ?? 0)
+				y: event.clientY + (frame?.top ?? 0),
+				pointer,
+				preventDefault: () => event.preventDefault()
 			});
 		});
 		doc.addEventListener('keydown', (event) => this.#emit('keydown', event));
@@ -292,23 +362,80 @@ export class FoliateEngine implements ReaderEngine {
 		);
 	}
 
-	#onSelection(doc: Document, map: DocWordMap) {
+	#onSelection(doc: Document, map: DocWordMap, pointer: 'mouse' | 'touch' | 'pen') {
+		const keyboard = this.#selectingByKeyboard;
+		this.#selectingByKeyboard = false;
 		const selection = doc.getSelection();
-		if (!selection || selection.isCollapsed || !selection.rangeCount) {
-			this.#emit('selection', null);
+		const range = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+		const snapped = range && !range.collapsed ? map.snap(range) : null;
+		if (!selection || !range || !snapped) {
+			if (this.#lastSelection !== null) this.#emit('selection', null);
+			this.#lastSelection = null;
 			return;
 		}
-		const range = selection.getRangeAt(0);
-		const snapped = map.snap(range);
-		if (!snapped) {
-			this.#emit('selection', null);
-			return;
+		// Show the selection as whole Words too, not only report it that way (Invariant 5).
+		const words = map.rangeBetween(...snapped);
+		if (
+			words &&
+			(range.compareBoundaryPoints(Range.START_TO_START, words) !== 0 ||
+				range.compareBoundaryPoints(Range.END_TO_END, words) !== 0)
+		) {
+			selection.removeAllRanges();
+			selection.addRange(words);
 		}
+		const anchor = map.rangeAnchor(...snapped);
+		const key = `${anchor.startOrdinal}-${anchor.endOrdinal}`;
+		if (key === this.#lastSelection) return;
+		this.#lastSelection = key;
 		this.#emit('selection', {
-			anchor: map.rangeAnchor(...snapped),
-			text: range.toString(),
-			clientRect: toTop(range.getBoundingClientRect(), doc)
+			anchor,
+			text: (words ?? range).toString(),
+			clientRect: toTop((words ?? range).getBoundingClientRect(), doc),
+			pointer: keyboard ? 'keyboard' : pointer
 		});
+	}
+
+	select(anchor: { startOrdinal: number; endOrdinal: number } | null): void {
+		const current = this.#current();
+		const map = current && this.#maps.get(current.doc);
+		const selection = current?.doc.getSelection();
+		if (!current || !map || !selection) return;
+		if (!anchor) {
+			selection.removeAllRanges();
+			return;
+		}
+		const first = map.words.indexOfOrdinal(anchor.startOrdinal);
+		const last = map.words.indexOfOrdinal(anchor.endOrdinal);
+		const range = first >= 0 && last >= 0 ? map.rangeBetween(first, last) : null;
+		if (!range) return;
+		this.#selectingByKeyboard = true;
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+
+	rectOf(anchor: Anchor): DOMRect | null {
+		const current = this.#current();
+		const map = current && this.#maps.get(current.doc);
+		if (!current || !map || anchor.revisionId !== this.#manifest.revisionId) return null;
+		const first = map.words.indexOfOrdinal(
+			anchor.kind === 'point' ? anchor.ordinal : anchor.startOrdinal
+		);
+		const last = map.words.indexOfOrdinal(
+			anchor.kind === 'point' ? anchor.ordinal : anchor.endOrdinal
+		);
+		const range = first >= 0 && last >= 0 ? map.rangeBetween(first, last) : null;
+		if (!range) return null;
+		// Only the parts on screen: a range can run on to the next page.
+		const host = this.#host?.getBoundingClientRect();
+		const rects = [...range.getClientRects()]
+			.map((r) => toTop(r, current.doc))
+			.filter((r) => r.width > 0 && (!host || (r.right > host.left && r.left < host.right)));
+		if (!rects.length) return null;
+		const left = Math.min(...rects.map((r) => r.left));
+		const top = Math.min(...rects.map((r) => r.top));
+		const right = Math.max(...rects.map((r) => r.right));
+		const bottom = Math.max(...rects.map((r) => r.bottom));
+		return new DOMRect(left, top, right - left, bottom - top);
 	}
 
 	#onClick(event: MouseEvent, doc: Document, map: DocWordMap) {
@@ -328,8 +455,14 @@ export class FoliateEngine implements ReaderEngine {
 		const frame = doc.defaultView?.frameElement?.getBoundingClientRect();
 		const point = caretPoint(doc, event.clientX, event.clientY);
 		const i = point ? map.wordAt(point[0], point[1]) : -1;
-		if (i >= 0)
-			this.#emit('wordActivated', { wordId: map.words.wordIdAt(i), anchor: map.pointAnchor(i) });
+		if (i >= 0) {
+			const rect = map.range(i)?.getBoundingClientRect();
+			this.#emit('wordActivated', {
+				wordId: map.words.wordIdAt(i),
+				anchor: map.pointAnchor(i),
+				clientRect: rect ? toTop(rect, doc) : new DOMRect(event.clientX, event.clientY, 0, 0)
+			});
+		}
 		this.#emit('tap', {
 			x: event.clientX + (frame?.left ?? 0),
 			y: event.clientY + (frame?.top ?? 0)

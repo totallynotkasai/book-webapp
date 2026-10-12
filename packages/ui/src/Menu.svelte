@@ -27,7 +27,7 @@
 	<DropdownMenu.Portal>
 		<DropdownMenu.Content sideOffset={4} {align}>
 			{#snippet child({ props, wrapperProps })}
-				<div {...wrapperProps} class="wrapper">
+				<div {...wrapperProps}>
 					<div {...props} class={['menu', className]}>
 						{#each items as item, i (i)}
 							{#if item === 'separator'}
@@ -55,11 +55,11 @@
 </DropdownMenu.Root>
 
 <style>
-	.wrapper {
-		z-index: 50;
-	}
-
+	/* Bits UI copies the content's z-index onto its positioning wrapper, so it goes here: menus
+	   open above sheets and dialogs (40-41). */
 	.menu {
+		position: relative;
+		z-index: 50;
 		min-width: 180px;
 		max-width: 280px;
 		padding: var(--space-2) 0;

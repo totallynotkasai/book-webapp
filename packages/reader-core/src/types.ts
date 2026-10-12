@@ -88,10 +88,30 @@ export interface EngineOptions {
 
 export interface EngineEvents {
 	relocated: VisibleRange;
-	selection: { anchor: RangeAnchor; text: string; clientRect: DOMRect } | null;
+	/**
+	 * The reader's selection, snapped to whole Words (Invariant 5), once it has settled: after the
+	 * mouse button is released, or after a pause while touch handles are dragged.
+	 */
+	selection: {
+		anchor: RangeAnchor;
+		text: string;
+		clientRect: DOMRect;
+		pointer: 'mouse' | 'touch' | 'pen' | 'keyboard';
+	} | null;
 	/** A tap or click on a Word. */
-	wordActivated: { wordId: WordId; anchor: PointAnchor };
-	contextMenu: { anchor: RangeAnchor | null; x: number; y: number };
+	wordActivated: { wordId: WordId; anchor: PointAnchor; clientRect: DOMRect };
+	/**
+	 * A right-click (or long-press) in the book: the selection, if any, and the Word under the
+	 * pointer. Call `preventDefault` to replace the browser's own menu.
+	 */
+	contextMenu: {
+		anchor: RangeAnchor | null;
+		word: PointAnchor | null;
+		x: number;
+		y: number;
+		pointer: 'mouse' | 'touch' | 'pen';
+		preventDefault: () => void;
+	};
 	figureActivated: { id: string };
 	/** A tap outside any link or Word, in top-level coordinates (tap zones, §9.2). */
 	tap: { x: number; y: number };
@@ -125,5 +145,12 @@ export interface ReaderEngine {
 	injectFigures(items: FigureInjection[]): void;
 
 	getVisibleRange(): VisibleRange | null;
+	/**
+	 * Selects whole Words on screen by Ordinal (keyboard selection), or clears the selection with
+	 * `null`. The result arrives as a `selection` event with its Anchor.
+	 */
+	select(range: { startOrdinal: number; endOrdinal: number } | null): void;
+	/** Where an Anchor is on screen, in top-level coordinates, or null when it isn't shown. */
+	rectOf(anchor: Anchor): DOMRect | null;
 	on<E extends EngineEvent>(event: E, cb: (payload: EngineEvents[E]) => void): () => void;
 }
