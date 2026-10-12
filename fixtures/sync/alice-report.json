@@ -1,0 +1,453 @@
+{
+	"chapters": {
+		"ch01": {
+			"words": 2168,
+			"durationMs": 796286,
+			"pauses": 197,
+			"models": {
+				"base.en": {
+					"transcriptWords": 2147,
+					"threads": 8,
+					"wallMs": 49777,
+					"cpuMs": 472016,
+					"realtimeFactor": 0.063,
+					"cpuHoursPerAudioHour": 0.593,
+					"dtw": {
+						"coverage": 0.9958,
+						"alignMs": 220,
+						"stats": {
+							"words": 2168,
+							"matched": 2159,
+							"exact": 2111,
+							"fuzzy": 38,
+							"merged": 10,
+							"substituted": 4,
+							"unusedTranscriptWords": 6,
+							"band": 200,
+							"cells": 829439
+						},
+						"accuracy": {
+							"pauses": 197,
+							"start": {
+								"n": 191,
+								"medianAbsMs": 110,
+								"p90AbsMs": 260,
+								"medianSignedMs": 110,
+								"within100ms": 0.45
+							},
+							"end": {
+								"n": 192,
+								"medianAbsMs": 210,
+								"p90AbsMs": 390,
+								"medianSignedMs": -140,
+								"within100ms": 0.141
+							}
+						},
+						"startBiasMs": 110,
+						"accuracyCalibrated": {
+							"pauses": 197,
+							"start": {
+								"n": 191,
+								"medianAbsMs": 40,
+								"p90AbsMs": 170,
+								"medianSignedMs": 0,
+								"within100ms": 0.817
+							},
+							"end": {
+								"n": 192,
+								"medianAbsMs": 230,
+								"p90AbsMs": 430,
+								"medianSignedMs": 50,
+								"within100ms": 0.214
+							}
+						}
+					},
+					"token": {
+						"coverage": 0.9958,
+						"alignMs": 200,
+						"stats": {
+							"words": 2168,
+							"matched": 2159,
+							"exact": 2111,
+							"fuzzy": 38,
+							"merged": 10,
+							"substituted": 4,
+							"unusedTranscriptWords": 6,
+							"band": 200,
+							"cells": 829439
+						},
+						"accuracy": {
+							"pauses": 197,
+							"start": {
+								"n": 194,
+								"medianAbsMs": 130,
+								"p90AbsMs": 300,
+								"medianSignedMs": 80,
+								"within100ms": 0.407
+							},
+							"end": {
+								"n": 194,
+								"medianAbsMs": 130,
+								"p90AbsMs": 300,
+								"medianSignedMs": -50,
+								"within100ms": 0.423
+							}
+						},
+						"startBiasMs": 80,
+						"accuracyCalibrated": {
+							"pauses": 197,
+							"start": {
+								"n": 194,
+								"medianAbsMs": 80,
+								"p90AbsMs": 290,
+								"medianSignedMs": 50,
+								"within100ms": 0.582
+							},
+							"end": {
+								"n": 194,
+								"medianAbsMs": 140,
+								"p90AbsMs": 330,
+								"medianSignedMs": 0,
+								"within100ms": 0.392
+							}
+						}
+					}
+				},
+				"small.en": {
+					"transcriptWords": 2148,
+					"threads": 8,
+					"wallMs": 132867,
+					"cpuMs": 1313312,
+					"realtimeFactor": 0.167,
+					"cpuHoursPerAudioHour": 1.649,
+					"dtw": {
+						"coverage": 0.9977,
+						"alignMs": 170,
+						"stats": {
+							"words": 2168,
+							"matched": 2163,
+							"exact": 2147,
+							"fuzzy": 8,
+							"merged": 8,
+							"substituted": 4,
+							"unusedTranscriptWords": 5,
+							"band": 200,
+							"cells": 829569
+						},
+						"accuracy": {
+							"pauses": 197,
+							"start": {
+								"n": 191,
+								"medianAbsMs": 160,
+								"p90AbsMs": 340,
+								"medianSignedMs": 150,
+								"within100ms": 0.157
+							},
+							"end": {
+								"n": 192,
+								"medianAbsMs": 180,
+								"p90AbsMs": 380,
+								"medianSignedMs": -110,
+								"within100ms": 0.349
+							}
+						},
+						"startBiasMs": 150,
+						"accuracyCalibrated": {
+							"pauses": 197,
+							"start": {
+								"n": 191,
+								"medianAbsMs": 40,
+								"p90AbsMs": 220,
+								"medianSignedMs": 20,
+								"within100ms": 0.712
+							},
+							"end": {
+								"n": 192,
+								"medianAbsMs": 230,
+								"p90AbsMs": 430,
+								"medianSignedMs": 10,
+								"within100ms": 0.135
+							}
+						}
+					},
+					"token": {
+						"coverage": 0.9977,
+						"alignMs": 160,
+						"stats": {
+							"words": 2168,
+							"matched": 2163,
+							"exact": 2147,
+							"fuzzy": 8,
+							"merged": 8,
+							"substituted": 4,
+							"unusedTranscriptWords": 5,
+							"band": 200,
+							"cells": 829569
+						},
+						"accuracy": {
+							"pauses": 197,
+							"start": {
+								"n": 194,
+								"medianAbsMs": 100,
+								"p90AbsMs": 290,
+								"medianSignedMs": 30,
+								"within100ms": 0.505
+							},
+							"end": {
+								"n": 194,
+								"medianAbsMs": 130,
+								"p90AbsMs": 330,
+								"medianSignedMs": -15,
+								"within100ms": 0.381
+							}
+						},
+						"startBiasMs": 30,
+						"accuracyCalibrated": {
+							"pauses": 197,
+							"start": {
+								"n": 193,
+								"medianAbsMs": 90,
+								"p90AbsMs": 280,
+								"medianSignedMs": 30,
+								"within100ms": 0.534
+							},
+							"end": {
+								"n": 194,
+								"medianAbsMs": 140,
+								"p90AbsMs": 310,
+								"medianSignedMs": 0,
+								"within100ms": 0.423
+							}
+						}
+					}
+				}
+			}
+		},
+		"ch02": {
+			"words": 2125,
+			"durationMs": 775122,
+			"pauses": 156,
+			"models": {
+				"base.en": {
+					"transcriptWords": 2121,
+					"threads": 8,
+					"wallMs": 47906,
+					"cpuMs": 464547,
+					"realtimeFactor": 0.062,
+					"cpuHoursPerAudioHour": 0.599,
+					"dtw": {
+						"coverage": 0.9925,
+						"alignMs": 198,
+						"stats": {
+							"words": 2125,
+							"matched": 2109,
+							"exact": 2094,
+							"fuzzy": 5,
+							"merged": 10,
+							"substituted": 14,
+							"unusedTranscriptWords": 19,
+							"band": 200,
+							"cells": 812326
+						},
+						"accuracy": {
+							"pauses": 156,
+							"start": {
+								"n": 152,
+								"medianAbsMs": 110,
+								"p90AbsMs": 350,
+								"medianSignedMs": 90,
+								"within100ms": 0.447
+							},
+							"end": {
+								"n": 152,
+								"medianAbsMs": 230,
+								"p90AbsMs": 430,
+								"medianSignedMs": -160,
+								"within100ms": 0.145
+							}
+						},
+						"startBiasMs": 90,
+						"accuracyCalibrated": {
+							"pauses": 156,
+							"start": {
+								"n": 152,
+								"medianAbsMs": 40,
+								"p90AbsMs": 290,
+								"medianSignedMs": 20,
+								"within100ms": 0.658
+							},
+							"end": {
+								"n": 152,
+								"medianAbsMs": 250,
+								"p90AbsMs": 430,
+								"medianSignedMs": 50,
+								"within100ms": 0.132
+							}
+						}
+					},
+					"token": {
+						"coverage": 0.9925,
+						"alignMs": 156,
+						"stats": {
+							"words": 2125,
+							"matched": 2109,
+							"exact": 2094,
+							"fuzzy": 5,
+							"merged": 10,
+							"substituted": 14,
+							"unusedTranscriptWords": 19,
+							"band": 200,
+							"cells": 812326
+						},
+						"accuracy": {
+							"pauses": 156,
+							"start": {
+								"n": 155,
+								"medianAbsMs": 120,
+								"p90AbsMs": 310,
+								"medianSignedMs": 60,
+								"within100ms": 0.419
+							},
+							"end": {
+								"n": 155,
+								"medianAbsMs": 110,
+								"p90AbsMs": 320,
+								"medianSignedMs": -20,
+								"within100ms": 0.484
+							}
+						},
+						"startBiasMs": 60,
+						"accuracyCalibrated": {
+							"pauses": 156,
+							"start": {
+								"n": 155,
+								"medianAbsMs": 90,
+								"p90AbsMs": 300,
+								"medianSignedMs": 40,
+								"within100ms": 0.581
+							},
+							"end": {
+								"n": 155,
+								"medianAbsMs": 100,
+								"p90AbsMs": 340,
+								"medianSignedMs": -10,
+								"within100ms": 0.51
+							}
+						}
+					}
+				},
+				"small.en": {
+					"transcriptWords": 2116,
+					"threads": 8,
+					"wallMs": 128843,
+					"cpuMs": 1291422,
+					"realtimeFactor": 0.166,
+					"cpuHoursPerAudioHour": 1.666,
+					"dtw": {
+						"coverage": 0.9967,
+						"alignMs": 150,
+						"stats": {
+							"words": 2125,
+							"matched": 2118,
+							"exact": 2104,
+							"fuzzy": 9,
+							"merged": 5,
+							"substituted": 7,
+							"unusedTranscriptWords": 11,
+							"band": 200,
+							"cells": 812326
+						},
+						"accuracy": {
+							"pauses": 156,
+							"start": {
+								"n": 153,
+								"medianAbsMs": 150,
+								"p90AbsMs": 390,
+								"medianSignedMs": 140,
+								"within100ms": 0.261
+							},
+							"end": {
+								"n": 155,
+								"medianAbsMs": 190,
+								"p90AbsMs": 450,
+								"medianSignedMs": -130,
+								"within100ms": 0.258
+							}
+						},
+						"startBiasMs": 140,
+						"accuracyCalibrated": {
+							"pauses": 156,
+							"start": {
+								"n": 153,
+								"medianAbsMs": 60,
+								"p90AbsMs": 280,
+								"medianSignedMs": 10,
+								"within100ms": 0.608
+							},
+							"end": {
+								"n": 154,
+								"medianAbsMs": 250,
+								"p90AbsMs": 490,
+								"medianSignedMs": -70,
+								"within100ms": 0.136
+							}
+						}
+					},
+					"token": {
+						"coverage": 0.9967,
+						"alignMs": 162,
+						"stats": {
+							"words": 2125,
+							"matched": 2118,
+							"exact": 2104,
+							"fuzzy": 9,
+							"merged": 5,
+							"substituted": 7,
+							"unusedTranscriptWords": 11,
+							"band": 200,
+							"cells": 812326
+						},
+						"accuracy": {
+							"pauses": 156,
+							"start": {
+								"n": 154,
+								"medianAbsMs": 110,
+								"p90AbsMs": 280,
+								"medianSignedMs": 20,
+								"within100ms": 0.494
+							},
+							"end": {
+								"n": 153,
+								"medianAbsMs": 140,
+								"p90AbsMs": 360,
+								"medianSignedMs": -20,
+								"within100ms": 0.359
+							}
+						},
+						"startBiasMs": 20,
+						"accuracyCalibrated": {
+							"pauses": 156,
+							"start": {
+								"n": 154,
+								"medianAbsMs": 110,
+								"p90AbsMs": 290,
+								"medianSignedMs": 20,
+								"within100ms": 0.5
+							},
+							"end": {
+								"n": 153,
+								"medianAbsMs": 150,
+								"p90AbsMs": 360,
+								"medianSignedMs": 30,
+								"within100ms": 0.333
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"generated": "tools/align-spike/align.mjs",
+	"primaryModel": "base.en",
+	"cpu": "Intel Core i5-13600KF (6P + 8E cores, 20 threads), Windows 11, no GPU"
+}
