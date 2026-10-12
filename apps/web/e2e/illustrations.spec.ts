@@ -88,6 +88,8 @@ test('first open: the hint, the picture, closing it, and the dot for a new one',
 });
 
 test('every mode keeps the reader’s place and shows nothing from ahead', async ({ page }) => {
+	// Five re-layouts, each waited out: more than the default 30 s on a loaded CI runner.
+	test.slow();
 	await openReader(page, 'book-alice');
 	await chapter(page, /The Pool of Tears/);
 	await page.keyboard.press('ArrowRight');

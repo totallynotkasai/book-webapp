@@ -863,6 +863,15 @@ export class FoliateEngine implements ReaderEngine {
 			if (item.width && item.height) {
 				img.setAttribute('width', String(item.width));
 				img.setAttribute('height', String(item.height));
+				// Its box is settled before the image arrives, so the pages don't shift after the
+				// engine has checked the reader's place (§9.1). The figure CSS's width:auto would
+				// otherwise size it 300 px wide until it decodes.
+				const ratio = (item.width / item.height).toFixed(4);
+				const tallest = item.placement === 'full_page' ? 80 : 60;
+				img.setAttribute(
+					'style',
+					`aspect-ratio:${item.width}/${item.height};width:min(100%,calc(${tallest}vh*${ratio}));height:auto`
+				);
 			}
 			figure.append(img);
 			if (item.caption) {
