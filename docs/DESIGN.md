@@ -1485,10 +1485,10 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | D-012 | Illustrations: reader chooses `popup` (default), `per-page` (left panel), `spread` (wide area above, for double-page art) or `in-text` (creator placements), or off | Accepted |
 | D-013 | Page turns: none / slide / fade now; page curl later as a skin | Accepted |
 | D-014 | The PoC uses *Alice* only (Tenniel illustrations, LibriVox narration); status windows tested with a hand-made fixture | Accepted; amended by D-023 |
-| D-015 | Reader engine | Pending ADR-001 |
-| D-016 | Word marking (spans vs offsets) and word index format | Pending ADR-002 |
-| D-017 | Alignment model and hosting | Pending ADR-003 |
-| D-018 | Mobile audio, selection and file plugins | Pending ADR-004 |
+| D-015 | Reader engine. **Proposed in ADR-001:** foliate-js behind our `ReaderEngine` adapter, pinned by git commit | Proposed (12 Oct 2026); awaiting the owner's feel score and the Android measurements |
+| D-016 | Word marking and word index format. **Proposed in ADR-002:** Blocks carry `data-b`; a per-Chapter word index holds `[wordId, block, start, end]` with a per-Block check | Proposed (12 Oct 2026); awaiting the TalkBack check |
+| D-017 | Alignment model and hosting. **Proposed in ADR-003:** whisper.cpp `base.en` with DTW token timestamps (`-ojf -nfa --dtw`), per-chapter bias correction, CPU hosting (about 0.3–0.6 CPU-hours per audio hour), no GPU | Proposed (12 Oct 2026); awaiting the owner's listening check |
+| D-018 | Mobile audio, selection and file plugins. **Draft in ADR-004:** native playback with a native media session for background narration; native selection plus our toolbar; `<input type=file>`; Capacitor SystemBars insets | Draft (12 Oct 2026); awaiting device checks on the owner's phone |
 | D-019 | AI-generated content allowed but must be labelled; readers can hide it; authors can refuse it on their Books (§10.6). Resolves the former OPEN-09 | Accepted |
 | D-020 | Automatic Flags (upload volume, suspected unlabelled AI, reports, new accounts) with a manual admin review queue and author curation tools, from Phase 2 (§10.6) | Accepted |
 | D-021 | The PoC includes simulated store, Creator Studio, community and moderation areas behind feature flags, so the owner can try every area of the product before a backend exists. Real accounts, sync and money stay in Phase 2 onwards. Phases 0 and 1 are split into smaller phases (0.1–1.9) per `docs/IMPLEMENTATION-PLAN.md` | Accepted (owner decision, 11 Oct 2026) |
@@ -1503,8 +1503,8 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 
 | ID | Question | Resolve by |
 |---|---|---|
-| OPEN-01 | foliate-js or Readium ts-toolkit? | P0-04 |
-| OPEN-02 | Components: wrap `m3-svelte`, or build our own on headless Bits UI primitives styled with our tokens? Check maintenance, Svelte 5 support and theming. Recommendation: evaluate `m3-svelte` first; fall back to Bits UI | P0-10 (before P1-UI-02) |
+| OPEN-01 | foliate-js or Readium ts-toolkit? *Proposed in ADR-001: foliate-js (not yet accepted).* | P0-04 |
+| OPEN-02 | Components: wrap `m3-svelte`, or build our own on headless Bits UI primitives styled with our tokens? Check maintenance, Svelte 5 support and theming. Recommendation: evaluate `m3-svelte` first; fall back to Bits UI *Proposed in ADR-005: our own components on Bits UI, not m3-svelte (not yet accepted).* | P0-10 (before P1-UI-02) |
 | OPEN-03 | Keep content delivery in the API or move it to an edge worker? | When traffic justifies it; before Phase 4 |
 | OPEN-04 | Stripe + Stripe Tax, or a merchant of record for digital-goods VAT/sales tax, given creator payouts later? | Before Phase 4 |
 | OPEN-05 | Mobile purchasing. Default: "reader app" model (buy on the web, read anywhere, as the Kindle app does). Store rules are changing: as recorded on 11 Oct 2026, US iOS link-outs carry no Apple commission while a court sets a fee (Apple has proposed 5–15%), and Google has cut its rate to 10%. Re-check before deciding | Before Phase 4 |
@@ -1515,7 +1515,8 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | OPEN-10 | Chapter-range Products for early-access serial chapters | Before Phase 4 |
 | OPEN-11 | *Resolved by D-008* (no platform-wide subscription; Creator Subscriptions instead). Remaining detail: Creator Subscription rules: plan limits, refunds, what happens to early-access benefits when a serial finishes | Before Phase 4 |
 | OPEN-12 | Age policy and content-rating scheme | Before Phase 5 |
-| OPEN-13 | Word marking: spans or offsets? | P0-05 |
+| OPEN-13 | Word marking: spans or offsets? *Proposed in ADR-002: offsets (not yet accepted).* | P0-05 |
+| OPEN-14 | **Deterministic tokenisation.** §7.1 tokenises with `Intl.Segmenter`, whose word boundaries come from each runtime's ICU data: the P0-05/P0-06 spikes found WebKit and Chromium give the same EPUB different WordIds (off by 4 from chapter 1 of *Alice*). `text-pipeline` runs in the browser for imports and for `backend-local`'s catalogue (§5.4), and in Node from Phase 2, so the same Revision could get different WordIds per device, which would break Sync Maps and cross-device Annotations. *Proposed (not decided):* a versioned, deterministic Word tokeniser in `text-pipeline` (UAX #29 word rules with our own data, no `Intl.Segmenter`), with the tokeniser version recorded on each Revision, plus a cross-runtime golden test (Chromium, WebKit, Node). Hard to reverse once WordIds are stored | P1-ING-01 (before any WordId is stored) |
 
 ---
 

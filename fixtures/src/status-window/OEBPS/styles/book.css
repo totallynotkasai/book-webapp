@@ -1,0 +1,99 @@
+/*
+ * Status-window fixture stylesheet. Our own work, CC0 1.0.
+ *
+ * These are "author colours" on purpose (DESIGN.md §9.6): a dark navy box with light text, a
+ * pale yellow system message with dark text, bordered tables. The reader must re-map them onto
+ * theme tokens (background -> surface-container, border -> outline, text -> on-surface) so they
+ * stay readable in light, dark and sepia and at every font size.
+ */
+
+body {
+	font-family: Georgia, serif;
+	line-height: 1.5;
+}
+
+/* TEST CASE: boxed status window with border, author background, padding and monospace. */
+.status-window {
+	border: 3px double #7fb3d5;
+	border-radius: 6px;
+	background-color: #0b1d3a;
+	color: #e8f1ff;
+	padding: 0.75em 1em;
+	margin: 1em 0;
+	font-family: 'Courier New', Courier, monospace;
+}
+
+.status-window h3 {
+	margin: 0 0 0.5em;
+	color: #8fd3ff;
+	text-align: center;
+	font-size: 1em;
+	letter-spacing: 0.1em;
+}
+
+.status-window p {
+	margin: 0.25em 0;
+}
+
+/* TEST CASE: system message (single-line notice, light author background, dark text). */
+.system-message {
+	border-left: 4px solid #c99a2e;
+	background: #fff4d6;
+	color: #3a2a00;
+	padding: 0.4em 0.8em;
+	margin: 0.8em 0;
+	font-family: monospace;
+	font-weight: bold;
+}
+
+.system-message.warning {
+	border-left-color: #b23a3a;
+	background: #fde2e2;
+	color: #5a1010;
+}
+
+/* TEST CASE: multi-column stat table with borders inside a status window. */
+table.stats {
+	border-collapse: collapse;
+	width: 100%;
+	margin: 0.5em 0;
+}
+
+table.stats th,
+table.stats td {
+	border: 1px solid #7fb3d5;
+	padding: 0.2em 0.5em;
+	text-align: left;
+}
+
+table.stats td.num {
+	text-align: right;
+}
+
+table.stats thead th {
+	background: #16325e;
+}
+
+pre.ascii-window {
+	font-family: monospace;
+	background: #111;
+	color: #9f9;
+	padding: 0.5em;
+	white-space: pre;
+}
+
+figure {
+	text-align: center;
+	margin: 1em 0;
+}
+
+/*
+ * UNSAFE TEST CASES (CSS): the allowlist (§7.1) must drop these. The URLs use the reserved
+ * .invalid top-level domain, so they can never resolve.
+ */
+.tracked {
+	background-image: url('https://tracker.example.invalid/pixel.png');
+	position: fixed;
+	top: 0;
+	left: 0;
+}

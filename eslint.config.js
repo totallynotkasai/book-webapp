@@ -119,7 +119,9 @@ export default ts.config(
 			'**/coverage',
 			'**/test-results',
 			'**/playwright-report',
-			'apps/web/android'
+			'apps/web/android',
+			'.claude',
+			'**/spike-results'
 		]
 	},
 	js.configs.recommended,

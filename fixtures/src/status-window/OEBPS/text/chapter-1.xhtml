@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<!-- Status-window fixture, chapter 1. Our own work, CC0 1.0. Test cases are marked "TEST CASE". -->
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en" lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<title>Chapter 1: Status</title>
+	<link rel="stylesheet" type="text/css" href="../styles/book.css"/>
+</head>
+<body>
+	<section epub:type="chapter" id="chapter-1">
+		<h1>Chapter 1: Status</h1>
+
+		<p>The bell over the guildhall door rang once, and the air in front of Mara’s face turned the colour of deep water. She blinked. The colour stayed. Letters were floating in it.</p>
+
+		<!-- TEST CASE: system message. -->
+		<p class="system-message">[System] Welcome, Mara Quill. Your status is now visible.</p>
+
+		<p>“Status,” she whispered, because that was what the old stories said you should do. The water-coloured square unfolded into a box with a border like frost on a window.</p>
+
+		<!-- TEST CASE: status window (author background #0b1d3a, light text, border, padding, monospace). -->
+		<div class="status-window">
+			<h3>STATUS</h3>
+			<p>Name: Mara Quill</p>
+			<p>Class: Cartographer (Common)</p>
+			<p>Level: 1 (0 / 100 XP)</p>
+			<p>Title: None</p>
+			<!-- TEST CASE: multi-column stat table inside the status window. -->
+			<table class="stats">
+				<thead>
+					<tr><th>Stat</th><th>Base</th><th>Bonus</th><th>Total</th></tr>
+				</thead>
+				<tbody>
+					<tr><td>Strength</td><td class="num">4</td><td class="num">+0</td><td class="num">4</td></tr>
+					<tr><td>Dexterity</td><td class="num">7</td><td class="num">+1</td><td class="num">8</td></tr>
+					<tr><td>Wits</td><td class="num">11</td><td class="num">+2</td><td class="num">13</td></tr>
+					<tr><td>Endurance</td><td class="num">6</td><td class="num">+0</td><td class="num">6</td></tr>
+					<tr><td colspan="3">Unspent points</td><td class="num">3</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<p>A cartographer. Not a knight, not a mage. Mara thought about being disappointed and decided to be curious instead. She touched the word <em>Cartographer</em>, and a second, smaller box slid out from under the first.</p>
+
+		<!-- TEST CASE: nested list inside a status window. -->
+		<div class="status-window">
+			<h3>SKILLS</h3>
+			<ul>
+				<li>Survey (Level 1)
+					<ul>
+						<li>Reveal the shape of a room you stand in.</li>
+						<li>Cost: 2 Wits per use.
+							<ol>
+								<li>Halved in daylight.</li>
+								<li>Doubled underground.</li>
+							</ol>
+						</li>
+					</ul>
+				</li>
+				<li>Ink Sense (Level 1)</li>
+				<li>Locked: <strong>Chart the Unknown</strong> (requires Level 5)</li>
+			</ul>
+		</div>
+
+		<p>Below the boxes, pinned to the guildhall noticeboard, someone had drawn a map of the lower town. It was wrong in three places. Mara could see that now, as clearly as if the mistakes were glowing.</p>
+
+		<!-- TEST CASE: image WITH alt text. -->
+		<figure>
+			<img src="../images/map.png" alt="A rough parchment map of the lower town, with a blue canal and a red marker near the old mill."/>
+			<figcaption>The guild’s map of the lower town, three mistakes and all.</figcaption>
+		</figure>
+
+		<p class="system-message">[System] Quest offered: Correct the Map (0 / 3). Reward: 40 XP. Accept? [Yes] [No]</p>
+
+		<p>She said yes. Of course she said yes.</p>
+	</section>
+</body>
+</html>

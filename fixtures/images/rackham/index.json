@@ -1,0 +1,230 @@
+{
+	"title": "Arthur Rackham's illustrations for Alice's Adventures in Wonderland (1907)",
+	"artist": "Arthur Rackham (1867–1939)",
+	"licence": "Public domain (published 1907; Rackham died 1939, so out of copyright in the UK since 2010 and in the US as a pre-1931 publication).",
+	"source": "Project Gutenberg ebook #28885 (Heinemann/Doubleday 1907 edition), fixtures/epub/alice-rackham-gutenberg.epub, https://www.gutenberg.org/ebooks/28885",
+	"notes": [
+		"`caption` is the caption as printed: for colour plates, the \"List of the Plates\"; for drawings, the caption printed under the drawing. Most drawings have no printed caption (null). `alt` is the alt text in the Project Gutenberg file.",
+		"`chapter` is the chapter the illustration appears in (null for the frontispiece). Drawing 06 is labelled \"Alice and the Dormouse\" in the source, but it appears in chapter 3 where Alice talks to the Mouse; its file name says Mouse.",
+		"Colour plates and JPEG drawings are copied unchanged from the source; PNG drawings are flattened onto white and re-encoded as JPEG. Images are small (about 500 px on the long edge for plates), as in the source.",
+		"Anchors and the Illustration Pack definition are a later task (P1-LAY-06)."
+	],
+	"images": [
+		{
+			"file": "01-alice.jpg",
+			"caption": "Alice",
+			"alt": "\"Alice\"",
+			"chapter": null,
+			"kind": "colour plate (frontispiece)",
+			"source": "OEBPS/23934376999044308_f0002-image.jpg"
+		},
+		{
+			"file": "02-down-the-rabbit-hole.jpg",
+			"caption": null,
+			"alt": null,
+			"chapter": 1,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0003-rabbithole.png"
+		},
+		{
+			"file": "03-curiouser-and-curiouser.jpg",
+			"caption": "Curiouser and Curiouser",
+			"alt": "Curiouser and Curiouser",
+			"chapter": 2,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0015-image.png"
+		},
+		{
+			"file": "04-the-pool-of-tears.jpg",
+			"caption": "The Pool of Tears",
+			"alt": "The Pool of Tears",
+			"chapter": 2,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0022-insert2.jpg"
+		},
+		{
+			"file": "05-but-who-has-won.jpg",
+			"caption": "They all crowded round it panting and asking, \"But who has won?\"",
+			"alt": "They all crowded round it panting and asking,\"But who has won?\"",
+			"chapter": 3,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0028-insert2.jpg"
+		},
+		{
+			"file": "06-alice-and-the-mouse.jpg",
+			"caption": null,
+			"alt": "Alice and the Dormouse",
+			"chapter": 3,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0030-dormouse.png"
+		},
+		{
+			"file": "07-why-mary-ann.jpg",
+			"caption": "\"Why, Mary Ann, what are you doing out here?\"",
+			"alt": "Why, Mary Ann, what are you doing out here?",
+			"chapter": 4,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0036-insert2.jpg"
+		},
+		{
+			"file": "08-advice-from-a-caterpillar.jpg",
+			"caption": "Advice from a Caterpillar",
+			"alt": "Advice from a Caterpillar",
+			"chapter": 5,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0050-insert2.jpg"
+		},
+		{
+			"file": "09-she-was-frightened.jpg",
+			"caption": null,
+			"alt": "She was frightened",
+			"chapter": 5,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0056-image.png"
+		},
+		{
+			"file": "10-the-pigeon.jpg",
+			"caption": null,
+			"alt": "As a tree",
+			"chapter": 5,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0059-image.png"
+		},
+		{
+			"file": "11-the-footman-and-alice.jpg",
+			"caption": null,
+			"alt": "The Footman and Alice",
+			"chapter": 6,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0067-image.png"
+		},
+		{
+			"file": "12-saucepan-flew-close-by.jpg",
+			"caption": "An unusually large saucepan flew close by it, and very nearly carried it off",
+			"alt": "An unusually large saucepan flew close by it, and very nearly carried it off",
+			"chapter": 6,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0070-insert2.jpg"
+		},
+		{
+			"file": "13-it-grunted-again.jpg",
+			"caption": "It grunted again so violently that she looked down into its face in some alarm",
+			"alt": "It grunted again so violently that she looked down into its face in some alarm",
+			"chapter": 6,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0074-insert2.jpg"
+		},
+		{
+			"file": "14-cheshire-cat-in-a-tree.jpg",
+			"caption": null,
+			"alt": "Cheshire cat in a tree",
+			"chapter": 6,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0075-image.png"
+		},
+		{
+			"file": "15-cheshire-cat-again.jpg",
+			"caption": null,
+			"alt": "Cheshire cat again",
+			"chapter": 6,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0079-image.png"
+		},
+		{
+			"file": "16-a-mad-tea-party.jpg",
+			"caption": "A Mad Tea-Party",
+			"alt": "A Mad Tea Party",
+			"chapter": 7,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0084-insert2.jpg"
+		},
+		{
+			"file": "17-turn-them-over.jpg",
+			"caption": "The Queen turned angrily away from him and said to the Knave, \"Turn them over\"",
+			"alt": "The Queen turned angrily away from him and said to the Knave, \"Turn them over\"",
+			"chapter": 8,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0100-insert2.jpg"
+		},
+		{
+			"file": "18-playing-croquet.jpg",
+			"caption": null,
+			"alt": "Playing croquet",
+			"chapter": 8,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0103-image.png"
+		},
+		{
+			"file": "19-the-cat.jpg",
+			"caption": null,
+			"alt": "The cat",
+			"chapter": 8,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0106-image.png"
+		},
+		{
+			"file": "20-the-executioner.jpg",
+			"caption": null,
+			"alt": "The Executioner",
+			"chapter": 8,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0109-image.png"
+		},
+		{
+			"file": "21-off-with-his-head.jpg",
+			"caption": "The Queen never left off quarrelling with the other players, and shouting \"Off with his head!\" or, \"Off with her head!\"",
+			"alt": "The Queen never left off quarrelling with the other players, and shouting \"Off with his head!\" or, \"Off with her head!\"",
+			"chapter": 9,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0116-insert2.jpg"
+		},
+		{
+			"file": "22-gryphon.jpg",
+			"caption": null,
+			"alt": "Gryphon",
+			"chapter": 9,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0119-image.png"
+		},
+		{
+			"file": "23-thats-very-curious.jpg",
+			"caption": "The Mock Turtle drew a long breath and said, \"That's very curious\"",
+			"alt": "The Mock Turtle drew a long breath and said, \"That's very curious\"",
+			"chapter": 10,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0132-insert2.jpg"
+		},
+		{
+			"file": "24-mock-turtle.jpg",
+			"caption": null,
+			"alt": "Mock turtle",
+			"chapter": 10,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0136-image.png"
+		},
+		{
+			"file": "25-who-stole-the-tarts.jpg",
+			"caption": "Who stole the Tarts?",
+			"alt": "Who stole the tarts?",
+			"chapter": 11,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0140-insert2.jpg"
+		},
+		{
+			"file": "26-the-cook.jpg",
+			"caption": null,
+			"alt": "Cook",
+			"chapter": 11,
+			"kind": "drawing",
+			"source": "OEBPS/23934376999044308_p0149-image.jpg"
+		},
+		{
+			"file": "27-the-whole-pack-rose-up.jpg",
+			"caption": "At this the whole pack rose up into the air, and came flying down upon her",
+			"alt": "At this the whole pack rose up into the air, and came flying down upon her",
+			"chapter": 12,
+			"kind": "colour plate",
+			"source": "OEBPS/23934376999044308_p0158-insert2.jpg"
+		}
+	]
+}

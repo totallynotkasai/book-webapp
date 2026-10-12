@@ -7,3 +7,9 @@ apps/web/static
 docs
 apps/web/android
 build-tester
+fixtures/src
+fixtures/epub
+fixtures/audio/alice
+.claude
+spike-results
+fixtures/sync

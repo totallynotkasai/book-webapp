@@ -1,0 +1,350 @@
+{
+	"title": "John Tenniel's illustrations for Alice's Adventures in Wonderland (1865)",
+	"artist": "John Tenniel (1820–1914)",
+	"licence": "Public domain (published 1865; Tenniel died 1914). Image processing by Standard Ebooks, CC0 1.0.",
+	"source": "Standard Ebooks edition of Alice’s Adventures in Wonderland (John Tenniel illustrations), fixtures/epub/alice-standard-ebooks.epub, https://standardebooks.org/ebooks/lewis-carroll/alices-adventures-in-wonderland/john-tenniel",
+	"notes": [
+		"Tenniel’s 1865 plates carry no printed captions. `caption` is the entry for the illustration in the source’s List of Illustrations, which quotes the passage it illustrates; `alt` is the source’s alt text. Both are verbatim from the Standard Ebooks edition (CC0).",
+		"`chapter` is the chapter the illustration appears in (null for the frontispiece, which shows the trial in chapter 11).",
+		"Images are the source’s 2× black-on-transparent PNGs flattened onto white and re-encoded as JPEG; long edge ≤ 2048 px.",
+		"Anchors and the Illustration Pack definition are a later task (P1-LAY-06)."
+	],
+	"images": [
+		{
+			"file": "01-king-and-queen-of-hearts.jpg",
+			"caption": "The King and Queen of Hearts were seated on their throne, with a great crowd assembled about them—all sorts of little birds and beasts, as well as the whole pack of cards.",
+			"alt": "The King and Queen of Hearts are seated side-by-side on thrones looking out at the court. The Knave of Hearts is in the foreground, arms crossed and nose in the air.",
+			"chapter": null,
+			"placement": "frontispiece",
+			"source": "epub/images/illustration-1-2x.png (#illustration-1)"
+		},
+		{
+			"file": "02-white-rabbit-with-watch.jpg",
+			"caption": "When the Rabbit actually took a watch out of its waistcoat-pocket, and looked at it, and then hurried on, Alice started to her feet.",
+			"alt": "A white rabbit wearing a waistcoat stands upright consulting a pocket-watch.",
+			"chapter": 1,
+			"placement": "in-text",
+			"source": "epub/images/illustration-2-2x.png (#illustration-2)"
+		},
+		{
+			"file": "03-little-door-behind-curtain.jpg",
+			"caption": "She came upon a low curtain she had not noticed before, and behind it was a little door about fifteen inches high.",
+			"alt": "Alice pulls back a curtain to reveal a small door. She holds a tiny key in her right hand.",
+			"chapter": 1,
+			"placement": "in-text",
+			"source": "epub/images/illustration-3-2x.png (#illustration-3)"
+		},
+		{
+			"file": "04-drink-me.jpg",
+			"caption": "Round the neck of the bottle was a paper label, with the words “Drink Me” beautifully printed on it in large letters.",
+			"alt": "Alice stands at a small table, holding a bottle labelled “Drink Me.”",
+			"chapter": 1,
+			"placement": "in-text",
+			"source": "epub/images/illustration-4-2x.png (#illustration-4)"
+		},
+		{
+			"file": "05-alice-grows-tall.jpg",
+			"caption": "“Now I’m opening out like the largest telescope that ever was! Goodbye, feet!”",
+			"alt": "Alice stands with arms raised in surprise, as she grows taller and her neck stretches out.",
+			"chapter": 2,
+			"placement": "in-text",
+			"source": "epub/images/illustration-5-2x.png (#illustration-5)"
+		},
+		{
+			"file": "06-rabbit-hurries-away.jpg",
+			"caption": "The Rabbit skurried away into the darkness as hard as he could go.",
+			"alt": "Alice kneels in a low corridor, watching a white rabbit hurry away.",
+			"chapter": 2,
+			"placement": "in-text",
+			"source": "epub/images/illustration-6-2x.png (#illustration-6)"
+		},
+		{
+			"file": "07-pool-of-tears.jpg",
+			"caption": "She was in the pool of tears which she had wept when she was nine feet high.",
+			"alt": "Alice is swept off her feet by a flood of water which reaches over her shoulders.",
+			"chapter": 2,
+			"placement": "in-text",
+			"source": "epub/images/illustration-7-2x.png (#illustration-7)"
+		},
+		{
+			"file": "08-mouse-swims-away.jpg",
+			"caption": "The Mouse was swimming away from her as hard as it could go, and making quite a commotion in the pool as it went.",
+			"alt": "Alice is swimming in a pool watching a mouse as big as herself swim away.",
+			"chapter": 2,
+			"placement": "in-text",
+			"source": "epub/images/illustration-8-2x.png (#illustration-8)"
+		},
+		{
+			"file": "09-party-on-the-bank.jpg",
+			"caption": "They were indeed a queer-looking party that assembled on the bank.",
+			"alt": "A large crowd of creatures stand around listening to a mouse. The creatures include an owl, a dodo, and a crab.",
+			"chapter": 3,
+			"placement": "in-text",
+			"source": "epub/images/illustration-9-2x.png (#illustration-9)"
+		},
+		{
+			"file": "10-dodo-presents-thimble.jpg",
+			"caption": "They all crowded round her once more, while the Dodo solemnly presented the thimble.",
+			"alt": "Alice accepts a humble handed to her by a dodo who is taller than herself. The dodo leans upon a stick.",
+			"chapter": 3,
+			"placement": "in-text",
+			"source": "epub/images/illustration-10-2x.png (#illustration-10)"
+		},
+		{
+			"file": "11-alice-in-rabbits-house.jpg",
+			"caption": "She tried the effect of lying down with one elbow against the door, and the other arm curled round her head.",
+			"alt": "A gigantic Alice is crammed inside a small room, her arm of the window.",
+			"chapter": 4,
+			"placement": "in-text",
+			"source": "epub/images/illustration-11-2x.png (#illustration-11)"
+		},
+		{
+			"file": "12-giant-hand-and-rabbit.jpg",
+			"caption": "She did not get hold of anything, but she heard a little shriek and a fall, and a crash of broken glass.",
+			"alt": "Alice’s giant hand comes down from above. A white rabbit in a waistcoat has fallen back into a cucumber-frame.",
+			"chapter": 4,
+			"placement": "in-text",
+			"source": "epub/images/illustration-12-2x.png (#illustration-12)"
+		},
+		{
+			"file": "13-there-goes-bill.jpg",
+			"caption": "The first thing she heard was a general chorus of “There goes Bill!”",
+			"alt": "A lizard is being shot upwards out of a smoking chimney.",
+			"chapter": 4,
+			"placement": "in-text",
+			"source": "epub/images/illustration-13-2x.png (#illustration-13)"
+		},
+		{
+			"file": "14-enormous-puppy.jpg",
+			"caption": "An enormous puppy was looking down at her with large round eyes.",
+			"alt": "A tiny Alice hesitantly proffers a stick to a puppy dog which is far larger than herself.",
+			"chapter": 4,
+			"placement": "in-text",
+			"source": "epub/images/illustration-14-2x.png (#illustration-14)"
+		},
+		{
+			"file": "15-caterpillar-on-mushroom.jpg",
+			"caption": "The Caterpillar and Alice looked at each other for some time in silence.",
+			"alt": "Alice peers over the edge of a mushroom as tall as herself to stare at an upright caterpillar smoking a hookah.",
+			"chapter": 5,
+			"placement": "in-text",
+			"source": "epub/images/illustration-15-2x.png (#illustration-15)"
+		},
+		{
+			"file": "16-father-william-on-head.jpg",
+			"caption": "A young man in rural costume stares at an old fat man who is standing on his head.",
+			"alt": "A young man in rural costume stares at an old fat man who is standing on his head.",
+			"chapter": 5,
+			"placement": "in-text",
+			"source": "epub/images/illustration-16-2x.png (#illustration-16)"
+		},
+		{
+			"file": "17-father-william-somersault.jpg",
+			"caption": "Yet you turned a back-somersault in at the door.",
+			"alt": "A young man in rural costume backs away from a doorway as an old fat man somersaults through it.",
+			"chapter": 5,
+			"placement": "in-text",
+			"source": "epub/images/illustration-17-2x.png (#illustration-17)"
+		},
+		{
+			"file": "18-father-william-goose.jpg",
+			"caption": "Yet you finished the goose, with the bones and the beak.",
+			"alt": "A young man in rural costume lifts the covers from a empty plates and stares at a fat old man sitting by a fireplace.",
+			"chapter": 5,
+			"placement": "in-text",
+			"source": "epub/images/illustration-18-2x.png (#illustration-18)"
+		},
+		{
+			"file": "19-father-william-eel.jpg",
+			"caption": "Yet you balanced an eel on the end of your nose.",
+			"alt": "A young man in rural costume stares in amazement at an old fat man who is balancing a wriggling eel on his nose.",
+			"chapter": 5,
+			"placement": "in-text",
+			"source": "epub/images/illustration-19-2x.png (#illustration-19)"
+		},
+		{
+			"file": "20-fish-and-frog-footmen.jpg",
+			"caption": "The Fish-Footman began by producing from under his arm a great letter.",
+			"alt": "A frog dressed as a footman stands in a pillared doorway accepting a huge envelope from a fish also dressed as a footman.",
+			"chapter": 6,
+			"placement": "in-text",
+			"source": "epub/images/illustration-20-2x.png (#illustration-20)"
+		},
+		{
+			"file": "21-duchess-kitchen.jpg",
+			"caption": "The Duchess was sitting on a three-legged stool in the middle, nursing a baby.",
+			"alt": "The interior of a kitchen. A servant stirs a pot on the stove while an ugly woman dressed as a duchess sits nursing a squalling baby.",
+			"chapter": 6,
+			"placement": "in-text",
+			"source": "epub/images/illustration-21-2x.png (#illustration-21)"
+		},
+		{
+			"file": "22-baby-turns-to-pig.jpg",
+			"caption": "It was neither more nor less than a pig, and she felt that it would be quite absurd for her to carry it further.",
+			"alt": "Alice stands in a garden holding a pig in her arms as though it were a baby.",
+			"chapter": 6,
+			"placement": "in-text",
+			"source": "epub/images/illustration-22-2x.png (#illustration-22)"
+		},
+		{
+			"file": "23-cheshire-cat-in-tree.jpg",
+			"caption": "She was a little startled by seeing the Cheshire Cat sitting on a bough of a tree a few yards off.",
+			"alt": "Alice stands with her hands clasped behind her, looking up at a grinning cat on the branch of a tree.",
+			"chapter": 6,
+			"placement": "in-text",
+			"source": "epub/images/illustration-23-2x.png (#illustration-23)"
+		},
+		{
+			"file": "24-cheshire-cat-grin.jpg",
+			"caption": "This time it vanished quite slowly, beginning with the end of the tail, and ending with the grin.",
+			"alt": "A cat on a tree-branch is fading away, leaving only its grin.",
+			"chapter": 6,
+			"placement": "in-text",
+			"source": "epub/images/illustration-24-2x.png (#illustration-24)"
+		},
+		{
+			"file": "25-mad-tea-party.jpg",
+			"caption": "The Hatter opened his eyes very wide on hearing this.",
+			"alt": "An outside table is set for tea. Alice sits at one end, looking cross. A hare and a hatter sit with a dormouse between them.",
+			"chapter": 7,
+			"placement": "in-text",
+			"source": "epub/images/illustration-25-2x.png (#illustration-25)"
+		},
+		{
+			"file": "26-twinkle-little-bat.jpg",
+			"caption": "Twinkle, twinkle, little bat!",
+			"alt": "A hatter sits at a tea-table, singing. He seems to be elbowing a dormouse in the eye.",
+			"chapter": 7,
+			"placement": "in-text",
+			"source": "epub/images/illustration-26-2x.png (#illustration-26)"
+		},
+		{
+			"file": "27-dormouse-in-teapot.jpg",
+			"caption": "The last time she saw them, they were trying to put the Dormouse into the teapot.",
+			"alt": "A hare and a hatter are stuffing a dormouse into the top of a teapot.",
+			"chapter": 7,
+			"placement": "in-text",
+			"source": "epub/images/illustration-27-2x.png (#illustration-27)"
+		},
+		{
+			"file": "28-painting-the-roses.jpg",
+			"caption": "The roses were white, but there were three gardeners busily painting them red.",
+			"alt": "Three playing-cards with heads, arms and legs stand around a rose-tree arguing.",
+			"chapter": 8,
+			"placement": "in-text",
+			"source": "epub/images/illustration-28-2x.png (#illustration-28)"
+		},
+		{
+			"file": "29-off-with-her-head.jpg",
+			"caption": "The Queen turned crimson with fury, and screamed “Off with her head!”",
+			"alt": "The King and Queen of Hearts, surrounded by courtiers, stand in a garden. The Queen points accusingly at Alice. At right, a servant holds a cushion bearing a large crown.",
+			"chapter": 8,
+			"placement": "in-text",
+			"source": "epub/images/illustration-29-2x.png (#illustration-29)"
+		},
+		{
+			"file": "30-flamingo-croquet.jpg",
+			"caption": "The chief difficulty Alice found at first was in managing her flamingo.",
+			"alt": "Alice stands with one foot on a hedgehog, holding on to a flamingo which stares her in the face.",
+			"chapter": 8,
+			"placement": "in-text",
+			"source": "epub/images/illustration-30-2x.png (#illustration-30)"
+		},
+		{
+			"file": "31-cheshire-cat-over-crowd.jpg",
+			"caption": "When she got back to the Cheshire Cat, she was surprised to find quite a large crowd collected round it.",
+			"alt": "A large cat’s head floats above a crowd which includes the King and Queen of Hearts.",
+			"chapter": 8,
+			"placement": "in-text",
+			"source": "epub/images/illustration-31-2x.png (#illustration-31)"
+		},
+		{
+			"file": "32-alice-and-duchess.jpg",
+			"caption": "She was exactly the right height to rest her chin upon Alice’s shoulder, and it was an uncomfortably sharp chin.",
+			"alt": "Alice walks side-by-side with an ugly duchess. Alice is holding a flamingo under her arm.",
+			"chapter": 9,
+			"placement": "in-text",
+			"source": "epub/images/illustration-32-2x.png (#illustration-32)"
+		},
+		{
+			"file": "33-gryphon-asleep.jpg",
+			"caption": "They very soon came upon a Gryphon, lying fast asleep in the sun.",
+			"alt": "A gryphon lies on the ground, asleep. It is a creature with the fore-parts of an eagle and the hind-parts of a lion.",
+			"chapter": 9,
+			"placement": "in-text",
+			"source": "epub/images/illustration-33-2x.png (#illustration-33)"
+		},
+		{
+			"file": "34-mock-turtle-weeping.jpg",
+			"caption": "“When we were little,” the Mock Turtle went on at last, more calmly, “we went to school in the sea.”",
+			"alt": "A gryphon sits on the ground next to Alice. On a rock stands a turtle with the head of a calf, weeping.",
+			"chapter": 9,
+			"placement": "in-text",
+			"source": "epub/images/illustration-34-2x.png (#illustration-34)"
+		},
+		{
+			"file": "35-lobster-quadrille.jpg",
+			"caption": "So they began solemnly dancing round and round Alice, every now and then treading on her toes.",
+			"alt": "A turtle with the head of a calf and a gryphon dance around Alice.",
+			"chapter": 10,
+			"placement": "in-text",
+			"source": "epub/images/illustration-35-2x.png (#illustration-35)"
+		},
+		{
+			"file": "36-voice-of-the-lobster.jpg",
+			"caption": "Her head was so full of the Lobster Quadrille, that she hardly knew what she was saying.",
+			"alt": "A lobster stands upright before a dressing-table, holding a hair-brush.",
+			"chapter": 10,
+			"placement": "in-text",
+			"source": "epub/images/illustration-36-2x.png (#illustration-36)"
+		},
+		{
+			"file": "37-white-rabbit-herald.jpg",
+			"caption": "The White Rabbit blew three blasts on the trumpet.",
+			"alt": "A white rabbit stands upright, dressed in livery patterned with hearts. With one hand he is blowing a small trumpet and holding a scroll in his other hand.",
+			"chapter": 11,
+			"placement": "in-text",
+			"source": "epub/images/illustration-37-2x.png (#illustration-37)"
+		},
+		{
+			"file": "38-hatter-in-the-witness-box.jpg",
+			"caption": "“I’m a poor man, your Majesty,” the Hatter began, in a trembling voice.",
+			"alt": "A hatter stands holding a cup of tea in one hand and a sandwich in the other. He is in his stockinged feet, with his shoes cast aside.",
+			"chapter": 11,
+			"placement": "in-text",
+			"source": "epub/images/illustration-38-2x.png (#illustration-38)"
+		},
+		{
+			"file": "39-hatter-leaves-court.jpg",
+			"caption": "“I’d rather finish my tea,” said the Hatter, with an anxious look at the Queen.",
+			"alt": "A hatter runs off to the right. He is holding a cup of tea and a sandwich.",
+			"chapter": 11,
+			"placement": "in-text",
+			"source": "epub/images/illustration-39-2x.png (#illustration-39)"
+		},
+		{
+			"file": "40-jury-box-upset.jpg",
+			"caption": "She jumped up in such a hurry that she tipped over the jury-box with the edge of her skirt.",
+			"alt": "Alice is in the process of standing up, and in doing so, upsetting a jury-box filled with small animals.",
+			"chapter": 12,
+			"placement": "in-text",
+			"source": "epub/images/illustration-40-2x.png (#illustration-40)"
+		},
+		{
+			"file": "41-king-and-the-tarts.jpg",
+			"caption": "“Why, there they are!” said the King triumphantly, pointing to the tarts on the table.",
+			"alt": "The King of Hearts is seated on a throne, wearing spectacles. Below him stands the Knave of Hearts and on a table is a plate of tarts.",
+			"chapter": 12,
+			"placement": "in-text",
+			"source": "epub/images/illustration-41-2x.png (#illustration-41)"
+		},
+		{
+			"file": "42-pack-of-cards.jpg",
+			"caption": "At this the whole pack rose up into the air, and came flying down upon her.",
+			"alt": "Alice is standing, trying to fend off a cloud of playing-cards which swirl up around her. At her feet are many small animals.",
+			"chapter": 12,
+			"placement": "in-text",
+			"source": "epub/images/illustration-42-2x.png (#illustration-42)"
+		}
+	]
+}

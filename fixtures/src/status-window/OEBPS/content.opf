@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Status-window fixture (DESIGN.md §9.6, §12.2). Our own work, dedicated to the public domain (CC0 1.0).
+	Built by `npm run fixtures:epubs` into fixtures/epub/status-window.epub.
+
+	The package structure is valid EPUB 3. The chapter content deliberately contains unsafe markup
+	(script, event handler, javascript: link, iframe, external stylesheet and image) so the future
+	sanitiser (§7.1, Invariant 10) has something to strip. The manifest declares "scripted" for the
+	chapter with the script so the package itself stays well-formed; an EPUB checker will still
+	flag the external references. That is intended.
+-->
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="en">
+	<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+		<dc:identifier id="uid">urn:uuid:5f0c3a8e-6b1d-4c2e-9a47-0d3b6e1f2a90</dc:identifier>
+		<dc:title>Status Window Test Fixture</dc:title>
+		<dc:creator>Book Webapp fixtures</dc:creator>
+		<dc:language>en</dc:language>
+		<dc:rights>Our own work. Dedicated to the public domain under CC0 1.0 Universal.</dc:rights>
+		<dc:description>A two-chapter test EPUB with LitRPG status windows, system messages, stat tables and deliberately unsafe markup. Not for readers.</dc:description>
+		<meta property="dcterms:modified">2026-10-11T00:00:00Z</meta>
+	</metadata>
+	<manifest>
+		<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+		<item id="css" href="styles/book.css" media-type="text/css"/>
+		<item id="chapter-1" href="text/chapter-1.xhtml" media-type="application/xhtml+xml"/>
+		<item id="chapter-2" href="text/chapter-2.xhtml" media-type="application/xhtml+xml" properties="scripted remote-resources"/>
+		<item id="sigil" href="images/sigil.png" media-type="image/png"/>
+		<item id="map" href="images/map.png" media-type="image/png"/>
+	</manifest>
+	<spine>
+		<itemref idref="chapter-1"/>
+		<itemref idref="chapter-2"/>
+	</spine>
+</package>

@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -52,7 +52,7 @@
 			"id": "creator-lewis-carroll",
 			"handle": "lewis-carroll",
 			"displayName": "Lewis Carroll",
-			"bio": "Author of Alice's Adventures in Wonderland (1865). Public domain."
+			"bio": "English author and mathematician (1832–1898), writer of Alice’s Adventures in Wonderland (1865) and Through the Looking-Glass (1871). Public domain."
 		},
 		{
 			"id": "creator-wren-ashdown",
@@ -65,6 +65,30 @@
 			"handle": "ink-and-quill",
 			"displayName": "Ink & Quill",
 			"bio": "A fictional community Creator who curates public-domain illustrations into packs."
+		},
+		{
+			"id": "creator-l-frank-baum",
+			"handle": "l-frank-baum",
+			"displayName": "L. Frank Baum",
+			"bio": "American author (1856–1919) of The Wonderful Wizard of Oz (1900) and its sequels. Public domain."
+		},
+		{
+			"id": "creator-george-macdonald",
+			"handle": "george-macdonald",
+			"displayName": "George MacDonald",
+			"bio": "Scottish author and minister (1824–1905), a pioneer of fantasy writing for children. Public domain."
+		},
+		{
+			"id": "creator-robert-louis-stevenson",
+			"handle": "robert-louis-stevenson",
+			"displayName": "Robert Louis Stevenson",
+			"bio": "Scottish novelist and poet (1850–1894), author of Treasure Island and Kidnapped. Public domain."
+		},
+		{
+			"id": "creator-h-g-wells",
+			"handle": "h-g-wells",
+			"displayName": "H. G. Wells",
+			"bio": "English writer (1866–1946) whose early novels helped found science fiction. Public domain."
 		}
 	],
 	"books": [
@@ -87,7 +111,51 @@
 			"lang": "en",
 			"aiUse": "generated",
 			"description": "A short demo LitRPG serial with status windows. Written by an AI for this proof of concept.",
-			"coverUrl": null,
+			"coverUrl": "/demo/covers/the-lamplighters-ledger.jpg",
+			"listingState": "listed"
+		},
+		{
+			"id": "book-wonderful-wizard-of-oz",
+			"slug": "the-wonderful-wizard-of-oz",
+			"title": "The Wonderful Wizard of Oz",
+			"creatorId": "creator-l-frank-baum",
+			"lang": "en",
+			"aiUse": "none",
+			"description": "A cyclone carries Dorothy from Kansas to the Land of Oz, where she follows the yellow brick road to the Emerald City with three unlikely companions.",
+			"coverUrl": "/demo/covers/the-wonderful-wizard-of-oz.jpg",
+			"listingState": "listed"
+		},
+		{
+			"id": "book-princess-and-the-goblin",
+			"slug": "the-princess-and-the-goblin",
+			"title": "The Princess and the Goblin",
+			"creatorId": "creator-george-macdonald",
+			"lang": "en",
+			"aiUse": "none",
+			"description": "Princess Irene and the miner’s son Curdie uncover a goblin plot in the mountains beneath her castle.",
+			"coverUrl": "/demo/covers/the-princess-and-the-goblin.jpg",
+			"listingState": "listed"
+		},
+		{
+			"id": "book-treasure-island",
+			"slug": "treasure-island",
+			"title": "Treasure Island",
+			"creatorId": "creator-robert-louis-stevenson",
+			"lang": "en",
+			"aiUse": "none",
+			"description": "Young Jim Hawkins finds a pirate’s map and sails for buried treasure with a crew that includes the one-legged cook, Long John Silver.",
+			"coverUrl": "/demo/covers/treasure-island.jpg",
+			"listingState": "listed"
+		},
+		{
+			"id": "book-time-machine",
+			"slug": "the-time-machine",
+			"title": "The Time Machine",
+			"creatorId": "creator-h-g-wells",
+			"lang": "en",
+			"aiUse": "none",
+			"description": "A Victorian inventor travels hundreds of thousands of years into the future and finds humanity divided into two strange peoples.",
+			"coverUrl": "/demo/covers/the-time-machine.jpg",
 			"listingState": "listed"
 		}
 	],
@@ -99,7 +167,10 @@
 			"bookId": "book-alice",
 			"creatorId": "creator-lewis-carroll",
 			"isOfficial": true,
-			"price": { "amountMinor": 0, "currency": "GBP" },
+			"price": {
+				"amountMinor": 0,
+				"currency": "GBP"
+			},
 			"status": "active"
 		},
 		{
@@ -109,7 +180,62 @@
 			"bookId": "book-lamplighters-ledger",
 			"creatorId": "creator-wren-ashdown",
 			"isOfficial": true,
-			"price": { "amountMinor": 399, "currency": "GBP" },
+			"price": {
+				"amountMinor": 399,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-book-wonderful-wizard-of-oz",
+			"kind": "book",
+			"refId": "book-wonderful-wizard-of-oz",
+			"bookId": "book-wonderful-wizard-of-oz",
+			"creatorId": "creator-l-frank-baum",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 0,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-book-princess-and-the-goblin",
+			"kind": "book",
+			"refId": "book-princess-and-the-goblin",
+			"bookId": "book-princess-and-the-goblin",
+			"creatorId": "creator-george-macdonald",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 149,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-book-treasure-island",
+			"kind": "book",
+			"refId": "book-treasure-island",
+			"bookId": "book-treasure-island",
+			"creatorId": "creator-robert-louis-stevenson",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 0,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-book-time-machine",
+			"kind": "book",
+			"refId": "book-time-machine",
+			"bookId": "book-time-machine",
+			"creatorId": "creator-h-g-wells",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 99,
+				"currency": "GBP"
+			},
 			"status": "active"
 		}
 	],

@@ -1,0 +1,20 @@
+{
+	"name": "@book/reader-core",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "The ReaderEngine interface, the engine adapter and Anchor ↔ Locator mapping (DESIGN.md §9.1). The only package allowed to import a reader engine (Invariant 8).",
+	"exports": {
+		".": "./src/index.ts",
+		"./spike": "./src/spike/index.ts"
+	},
+	"scripts": {
+		"check": "tsc -p ."
+	},
+	"dependencies": {
+		"@book/core": "*",
+		"@readium/navigator": "2.10.2",
+		"@readium/shared": "2.5.1",
+		"foliate-js": "github:johnfactotum/foliate-js#78914aef4466eb960965702401634c2cb348e9b1"
+	}
+}
