@@ -85,8 +85,8 @@
 		date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 </script>
 
-<main>
-	<p><a href={resolve('/')}>← Library</a></p>
+<div class="dev">
+	<p><a href={resolve('/you')}>← You</a></p>
 	<h1>Developer panel</h1>
 	<p class="muted">
 		Owner builds only. Everything here is <strong>simulated</strong>: no real accounts, servers or
@@ -174,6 +174,14 @@
 				/>
 				Offline
 			</label>
+			<label class="check">
+				<input
+					type="checkbox"
+					checked={simulation.emptyLists}
+					onchange={(e) => update({ emptyLists: e.currentTarget.checked })}
+				/>
+				Empty lists (try every screen's empty state)
+			</label>
 		</section>
 
 		<section aria-labelledby="outcomes-heading">
@@ -237,6 +245,16 @@
 		</div>
 	</section>
 
+	<section aria-labelledby="tools-heading">
+		<h2 id="tools-heading">Tools</h2>
+		<ul class="flags">
+			<li>
+				<a href={resolve('/dev/components')}>Component gallery</a>: every `@book/ui` component, in
+				the current theme
+			</li>
+		</ul>
+	</section>
+
 	<section aria-labelledby="flags-heading">
 		<h2 id="flags-heading">Feature flags</h2>
 		<ul class="flags">
@@ -245,14 +263,11 @@
 			{/each}
 		</ul>
 	</section>
-</main>
+</div>
 
 <style>
-	main {
+	.dev {
 		max-width: 48rem;
-		margin: 0 auto;
-		padding: calc(var(--space-5) + var(--safe-top)) calc(var(--space-4) + var(--safe-right))
-			var(--space-7) calc(var(--space-4) + var(--safe-left));
 	}
 
 	h1,
@@ -350,8 +365,8 @@
 	}
 
 	.danger {
-		border-color: #b3261e;
-		color: #b3261e;
+		border-color: var(--md-sys-color-error);
+		color: var(--md-sys-color-error);
 	}
 
 	.flags {

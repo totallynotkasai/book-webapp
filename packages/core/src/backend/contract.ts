@@ -10,6 +10,7 @@ import {
 	bookDetailSchema,
 	bookSummarySchema,
 	creatorSchema,
+	flagSchema,
 	libraryEntrySchema,
 	personaSchema,
 	sessionSchema,
@@ -37,13 +38,20 @@ export const backendContract = {
 	catalogue: {
 		listBooks: { input: optionalPage, output: pageSchema(bookSummarySchema) },
 		getBook: { input: slug, output: bookDetailSchema },
-		getCreator: { input: slug, output: creatorSchema }
+		getCreator: { input: slug, output: creatorSchema },
+		listCreatorBooks: {
+			input: z.tuple([z.string().min(1), pageRequestSchema.optional()]),
+			output: pageSchema(bookSummarySchema)
+		}
 	},
 	library: {
 		list: { input: optionalPage, output: pageSchema(libraryEntrySchema) }
 	},
 	studio: {
 		listBooks: { input: optionalPage, output: pageSchema(studioBookSchema) }
+	},
+	moderation: {
+		listQueue: { input: optionalPage, output: pageSchema(flagSchema) }
 	}
 } satisfies {
 	[M in keyof ApiModules]: { [K in keyof ApiModules[M]]: MethodContract };

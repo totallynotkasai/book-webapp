@@ -1,12 +1,14 @@
 import {
 	BackendError,
 	backendContract,
+	backendTopics,
 	systemClock,
 	type Backend,
 	type BackendEvents,
 	type BackendTopic,
 	type BookSummaryDto,
 	type Clock,
+	type FlagDto,
 	type MethodContract,
 	type PersonaDto,
 	type UserDto
@@ -90,9 +92,18 @@ async function writeSeed(db: BackendDatabase, seed: Seed): Promise<void> {
 	for (const product of seed.products) await tx.objectStore('products').put(product);
 	for (const entitlement of seed.entitlements)
 		await tx.objectStore('entitlements').put(entitlement);
+	for (const flag of seed.flags) await tx.objectStore('flags').put(flag);
 	await tx.objectStore('meta').put({ key: 'seedVersion', value: seed.version });
 	await tx.objectStore('meta').put({ key: 'currentPersonaId', value: seed.defaultPersonaId });
 	await tx.done;
+}
+
+function isPage(value: unknown): value is { items: unknown[]; nextCursor: string | null } {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		Array.isArray((value as { items?: unknown }).items)
+	);
 }
 
 function delay(ms: number): Promise<void> {
@@ -182,7 +193,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 
 	// ---- module implementations (no simulation; that's applied below) ----
 
-	const implementation: Omit<Backend, 'events'> = {
+	// Modules defined below this object (moderation) are added to the Backend separately.
+	const implementation: Omit<Backend, 'events' | 'moderation'> = {
 		session: {
 			async current() {
 				return { user: currentUser };
@@ -235,6 +247,14 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 				const creator = await db.getFromIndex('creators', 'handle', handle);
 				if (!creator) throw new BackendError('NOT_FOUND', 'There is no creator with that name.');
 				return creator;
+			},
+			async listCreatorBooks(handle, page) {
+				const creator = await db.getFromIndex('creators', 'handle', handle);
+				if (!creator) throw new BackendError('NOT_FOUND', 'There is no creator with that name.');
+				const books = (await db.getAllFromIndex('books', 'creatorId', creator.id)).filter(
+					(b) => b.listingState === 'listed'
+				);
+				return paginate(await Promise.all(books.sort(byTitle).map(toSummary)), page);
 			}
 		},
 		library: {
@@ -287,6 +307,26 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		}
 	};
 
+	/** The name a Flag's target goes by in the queue. */
+	async function targetTitle(type: FlagDto['targetType'], id: string): Promise<string> {
+		if (type === 'book') return (await db.get('books', id))?.title ?? id;
+		if (type === 'creator') return (await db.get('creators', id))?.displayName ?? id;
+		return id;
+	}
+
+	const moderation: Backend['moderation'] = {
+		async listQueue(page) {
+			requirePermission('moderation');
+			const open = (await db.getAll('flags'))
+				.filter((f) => f.state === 'open')
+				.sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt));
+			const items = await Promise.all(
+				open.map(async (f) => ({ ...f, targetTitle: await targetTitle(f.targetType, f.targetId) }))
+			);
+			return paginate(items, page);
+		}
+	};
+
 	// ---- simulation and contract validation, applied to every method ----
 
 	async function simulate<T>(contract: MethodContract, args: unknown[], run: () => Promise<T>) {
@@ -315,6 +355,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 			if (error instanceof BackendError) throw error;
 			throw new BackendError('SERVER_ERROR', 'The server had a problem.', String(error));
 		}
+		if (simulation.emptyLists && isPage(output)) output = { items: [], nextCursor: null } as T;
 		if (!validate) return output;
 		const parsed = contract.output.safeParse(output);
 		if (!parsed.success) {
@@ -343,6 +384,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		catalogue: wrapModule(implementation.catalogue, backendContract.catalogue),
 		library: wrapModule(implementation.library, backendContract.library),
 		studio: wrapModule(implementation.studio, backendContract.studio),
+		moderation: wrapModule(moderation, backendContract.moderation),
 		events: { on: events.on }
 	};
 
@@ -372,9 +414,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 			currentPersonaId = seed.defaultPersonaId;
 			currentUser = (await db.get('personas', currentPersonaId))?.user ?? null;
 			await controls.setSimulation({ clockOffsetMs: 0 });
-			for (const topic of ['session', 'catalogue', 'entitlements', 'studio'] as const) {
-				events.emit(topic);
-			}
+			for (const topic of backendTopics) events.emit(topic);
 		},
 		close() {
 			db.close();

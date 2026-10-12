@@ -1,6 +1,6 @@
 import type { EntitlementRecord } from '@book/domain';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { BookRecord, CreatorRecord, PersonaRecord, ProductRecord } from './seed';
+import type { BookRecord, CreatorRecord, FlagRecord, PersonaRecord, ProductRecord } from './seed';
 import type { SimulationSettings } from './simulation';
 
 /**
@@ -14,6 +14,7 @@ export interface BackendDB extends DBSchema {
 	books: { key: string; value: BookRecord; indexes: { slug: string; creatorId: string } };
 	products: { key: string; value: ProductRecord };
 	entitlements: { key: string; value: EntitlementRecord; indexes: { userId: string } };
+	flags: { key: string; value: FlagRecord };
 }
 
 export type BackendDatabase = IDBPDatabase<BackendDB>;
@@ -44,9 +45,17 @@ export async function setMeta<K extends MetaKey>(
 export const DEFAULT_BACKEND_DB_NAME = 'book-backend-local';
 
 /** The stores "Reset demo data" clears and re-seeds. */
-export const SEEDED_STORES = ['personas', 'creators', 'books', 'products', 'entitlements'] as const;
+export const SEEDED_STORES = [
+	'personas',
+	'creators',
+	'books',
+	'products',
+	'entitlements',
+	'flags'
+] as const;
 
-const VERSION = 1;
+/** Bump when the schema changes, and add a matching step in `upgrade`. */
+const VERSION = 2;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -66,6 +75,10 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 				books.createIndex('creatorId', 'creatorId');
 				db.createObjectStore('products', { keyPath: 'id' });
 				db.createObjectStore('entitlements', { keyPath: 'id' }).createIndex('userId', 'userId');
+			}
+			if (oldVersion < 2) {
+				// P1-APP-01: the admin review queue. Re-seeded with everything else on a seed change.
+				db.createObjectStore('flags', { keyPath: 'id' });
 			}
 		}
 	});
