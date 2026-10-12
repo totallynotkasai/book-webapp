@@ -777,6 +777,7 @@ export interface VisibleRange {
   last: PointAnchor;
   progression: number;                              // 0..1 across the whole Book
   pageInChapter?: { index: number; count: number }; // display only, never stored
+  cause?: 'turn' | 'navigation' | 'link' | 'scroll'; // what moved it (the chrome hides on turn/scroll)
 }
 
 export interface Decoration {
@@ -798,10 +799,14 @@ export interface FigureInjection {
 
 export interface EngineEvents {
   relocated: VisibleRange;
-  selection: { anchor: RangeAnchor; clientRect: DOMRect } | null;
-  wordActivated: { wordId: WordId };                 // tap/click on a Word
+  selection: { anchor: RangeAnchor; text: string; clientRect: DOMRect } | null;
+  wordActivated: { wordId: WordId; anchor: PointAnchor }; // tap/click on a Word
   contextMenu: { anchor: RangeAnchor | null; x: number; y: number };
   figureActivated: { id: string };
+  tap: { x: number; y: number };                     // outside links and Words (tap zones, §9.2)
+  keydown: KeyboardEvent;                            // keys pressed while focus is in the book
+  externalLink: { href: string };                    // the app decides how to open it
+  pinch: { scale: number; done: boolean };           // pinch or Ctrl+wheel: text zoom (§4.1)
   error: { code: string; message: string };
 }
 
@@ -816,6 +821,7 @@ export interface ReaderEngine {
   setLayout(mode: LayoutMode): Promise<void>;
   setTypography(t: TypographySettings): Promise<void>;
   setTheme(tokens: ReaderThemeTokens): void;
+  setPageTurn(turn: PageTurn): void;
 
   setDecorations(group: string, items: Decoration[]): void; // replaces the group
   injectFigures(items: FigureInjection[]): void;            // replaces all figures
