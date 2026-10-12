@@ -18,7 +18,8 @@
 		"format": "prettier --write .",
 		"test:e2e": "npm run build && npm run build:tester -w @book/web && npm run test:e2e -w @book/web",
 		"fixtures:epubs": "node fixtures/scripts/build-epubs.mjs",
-		"fixtures:audio": "node fixtures/scripts/download-audio.mjs"
+		"fixtures:audio": "node fixtures/scripts/download-audio.mjs",
+		"fixtures:download": "node fixtures/scripts/download-fixtures.mjs && node fixtures/scripts/download-audio.mjs"
 	},
 	"engines": {
 		"node": ">=22"

@@ -38,3 +38,5 @@ build-tester
 # Fixture audio is downloaded by `npm run fixtures:audio`, never committed (P0-11)
 fixtures/audio/*
 !fixtures/audio/README.md
+# Too large to commit; downloaded by `npm run fixtures:download` (P0-11)
+fixtures/epub/alice-standard-ebooks.epub
