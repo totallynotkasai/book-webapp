@@ -9,6 +9,8 @@
 		checked: boolean;
 		onchange?: (checked: boolean) => void;
 		disabled?: boolean;
+		/** Keeps the label for screen readers only, where the switch sits next to its subject. */
+		hideLabel?: boolean;
 		class?: string;
 	}
 
@@ -18,6 +20,7 @@
 		checked = $bindable(),
 		onchange,
 		disabled = false,
+		hideLabel = false,
 		class: className
 	}: Props = $props();
 
@@ -26,7 +29,7 @@
 </script>
 
 <div class={['switch-field', className]}>
-	<label for={id}>
+	<label for={id} class:visually-hidden={hideLabel}>
 		<span class="label">{label}</span>
 		{#if description}<span class="description" id={descriptionId}>{description}</span>{/if}
 	</label>
@@ -127,5 +130,14 @@
 	.switch:disabled {
 		cursor: default;
 		opacity: 0.38;
+	}
+
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>
