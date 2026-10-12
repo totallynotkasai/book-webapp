@@ -3,7 +3,9 @@
 	import type { PersonaDto } from '@book/core';
 	import { featureFlags, flags, profile } from '$lib/flags';
 	import ImportDialog from '$lib/library/ImportDialog.svelte';
-	// Test books for the Phase 1.2 Try-it list, bundled as files (never inlined).
+	import { editedAlice } from '$lib/library/test-books';
+	import { snackbars } from '$lib/state/snackbar.svelte';
+	// Test books for the Phase 1.2 and 1.3 Try-it lists, bundled as files (never inlined).
 	import statusWindowUrl from '../../../../../../fixtures/epub/status-window.epub?url';
 	import rackhamUrl from '../../../../../../fixtures/epub/alice-rackham-gutenberg.epub?url';
 	import {
@@ -85,9 +87,13 @@
 	}
 
 	let importer = $state<ImportDialog>();
-	async function importTestBook(name: string, url: string) {
-		const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
-		await importer?.run(name, bytes);
+	async function importTestBook(name: string, url: string, edit?: (b: Uint8Array) => Uint8Array) {
+		try {
+			const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+			await importer?.run(name, edit ? edit(bytes) : bytes);
+		} catch (error) {
+			snackbars.show(error instanceof Error ? error.message : String(error), { tone: 'error' });
+		}
 	}
 
 	const percent = (rate: number) => Math.round(rate * 100);
@@ -265,7 +271,16 @@
 			<button onclick={() => importTestBook('alice-rackham-gutenberg.epub', rackhamUrl)}
 				>Import Rackham’s illustrated Alice</button
 			>
+			<button
+				onclick={() =>
+					importTestBook('alice-rackham-edited.epub', rackhamUrl, (bytes) => editedAlice(bytes))}
+				>Import an edited copy of Rackham’s Alice</button
+			>
 		</div>
+		<p class="muted">
+			The edited copy changes one paragraph and deletes another in Chapter I, so it imports as a new
+			version: notes elsewhere stay put, and a note on the deleted text becomes orphaned.
+		</p>
 	</section>
 
 	<section aria-labelledby="tools-heading">

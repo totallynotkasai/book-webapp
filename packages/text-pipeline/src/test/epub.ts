@@ -1,4 +1,4 @@
-import { strToU8, zipSync } from 'fflate';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 /** Builds a minimal EPUB 3 in memory for tests. `chapters` are XHTML bodies or full documents. */
 export function makeEpub(options: {
@@ -50,4 +50,26 @@ export function makeEpub(options: {
 	}
 	if (options.encryption) files['META-INF/encryption.xml'] = strToU8(options.encryption);
 	return zipSync(files);
+}
+
+/** Rewrites files inside an EPUB (an "edited copy" for re-import tests); mimetype stays first. */
+export function editEpub(
+	bytes: Uint8Array,
+	edits: Record<string, (text: string) => string | null>
+): Uint8Array {
+	const files = unzipSync(bytes);
+	const out: Record<string, Uint8Array | [Uint8Array, { level: 0 }]> = {
+		mimetype: [files.mimetype ?? strToU8('application/epub+zip'), { level: 0 }]
+	};
+	for (const [path, data] of Object.entries(files)) {
+		if (path === 'mimetype') continue;
+		const edit = edits[path];
+		if (!edit) {
+			out[path] = data;
+			continue;
+		}
+		const next = edit(strFromU8(data));
+		if (next !== null) out[path] = strToU8(next);
+	}
+	return zipSync(out);
 }

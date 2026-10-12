@@ -19,7 +19,8 @@ import {
 	type WordIndex
 } from '@book/core';
 import { unzipSync } from 'fflate';
-import { blockHash, markChapter, sha256Hex } from './chapter';
+import { assignWordIds } from './carry';
+import { blockHash, markChapter, sha256Hex, type MarkedChapter } from './chapter';
 import { sanitiseStylesheet } from './css';
 import {
 	decodeText,
@@ -34,6 +35,7 @@ import {
 import { IngestError } from './errors';
 import { isEncrypted, readPackage, readToc, type ManifestItem } from './opf';
 import { relativeHref, relativeTo, resolveInArchive } from './paths';
+import type { RevisionWords } from './revision';
 import { sanitiseDocument, sanitiseSvg } from './sanitise';
 
 export interface IngestOptions {
@@ -43,6 +45,11 @@ export interface IngestOptions {
 	newBookId?: () => string;
 	/** The first WordId to assign: 1 for a new Book, the Book's counter for a later Revision. */
 	firstWordId?: number;
+	/**
+	 * The Book's current Revision, when this EPUB is a new version of it: unchanged Words keep
+	 * their WordIds and new ones continue from its counter (§6.2).
+	 */
+	previous?: RevisionWords;
 	/** Upload limit (§10.2): 100 MB. */
 	maxBytes?: number;
 	/** Called after each Chapter: done / total. */
@@ -255,11 +262,14 @@ export async function ingestEpub(
 	// ---- The table of contents, before Chapters (it gives them their titles) ----
 	const rawToc = readToc(read, pkg);
 
-	// ---- Chapters ----
-	const chapters: ChapterRecord[] = [];
-	const idMaps = new Map<string, Map<string, number>>();
-	let nextWordId = options.firstWordId ?? 1;
-	let ordinal = 0;
+	// ---- Chapters: sanitise and tokenise each, then give their Words IDs (carried forward) ----
+	const drafts: {
+		chapterId: string;
+		spineIndex: number;
+		linear: boolean;
+		path: string;
+		marked: MarkedChapter;
+	}[] = [];
 	for (const [spineIndex, { item, linear }] of spine.entries()) {
 		const chapterId = rel(item.path);
 		currentChapter = chapterId;
@@ -278,9 +288,29 @@ export async function ingestEpub(
 					: null,
 			warn
 		});
-		const marked = markChapter(body, nextWordId);
-		nextWordId = marked.nextWordId;
+		const marked = markChapter(body, 1);
+		drafts.push({ chapterId, spineIndex, linear, path: item.path, marked });
+		addFile(
+			contentPath,
+			'application/xhtml+xml',
+			`<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n${serialize(html)}\n`
+		);
+		options.onProgress?.(spineIndex + 1, spine.length);
+	}
+	currentChapter = null;
 
+	const assigned = assignWordIds(
+		drafts.map((d) => ({ chapterId: d.chapterId, texts: d.marked.wordTexts })),
+		options.previous,
+		options.firstWordId ?? 1
+	);
+	const nextWordId = assigned.nextWordId;
+	const chapters: ChapterRecord[] = [];
+	const idMaps = new Map<string, Map<string, number>>();
+	let ordinal = 0;
+	for (const [d, { chapterId, spineIndex, linear, path, marked }] of drafts.entries()) {
+		const ids = assigned.ids[d]!;
+		marked.words = marked.words.map(([, b, start, end], i) => [ids[i]!, b, start, end]);
 		const blocks = await Promise.all(
 			marked.blockTexts.map(async (text, b) => ({
 				b,
@@ -298,8 +328,8 @@ export async function ingestEpub(
 		};
 		const count = marked.words.length;
 		const tocTitle =
-			rawToc.find((t) => t.path === item.path && !t.fragment)?.label ??
-			rawToc.find((t) => t.path === item.path)?.label;
+			rawToc.find((t) => t.path === path && !t.fragment)?.label ??
+			rawToc.find((t) => t.path === path)?.label;
 		chapters.push({
 			chapterId,
 			href: chapterId,
@@ -312,18 +342,10 @@ export async function ingestEpub(
 			firstOrdinal: ordinal,
 			lastOrdinal: ordinal + count - 1
 		});
-		idMaps.set(item.path, marked.idWordIndex);
+		idMaps.set(path, marked.idWordIndex);
 		ordinal += count;
-
-		addFile(
-			contentPath,
-			'application/xhtml+xml',
-			`<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n${serialize(html)}\n`
-		);
 		addFile(revisionPaths.wordIndex(chapterId), 'application/json', JSON.stringify(wordIndex));
-		options.onProgress?.(spineIndex + 1, spine.length);
 	}
-	currentChapter = null;
 	if (ordinal === 0) {
 		throw new IngestError(
 			'no_readable_chapters',
@@ -380,7 +402,10 @@ export async function ingestEpub(
 		resources,
 		coverPath: pkg.coverPath && resourcePaths.has(pkg.coverPath) ? rel(pkg.coverPath) : null,
 		wordCount: ordinal,
-		nextWordId
+		nextWordId,
+		...(options.previous
+			? { previousRevisionId: options.previous.revisionId, deletedWordIds: assigned.deleted }
+			: {})
 	};
 	addFile(revisionPaths.manifest, 'application/json', JSON.stringify(manifest));
 
