@@ -52,6 +52,22 @@ const bookRecord = z.object({
 	listingState: z.enum(['draft', 'listed', 'delisted'])
 });
 
+/** An Illustration Pack (§8.2): its record here, its Illustrations in a built `pack.json`. */
+const illustrationPackRecord = z.object({
+	id,
+	bookId: id,
+	creatorId: id,
+	name: z.string().min(1),
+	description: z.string(),
+	isOfficial: z.boolean(),
+	aiUse: aiUseSchema,
+	credit: z.string(),
+	/** Static path of the pack's `pack.json`, built by `npm run layers` (P1-LAY-06). */
+	packUrl: z.string().min(1),
+	illustrationCount: z.number().int().nonnegative(),
+	listingState: z.enum(['draft', 'listed', 'delisted'])
+});
+
 const productRecord = z.object({
 	id,
 	kind: productKindSchema,
@@ -91,6 +107,7 @@ export const seedSchema = z.object({
 	personas: z.array(personaRecord).min(1),
 	creators: z.array(creatorRecord),
 	books: z.array(bookRecord),
+	illustrationPacks: z.array(illustrationPackRecord).default([]),
 	products: z.array(productRecord),
 	entitlements: z.array(entitlementRecord),
 	/** Open items for the admin review queue (P1-APP-01); P1-ADM-01 adds the rules that raise them. */
@@ -102,6 +119,7 @@ export type PersonaRecord = z.infer<typeof personaRecord>;
 export type CreatorRecord = z.infer<typeof creatorRecord>;
 export type BookRecord = z.infer<typeof bookRecord>;
 export type ProductRecord = z.infer<typeof productRecord>;
+export type IllustrationPackRecord = z.infer<typeof illustrationPackRecord>;
 export type SeedEntitlementRecord = z.infer<typeof entitlementRecord>;
 export type FlagRecord = z.infer<typeof flagRecord>;
 
@@ -139,6 +157,7 @@ export function parseSeed(raw: unknown): Seed {
 		personas: seed.personas,
 		creators: seed.creators,
 		books: seed.books,
+		illustrationPacks: seed.illustrationPacks,
 		products: seed.products,
 		entitlements: seed.entitlements,
 		flags: seed.flags
@@ -170,6 +189,16 @@ export function parseSeed(raw: unknown): Seed {
 			problems.push(`books.${i}: book "${b.id}" has no book Product`);
 		}
 	});
+	const packs = ids(seed.illustrationPacks);
+	seed.illustrationPacks.forEach((pack, i) => {
+		if (!books.has(pack.bookId))
+			problems.push(`illustrationPacks.${i}.bookId: no book "${pack.bookId}"`);
+		if (!creators.has(pack.creatorId))
+			problems.push(`illustrationPacks.${i}.creatorId: no creator "${pack.creatorId}"`);
+		if (!seed.products.some((p) => p.kind === 'illustration_pack' && p.refId === pack.id)) {
+			problems.push(`illustrationPacks.${i}: pack "${pack.id}" has no Product`);
+		}
+	});
 	seed.products.forEach((p, i) => {
 		if (!creators.has(p.creatorId))
 			problems.push(`products.${i}.creatorId: no creator "${p.creatorId}"`);
@@ -177,6 +206,8 @@ export function parseSeed(raw: unknown): Seed {
 			problems.push(`products.${i}.bookId: no book "${p.bookId}"`);
 		if (p.kind === 'book' && !books.has(p.refId))
 			problems.push(`products.${i}.refId: no book "${p.refId}"`);
+		if (p.kind === 'illustration_pack' && !packs.has(p.refId))
+			problems.push(`products.${i}.refId: no illustration pack "${p.refId}"`);
 	});
 	seed.entitlements.forEach((e, i) => {
 		if (!users.has(e.userId))

@@ -1,6 +1,13 @@
 import type { EntitlementRecord } from '@book/domain';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { BookRecord, CreatorRecord, FlagRecord, PersonaRecord, ProductRecord } from './seed';
+import type {
+	BookRecord,
+	CreatorRecord,
+	FlagRecord,
+	IllustrationPackRecord,
+	PersonaRecord,
+	ProductRecord
+} from './seed';
 import type { SimulationSettings } from './simulation';
 
 /**
@@ -12,6 +19,7 @@ export interface BackendDB extends DBSchema {
 	personas: { key: string; value: PersonaRecord };
 	creators: { key: string; value: CreatorRecord; indexes: { handle: string } };
 	books: { key: string; value: BookRecord; indexes: { slug: string; creatorId: string } };
+	illustrationPacks: { key: string; value: IllustrationPackRecord; indexes: { bookId: string } };
 	products: { key: string; value: ProductRecord };
 	entitlements: { key: string; value: EntitlementRecord; indexes: { userId: string } };
 	flags: { key: string; value: FlagRecord };
@@ -67,13 +75,14 @@ export const SEEDED_STORES = [
 	'personas',
 	'creators',
 	'books',
+	'illustrationPacks',
 	'products',
 	'entitlements',
 	'flags'
 ] as const;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 3;
+const VERSION = 4;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -102,6 +111,13 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 				// P1-APP-03: catalogue Books processed by text-pipeline, cached per Revision.
 				db.createObjectStore('revisions', { keyPath: 'id' }).createIndex('bookId', 'bookId');
 				db.createObjectStore('content', { keyPath: ['revisionId', 'path'] });
+			}
+			if (oldVersion < 4) {
+				// P1-LAY-01: Illustration Packs. Seeded like Books, so a new seed version fills it.
+				db.createObjectStore('illustrationPacks', { keyPath: 'id' }).createIndex(
+					'bookId',
+					'bookId'
+				);
 			}
 		}
 	});

@@ -16,6 +16,7 @@ export { default as IconButton } from './IconButton.svelte';
 export { default as Menu } from './Menu.svelte';
 export { default as NavigationBar } from './NavigationBar.svelte';
 export { default as NavigationRail } from './NavigationRail.svelte';
+export { default as Overlay } from './Overlay.svelte';
 export { default as Progress } from './Progress.svelte';
 export { default as RadioGroup } from './RadioGroup.svelte';
 export { default as SegmentedButton } from './SegmentedButton.svelte';

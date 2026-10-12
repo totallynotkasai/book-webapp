@@ -680,7 +680,7 @@ export class FoliateEngine implements ReaderEngine {
 	 * previous column; so the first Word's own range becomes the anchor first, and once layout
 	 * has gone quiet (fonts load, styles apply in steps) the position is checked.
 	 */
-	async #keepPosition(change: () => void) {
+	async #keepPosition(change: () => void | Promise<void>) {
 		const before = (this.#pinned ??= this.#visible?.first ?? null);
 		this.#adjusting++;
 		try {
@@ -690,7 +690,7 @@ export class FoliateEngine implements ReaderEngine {
 			const range = index >= 0 ? map!.range(index) : null;
 			if (range) await this.#paginator!.scrollToAnchor(range);
 			const relocated = this.#nextRelocate(800);
-			change();
+			await change();
 			await relocated;
 			await current?.doc.fonts?.ready;
 			await this.#quiet();
@@ -799,7 +799,20 @@ export class FoliateEngine implements ReaderEngine {
 		this.#figures = items;
 		const current = this.#current();
 		const map = current && this.#maps.get(current.doc);
-		if (current && map) this.#placeFigures(current.doc, map);
+		if (!current || !map) return;
+		// New figures change the pages: lay out again around the first visible Word.
+		void this.#keepPosition(() => {
+			this.#placeFigures(current.doc, map);
+			this.#paginator?.render();
+		});
+	}
+
+	relayout(change: () => void | Promise<void>): Promise<void> {
+		return this.#keepPosition(async () => {
+			await change();
+			// The paginator notices size changes itself; this makes sure it happens now.
+			this.#paginator?.render();
+		});
 	}
 
 	#placeFigures(doc: Document, map: DocWordMap) {
@@ -821,6 +834,10 @@ export class FoliateEngine implements ReaderEngine {
 			img.setAttribute('src', item.src);
 			if (item.srcset) img.setAttribute('srcset', item.srcset);
 			img.setAttribute('alt', item.alt);
+			if (item.width && item.height) {
+				img.setAttribute('width', String(item.width));
+				img.setAttribute('height', String(item.height));
+			}
 			figure.append(img);
 			if (item.caption) {
 				const caption = doc.createElementNS(ns, 'figcaption');

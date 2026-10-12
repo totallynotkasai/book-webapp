@@ -20,7 +20,8 @@ describe('defaultReaderPreferences (§9.4)', () => {
 			theme: { mode: 'system', contrast: 'standard' },
 			pageTurn: 'slide',
 			illustrations: 'popup',
-			narration: { rate: 1, autoTurn: true, highlight: 'word' }
+			narration: { rate: 1, autoTurn: true, highlight: 'word' },
+			hintsSeen: []
 		});
 	});
 });

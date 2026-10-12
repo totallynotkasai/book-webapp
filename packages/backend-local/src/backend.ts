@@ -23,6 +23,7 @@ import {
 	type BackendDatabase
 } from './db';
 import { createContentApi, type IngestFn } from './content';
+import { createLayersApi } from './layers';
 import { paginate } from './paging';
 import { parseSeed, type BookRecord, type Seed } from './seed';
 import {
@@ -102,6 +103,7 @@ async function writeSeed(db: BackendDatabase, seed: Seed): Promise<void> {
 	for (const persona of seed.personas) await tx.objectStore('personas').put(persona);
 	for (const creator of seed.creators) await tx.objectStore('creators').put(creator);
 	for (const book of seed.books) await tx.objectStore('books').put(book);
+	for (const pack of seed.illustrationPacks) await tx.objectStore('illustrationPacks').put(pack);
 	for (const product of seed.products) await tx.objectStore('products').put(product);
 	for (const entitlement of seed.entitlements)
 		await tx.objectStore('entitlements').put(entitlement);
@@ -207,7 +209,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 	// ---- module implementations (no simulation; that's applied below) ----
 
 	// Modules defined below this object (moderation) are added to the Backend separately.
-	const implementation: Omit<Backend, 'events' | 'moderation' | 'content'> = {
+	const implementation: Omit<Backend, 'events' | 'moderation' | 'content' | 'layers'> = {
 		session: {
 			async current() {
 				return { user: currentUser };
@@ -351,6 +353,17 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 			}),
 		ingest: options.ingest ?? ingestInThread
 	});
+	const layers = createLayersApi({
+		db,
+		clock,
+		requireUser,
+		loadFile:
+			options.loadFile ??
+			(async () => {
+				throw new Error('backend-local was created without loadFile, so it can’t open packs.');
+			}),
+		content
+	});
 
 	// ---- simulation and contract validation, applied to every method ----
 
@@ -425,6 +438,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		catalogue: wrapModule('catalogue', implementation.catalogue, backendContract.catalogue),
 		library: wrapModule('library', implementation.library, backendContract.library),
 		content: wrapModule('content', content, backendContract.content),
+		layers: wrapModule('layers', layers, backendContract.layers),
 		studio: wrapModule('studio', implementation.studio, backendContract.studio),
 		moderation: wrapModule('moderation', moderation, backendContract.moderation),
 		events: { on: events.on }

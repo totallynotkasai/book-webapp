@@ -23,6 +23,7 @@ import type {
 	SessionDto,
 	StudioBookDto
 } from './dto';
+import type { LayerSummaryDto, OpenPackDto } from '../layers';
 import type { Page, PageRequest } from './paging';
 
 export interface SessionApi {
@@ -46,6 +47,17 @@ export interface CatalogueApi {
 export interface LibraryApi {
 	/** The signed-in user's Entitlements, grouped by Book. Rejects with `UNAUTHENTICATED`. */
 	list(page?: PageRequest): Promise<Page<LibraryEntryDto>>;
+}
+
+export interface LayersApi {
+	/** A Book's listed Layers, each saying whether the user holds an Entitlement to it (§8.1). */
+	list(bookId: string): Promise<LayerSummaryDto[]>;
+	/**
+	 * A pack's Illustrations and a content token for its images, read with `content.read`.
+	 * Checks Entitlements first (Invariant 15): `ENTITLEMENT_REQUIRED` if not held, `NOT_FOUND`
+	 * for an unknown pack.
+	 */
+	openPack(packId: string): Promise<OpenPackDto>;
 }
 
 export interface ContentApi {
@@ -94,6 +106,7 @@ export interface Backend {
 	catalogue: CatalogueApi;
 	library: LibraryApi;
 	content: ContentApi;
+	layers: LayersApi;
 	studio: StudioApi;
 	moderation: ModerationApi;
 	events: BackendEvents;

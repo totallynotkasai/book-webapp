@@ -1,0 +1,271 @@
+{
+	"id": "pack-alice-rackham",
+	"bookId": "book-alice",
+	"epub": "apps/web/static/books/alice.epub",
+	"creatorId": "creator-ink-and-quill",
+	"name": "Arthur Rackham’s illustrations",
+	"description": "Rackham’s 1907 colour plates and drawings, curated for this edition by Ink & Quill.",
+	"isOfficial": false,
+	"aiUse": "none",
+	"credit": "Illustrations by Arthur Rackham (1907), public domain, from Project Gutenberg #28885. Curated by Ink & Quill.",
+	"images": "fixtures/images/rackham",
+	"illustrations": [
+		{
+			"id": "rackham-01",
+			"file": "01-alice.jpg",
+			"alt": "Alice stands facing us in a knee-length patterned dress, striped stockings and boots, her hands behind her back.",
+			"caption": "Alice",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "Alice was beginning to get very tired of sitting by her sister on the bank"
+		},
+		{
+			"id": "rackham-02",
+			"file": "02-down-the-rabbit-hole.jpg",
+			"alt": "The White Rabbit, in a waistcoat, runs past the dark mouth of a rabbit-hole under a bank of brambles and long grass.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "when suddenly a White Rabbit with pink eyes ran close by her"
+		},
+		{
+			"id": "rackham-03",
+			"file": "03-curiouser-and-curiouser.jpg",
+			"alt": "Alice, grown very tall and thin, stands stiffly with her arms held away from her sides.",
+			"caption": "Curiouser and Curiouser",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "Curiouser and curiouser!” cried Alice"
+		},
+		{
+			"id": "rackham-04",
+			"file": "04-the-pool-of-tears.jpg",
+			"alt": "Alice swims in the pool of tears among a crowd of creatures: a duck, a dodo, a mouse, a crab and other birds and beasts.",
+			"caption": "The Pool of Tears",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": true,
+			"quote": "she was in the pool of tears which she had wept when she was nine feet high"
+		},
+		{
+			"id": "rackham-05",
+			"file": "05-but-who-has-won.jpg",
+			"alt": "The Dodo, a duck and a crowd of birds and small animals press round Alice, all asking who has won.",
+			"caption": "They all crowded round it panting and asking, \"But who has won?\"",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "they all crowded round it, panting, and asking, “But who has won?”"
+		},
+		{
+			"id": "rackham-06",
+			"file": "06-alice-and-the-mouse.jpg",
+			"alt": "The Mouse sits up on its haunches with its long tail curled, facing Alice, who sits cross-legged on the ground.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "said Alice, looking down with wonder at the Mouse’s tail"
+		},
+		{
+			"id": "rackham-07",
+			"file": "07-why-mary-ann.jpg",
+			"alt": "Under a tall bare tree the White Rabbit leans forward, calling to Alice, who stands small among the stones.",
+			"caption": "\"Why, Mary Ann, what are you doing out here?\"",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "Why, Mary Ann, what are you doing out here?"
+		},
+		{
+			"id": "rackham-08",
+			"file": "08-advice-from-a-caterpillar.jpg",
+			"alt": "Alice stands beside a huge mushroom, looking up at the blue Caterpillar sitting on top of it, smoking a hookah.",
+			"caption": "Advice from a Caterpillar",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The Caterpillar and Alice looked at each other for some time in silence"
+		},
+		{
+			"id": "rackham-09",
+			"file": "09-she-was-frightened.jpg",
+			"alt": "Alice, shrunk so suddenly that her chin is pressed against her feet, peers out from under her flying hair.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "She was a good deal frightened by this very sudden change"
+		},
+		{
+			"id": "rackham-10",
+			"file": "10-the-pigeon.jpg",
+			"alt": "Alice’s head rises above the treetops on her long neck as a pigeon flies at her through the tangled branches.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "a large pigeon had flown into her face, and was beating her violently with its wings"
+		},
+		{
+			"id": "rackham-11",
+			"file": "11-the-footman-and-alice.jpg",
+			"alt": "The Frog-Footman sits on the step by a closed door, gazing up at the sky, while Alice stands beside him pointing at the door.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "How am I to get in?” asked Alice again"
+		},
+		{
+			"id": "rackham-12",
+			"file": "12-saucepan-flew-close-by.jpg",
+			"alt": "In the Duchess’s smoky kitchen, plates and a saucepan fly through the air at the Duchess and the baby, while Alice throws up her hands.",
+			"caption": "An unusually large saucepan flew close by it, and very nearly carried it off",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "an unusually large saucepan flew close by it, and very nearly carried it off"
+		},
+		{
+			"id": "rackham-13",
+			"file": "13-it-grunted-again.jpg",
+			"alt": "Alice stands in long grass holding the baby, which has turned into a little pig.",
+			"caption": "It grunted again so violently that she looked down into its face in some alarm",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "It grunted again, so violently, that she looked down into its face in some alarm"
+		},
+		{
+			"id": "rackham-14",
+			"file": "14-cheshire-cat-in-a-tree.jpg",
+			"alt": "The Cheshire Cat lies stretched along the branches of a tree, grinning.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "seeing the Cheshire Cat sitting on a bough of a tree a few yards off"
+		},
+		{
+			"id": "rackham-15",
+			"file": "15-cheshire-cat-again.jpg",
+			"alt": "Alice stands small at the foot of a gnarled tree, looking up at the Cheshire Cat in its branches.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "there was the Cat again, sitting on a branch of a tree"
+		},
+		{
+			"id": "rackham-16",
+			"file": "16-a-mad-tea-party.jpg",
+			"alt": "The Hatter and the March Hare sit at a long table laid with cups and teapots, with Alice in a large armchair at the far end.",
+			"caption": "A Mad Tea-Party",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "There was a table set out under a tree in front of the house, and the March Hare and the Hatter were having tea at it"
+		},
+		{
+			"id": "rackham-17",
+			"file": "17-turn-them-over.jpg",
+			"alt": "Playing-card gardeners hurriedly paint the white roses of a rose tree red while more cards look on.",
+			"caption": "The Queen turned angrily away from him and said to the Knave, \"Turn them over\"",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The Queen turned angrily away from him, and said to the Knave “Turn them over!”"
+		},
+		{
+			"id": "rackham-18",
+			"file": "18-playing-croquet.jpg",
+			"alt": "Alice tucks a flamingo under her arm, its long neck held straight to use as a croquet mallet.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The chief difficulty Alice found at first was in managing her flamingo"
+		},
+		{
+			"id": "rackham-19",
+			"file": "19-the-cat.jpg",
+			"alt": "The Cheshire Cat’s grinning head floats on a little cloud, with no body.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "she noticed a curious appearance in the air"
+		},
+		{
+			"id": "rackham-20",
+			"file": "20-the-executioner.jpg",
+			"alt": "The executioner, a playing card of clubs in a checked hood, leans on a long axe.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The executioner’s argument was, that you couldn’t cut off a head"
+		},
+		{
+			"id": "rackham-21",
+			"file": "21-off-with-his-head.jpg",
+			"alt": "The King and Queen of Hearts stand with their court beside a rose tree, the Queen shouting, as a hedgehog crosses the ground.",
+			"caption": "The Queen never left off quarrelling with the other players, and shouting \"Off with his head!\" or, \"Off with her head!\"",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "the Queen never left off quarrelling with the other players"
+		},
+		{
+			"id": "rackham-22",
+			"file": "22-gryphon.jpg",
+			"alt": "The Gryphon lies asleep in the sun at the foot of a gnarled tree.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "They very soon came upon a Gryphon, lying fast asleep in the sun"
+		},
+		{
+			"id": "rackham-23",
+			"file": "23-thats-very-curious.jpg",
+			"alt": "Alice sits on a rock by the sea between the Gryphon and the Mock Turtle.",
+			"caption": "The Mock Turtle drew a long breath and said, \"That's very curious\"",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The Mock Turtle drew a long breath, and said “That’s very curious.”"
+		},
+		{
+			"id": "rackham-24",
+			"file": "24-mock-turtle.jpg",
+			"alt": "The Mock Turtle, with a calf’s head on a turtle’s body, rears up on its hind flippers.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "cried the Mock Turtle, capering wildly about"
+		},
+		{
+			"id": "rackham-25",
+			"file": "25-who-stole-the-tarts.jpg",
+			"alt": "The court in session: the King and Queen of Hearts on their thrones, the White Rabbit with a trumpet, the jury and the cards below.",
+			"caption": "Who stole the Tarts?",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The King and Queen of Hearts were seated on their throne when they arrived"
+		},
+		{
+			"id": "rackham-26",
+			"file": "26-the-cook.jpg",
+			"alt": "The Duchess’s cook, a large woman, strides along carrying a pepper-box.",
+			"placement": "inline",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "The next witness was the Duchess’s cook"
+		},
+		{
+			"id": "rackham-27",
+			"file": "27-the-whole-pack-rose-up.jpg",
+			"alt": "Alice throws up her arms as the whole pack of cards flies up into the air around her.",
+			"caption": "At this the whole pack rose up into the air, and came flying down upon her",
+			"placement": "full_page",
+			"span": "single",
+			"spoilerSafe": false,
+			"quote": "At this the whole pack rose up into the air, and came flying down upon her"
+		}
+	]
+}

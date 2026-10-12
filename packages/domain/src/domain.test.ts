@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+	defaultIllustrationPackIds,
+	usableIllustrationPackIds,
 	activeEntitlements,
 	addMoney,
 	can,
@@ -77,5 +79,23 @@ describe('roles', () => {
 	it('lets only moderators and admins moderate', () => {
 		expect(can('moderator', 'moderation')).toBe(true);
 		expect(can('creator', 'moderation')).toBe(false);
+	});
+});
+
+describe('Layer selection (§8.1)', () => {
+	const layers = [
+		{ id: 'community', isOfficial: false, entitled: true },
+		{ id: 'official', isOfficial: true, entitled: true },
+		{ id: 'official-not-owned', isOfficial: true, entitled: false }
+	];
+
+	it('starts with every official pack the reader is entitled to', () => {
+		expect(defaultIllustrationPackIds(layers)).toEqual(['official']);
+	});
+
+	it('keeps a saved order but drops packs the reader can no longer use', () => {
+		expect(
+			usableIllustrationPackIds(['community', 'gone', 'official-not-owned', 'official'], layers)
+		).toEqual(['community', 'official']);
 	});
 });

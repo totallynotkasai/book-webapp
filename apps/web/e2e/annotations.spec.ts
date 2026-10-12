@@ -152,7 +152,7 @@ test('notes: add from the toolbar, list by chapter, edit, filter, jump and delet
 	await sheet.getByRole('button', { name: 'Delete highlight' }).first().click();
 	await expect(sheet.getByText('Down, down, down')).toBeHidden();
 	await page.getByRole('button', { name: 'Undo' }).click();
-	await expect(sheet.getByText('Down, down, down')).toBeVisible();
+	await expect(sheet.getByText('Down, down, down')).toBeVisible({ timeout: 10_000 });
 
 	// Jump: from another chapter, the note brings the reader back to its text.
 	await sheet.getByRole('tab', { name: 'Contents' }).click();

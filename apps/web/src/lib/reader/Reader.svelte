@@ -16,17 +16,22 @@
 	import { createEngine, type ReaderEngine, type VisibleRange } from '@book/reader-core';
 	import { highlightLabels } from '@book/tokens';
 	import { Button, Dialog, IconButton, Progress, prefersReducedMotion } from '@book/ui';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { copyText } from '$lib/clipboard';
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import { describeError, type DescribedError } from '$lib/errors';
 	import { getPlatform } from '$lib/platform';
-	import { getStores } from '$lib/services';
+	import { getBackend, getStores } from '$lib/services';
 	import { preferences } from '$lib/state/preferences.svelte';
 	import { snackbars } from '$lib/state/snackbar.svelte';
 	import { chapterTitleAt } from './chapters';
 	import ContentsSheet, { type ContentsTab } from './ContentsSheet.svelte';
+	import IllustrationCard from './IllustrationCard.svelte';
+	import IllustrationPanel from './IllustrationPanel.svelte';
+	import { BookIllustrations, type Current } from './illustrations.svelte';
+	import LayersSheet from './LayersSheet.svelte';
+	import Lightbox from './Lightbox.svelte';
 	import { BookNotes } from './notes.svelte';
 	import { exportFileName, notesMarkdown, notesPlainText } from './notes-export';
 	import { openBook, type OpenedBook } from './open-book';
@@ -77,6 +82,17 @@
 	/** Set when a tap opened or closed the toolbar, so it doesn't also turn the page. */
 	let tapConsumed = false;
 	let lastColour: HighlightColour = 1;
+
+	// ---- Illustrations (§8.2) ----
+	let illustrations = $state.raw<BookIllustrations>();
+	let layersOpen = $state(false);
+	let cardOpen = $state(false);
+	let packIndex = $state(0);
+	let lightboxOpen = $state(false);
+	let lightbox = $state.raw<Current | null>(null);
+	/** The picture last looked at, so the button's dot can say when there's a new one. */
+	let lastSeen = $state<string | null>(null);
+	let panelCollapsed = $state(false);
 	let prefsOpen = $state(false);
 	let shortcutsOpen = $state(false);
 	let back = $state.raw<{ anchor: PointAnchor } | null>(null);
@@ -136,6 +152,41 @@
 				: ''
 	);
 	const isRtl = $derived(manifest?.dir === 'rtl');
+	/** A Book without packs the reader holds shows no pictures, whatever the mode. */
+	const illustrationMode = $derived(illustrations?.available ? prefs.illustrations : 'off');
+	/** Each enabled pack's current Illustration: never one past the last visible Word. */
+	const currents = $derived(illustrations && visible ? illustrations.currentAt(visible.last) : []);
+	const shownKey = $derived(
+		currents[0] ? `${currents[0].pack.id}/${currents[0].illustration.id}` : null
+	);
+	const newPicture = $derived(shownKey !== null && shownKey !== lastSeen);
+	const showHint = $derived(
+		phase.kind === 'ready' &&
+			illustrationMode === 'popup' &&
+			!prefs.hintsSeen.includes('illustrations')
+	);
+	/** per-page sits beside the book from 600 px; spread (and compact per-page) above it. */
+	const panelBeside = $derived(illustrationMode === 'per-page' && windowWidth >= 600);
+	const panelAbove = $derived(
+		illustrationMode === 'spread' || (illustrationMode === 'per-page' && windowWidth < 600)
+	);
+	const panelWidth = $derived(
+		panelBeside ? Math.round(Math.min(480, Math.max(240, windowWidth * 0.34))) : 0
+	);
+	const panelHeight = $derived(
+		!panelAbove
+			? 0
+			: panelCollapsed
+				? 72
+				: Math.round(
+						windowHeight *
+							(illustrationMode === 'spread' ? (windowWidth > windowHeight ? 0.42 : 0.3) : 0.32)
+					)
+	);
+	/** The stage's offsets as applied (changes go through engine.relayout, keeping place). */
+	let stageLeft = $state(0);
+	let stageTop = $state(0);
+
 	/** Placed Bookmarks on the visible page: the ribbon shows and the toggle is on. */
 	const pageBookmarks = $derived(
 		visible && notes ? notes.bookmarksBetween(visible.first.ordinal, visible.last.ordinal) : []
@@ -154,6 +205,7 @@
 	beforeNavigate(() => void saver?.flush());
 
 	onDestroy(() => {
+		illustrations?.destroy();
 		clearTimeout(backTimer);
 		void saver?.close();
 		engine?.destroy();
@@ -188,6 +240,7 @@
 				fontFaceCss,
 				start
 			});
+			void loadIllustrations(book.manifest.revisionId);
 			applied = {
 				typography: JSON.stringify(typographyOf(prefs)),
 				layout: layoutOf(prefs, windowWidth, windowHeight),
@@ -280,6 +333,12 @@
 				pinchPreview = done ? null : next;
 				if (done && next !== prefs.fontScale) change({ fontScale: next });
 			}),
+			e.on('figureActivated', ({ id }) => {
+				const [packId, illustrationId] = id.split('::');
+				const pack = packId ? illustrations?.opened.get(packId) : undefined;
+				const illustration = pack?.illustrations.find((i) => i.id === illustrationId);
+				if (pack && illustration) zoomInto({ pack: pack.pack, illustration, previous: null });
+			}),
 			e.on('error', ({ message }) => snackbars.show(message, { tone: 'error' }))
 		);
 	}
@@ -290,6 +349,85 @@
 			engine.setDecorations('annotations', decorations);
 		}
 	});
+
+	// ---- Illustrations: loading, the panels' room, and in-text figures ----
+
+	async function loadIllustrations(revisionId: string) {
+		try {
+			const [backend, stores] = await Promise.all([getBackend(), getStores()]);
+			const loaded = new BookIllustrations(backend, stores, bookId, revisionId);
+			await loaded.load();
+			illustrations = loaded;
+		} catch (error) {
+			// Pictures are extra: the book reads fine without them (offline, or none for an import).
+			console.warn('Illustrations didn’t load', error);
+		}
+	}
+
+	$effect(() => {
+		const left = panelWidth;
+		const top = panelAbove ? 56 + panelHeight : 0;
+		if (phase.kind !== 'ready' || !engine) return;
+		if (left === stageLeft && top === stageTop) return;
+		void engine.relayout(async () => {
+			stageLeft = left;
+			stageTop = top;
+			await tick();
+		});
+	});
+
+	let injected = '';
+	$effect(() => {
+		const source = illustrations;
+		const key =
+			illustrationMode === 'in-text' && source
+				? `${source.enabled.join(',')}|${[...source.opened.keys()].join(',')}`
+				: '';
+		if (phase.kind !== 'ready' || !engine || key === injected) return;
+		injected = key;
+		if (!key || !source) {
+			engine.injectFigures([]);
+			return;
+		}
+		void injectFigures(source, key);
+	});
+
+	async function injectFigures(source: BookIllustrations, key: string) {
+		const width = Math.min(900, windowWidth);
+		const items = await Promise.all(
+			source.all().map(async ({ pack, illustration }) => ({
+				id: `${pack.pack.id}::${illustration.id}`,
+				anchor: illustration.anchor,
+				placement:
+					illustration.placement === 'full_page' ? ('full_page' as const) : ('inline' as const),
+				src: (await source.url(pack.pack.id, illustration, width)) ?? '',
+				alt: illustration.alt,
+				caption: illustration.caption,
+				width: illustration.image.width,
+				height: illustration.image.height
+			}))
+		);
+		if (injected !== key || !engine) return;
+		engine.injectFigures(items.filter((i) => i.src));
+	}
+
+	function openPicture() {
+		if (!currents.length) return;
+		packIndex = 0;
+		cardOpen = true;
+		lastSeen = shownKey;
+		dismissHint();
+	}
+
+	function zoomInto(current: Current) {
+		lightbox = current;
+		lightboxOpen = true;
+	}
+
+	function dismissHint() {
+		if (prefs.hintsSeen.includes('illustrations')) return;
+		void preferences.update({ hintsSeen: [...preferences.current.hintsSeen, 'illustrations'] });
+	}
 
 	// ---- live preferences (§9.4: every change applies at once and keeps position) ----
 
@@ -376,7 +514,15 @@
 	}
 
 	function anyOverlayOpen() {
-		return contentsOpen || prefsOpen || shortcutsOpen || textDialog !== null;
+		return (
+			contentsOpen ||
+			prefsOpen ||
+			shortcutsOpen ||
+			textDialog !== null ||
+			layersOpen ||
+			cardOpen ||
+			lightboxOpen
+		);
 	}
 
 	function onKey(event: KeyboardEvent) {
@@ -402,6 +548,9 @@
 			void toggleBookmark();
 		} else if (!ctrl && !event.altKey && (event.key === 'n' || event.key === 'N')) {
 			openContents('notes');
+		} else if (!ctrl && !event.altKey && (event.key === 'i' || event.key === 'I')) {
+			if (illustrationMode === 'popup') openPicture();
+			else if (illustrations?.packs.length) layersOpen = true;
 		} else if (ctrl && (event.key === '+' || event.key === '=')) {
 			event.preventDefault();
 			change({ fontScale: clampFontScale(prefs.fontScale + 0.1) });
@@ -630,6 +779,8 @@
 <div
 	class={['reader', { 'chrome-hidden': !chrome }]}
 	style={themeStyle}
+	style:--panel-width={`${panelWidth}px`}
+	style:--panel-height={`${panelHeight}px`}
 	data-testid="reader"
 	data-ready={phase.kind === 'ready' || undefined}
 	data-first={visible?.first.ordinal}
@@ -650,7 +801,9 @@
 			disabled={phase.kind !== 'ready'}
 			onclick={toggleBookmark}
 		/>
-		<!-- Illustrations (1.4) goes here; the titles give way. -->
+		{#if illustrations?.packs.length}
+			<IconButton icon="photo_library" label="Illustrations" onclick={() => (layersOpen = true)} />
+		{/if}
 		<IconButton
 			icon="toc"
 			label="Contents and notes"
@@ -665,7 +818,51 @@
 		/>
 	</header>
 
-	<div class="stage" bind:this={host} aria-label="Book text" role="region"></div>
+	<div
+		class="stage"
+		bind:this={host}
+		aria-label="Book text"
+		role="region"
+		style:--stage-left={`${stageLeft}px`}
+		style:--stage-top={`${stageTop}px`}
+	></div>
+
+	{#if illustrations && (panelBeside || panelAbove)}
+		<IllustrationPanel
+			mode={illustrationMode === 'spread' ? 'spread' : 'per-page'}
+			above={panelAbove}
+			collapsed={panelCollapsed}
+			{currents}
+			bind:index={packIndex}
+			{illustrations}
+			wide={windowWidth >= 900}
+			onzoom={zoomInto}
+			oncollapse={(c) => (panelCollapsed = c)}
+		/>
+	{/if}
+
+	{#if illustrationMode === 'popup' && illustrations}
+		<div class={['picture-button', { lowered: chrome }]}>
+			<IconButton
+				variant="filled"
+				icon="image"
+				label={currents.length
+					? newPicture
+						? 'Show the new picture'
+						: 'Show the picture'
+					: 'No picture yet on this page'}
+				dot={newPicture}
+				disabled={!currents.length}
+				onclick={openPicture}
+			/>
+			{#if showHint}
+				<div class="hint" role="status" data-testid="illustration-hint">
+					<p>This book has pictures. Tap here to see the one for where you are.</p>
+					<Button variant="text" onclick={dismissHint}>Got it</Button>
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	{#if pageBookmarks.length}
 		<!-- The default Bookmark Design: a ribbon on the page edge (§9.3). -->
@@ -805,6 +1002,23 @@
 />
 <ShortcutsDialog bind:open={shortcutsOpen} />
 
+{#if illustrations}
+	<LayersSheet
+		bind:open={layersOpen}
+		mode={prefs.illustrations}
+		{illustrations}
+		onmode={(illustrationsMode) => change({ illustrations: illustrationsMode })}
+	/>
+	<IllustrationCard
+		bind:open={cardOpen}
+		{currents}
+		bind:index={packIndex}
+		{illustrations}
+		onzoom={zoomInto}
+	/>
+	<Lightbox bind:open={lightboxOpen} current={lightbox} {illustrations} />
+{/if}
+
 <Dialog
 	open={phase.kind === 'entitlement'}
 	title="Get this book"
@@ -831,8 +1045,45 @@
 
 	.stage {
 		position: absolute;
-		inset: calc(var(--safe-top) + 8px) var(--safe-right) calc(var(--safe-bottom) + 8px)
-			var(--safe-left);
+		inset: calc(var(--safe-top) + 8px + var(--stage-top, 0px)) var(--safe-right)
+			calc(var(--safe-bottom) + 8px) calc(var(--safe-left) + var(--stage-left, 0px));
+	}
+
+	/* Over the page's top-right corner, and still there when the chrome fades (it's the showpiece). */
+	.picture-button {
+		position: absolute;
+		top: calc(var(--safe-top) + 12px);
+		right: calc(var(--safe-right) + 12px);
+		z-index: 6;
+		display: grid;
+		justify-items: end;
+		gap: var(--space-2);
+		transition: top var(--duration-base) var(--easing-standard);
+	}
+
+	.picture-button.lowered {
+		top: calc(var(--safe-top) + 64px);
+	}
+
+	.picture-button .hint {
+		max-width: 16rem;
+		padding: var(--space-3) var(--space-3) var(--space-1);
+		border-radius: var(--md-sys-shape-corner-large);
+		background: var(--md-sys-color-inverse-surface);
+		color: var(--md-sys-color-inverse-on-surface);
+		box-shadow: var(--md-sys-elevation-2);
+		--md-sys-color-primary: var(--md-sys-color-inverse-primary);
+	}
+
+	.picture-button .hint p {
+		margin: 0;
+		font-size: var(--md-sys-typescale-body-medium-size);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.picture-button {
+			transition: none;
+		}
 	}
 
 	.bar {

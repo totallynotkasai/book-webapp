@@ -61,7 +61,9 @@ export const readerPreferencesSchema = z.object({
 	theme: z.preprocess(objectOrEmpty, themeSchema),
 	pageTurn: z.enum(['none', 'slide', 'fade']).catch('slide'),
 	illustrations: z.enum(illustrationModes).catch('popup'),
-	narration: z.preprocess(objectOrEmpty, narrationSchema)
+	narration: z.preprocess(objectOrEmpty, narrationSchema),
+	/** One-off hints the reader has dismissed (e.g. `illustrations`), kept with their settings. */
+	hintsSeen: z.array(z.string()).catch([])
 });
 
 export type ReaderPreferences = z.infer<typeof readerPreferencesSchema>;

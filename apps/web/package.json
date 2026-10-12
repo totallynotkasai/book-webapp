@@ -15,7 +15,10 @@
 		"serve": "node scripts/serve.mjs build 4173",
 		"cap:sync": "npm run build && cap sync android",
 		"cap:android": "npm run cap:sync && node scripts/android.mjs",
-		"cap:open": "cap open android"
+		"cap:open": "cap open android",
+		"predev": "node scripts/ensure-layers.mjs",
+		"prebuild": "node scripts/ensure-layers.mjs",
+		"prebuild:tester": "node scripts/ensure-layers.mjs"
 	},
 	"dependencies": {
 		"@book/alignment": "*",
