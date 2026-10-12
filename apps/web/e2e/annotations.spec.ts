@@ -175,6 +175,10 @@ test('tapping a highlight opens it; right-click opens the same actions; remove d
 	const { b } = await dragAcrossWords(page, 2, 5);
 	await toolbar(page).getByRole('button', { name: 'Highlight green' }).click();
 	await expect(toolbar(page)).toBeHidden();
+	// Saved and painted before it can be clicked (a slow machine may take a moment).
+	await expect
+		.poll(() => bookFrame(page).evaluate(() => CSS.highlights.get('rd-highlight-2')?.size ?? 0))
+		.toBe(1);
 
 	// A click on the highlight brings up its toolbar, with its colour marked.
 	await page.mouse.click(b.x, b.y);
