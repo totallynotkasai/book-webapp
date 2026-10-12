@@ -1,13 +1,13 @@
 body{font-family:Georgia, serif;line-height:1.5}
-.status-window{border:3px double var(--book-outline, #7fb3d5);border-radius:6px;background-color:var(--book-surface, #0b1d3a);color:var(--book-text, #e8f1ff);padding:0.75em 1em;margin:1em 0;font-family:'Courier New', Courier, monospace;break-inside:avoid;-webkit-column-break-inside:avoid}
+.status-window{border:3px double var(--book-outline, #7fb3d5);border-radius:6px;background-color:var(--book-surface, #0b1d3a);color:var(--book-text, #e8f1ff);padding:0.75em 1em;margin:1em 0;font-family:'Courier New', Courier, monospace!important;break-inside:avoid;-webkit-column-break-inside:avoid}
 .status-window h3{margin:0 0 0.5em;color:var(--book-text, #8fd3ff);text-align:center;font-size:1em;letter-spacing:0.1em}
 .status-window p{margin:0.25em 0}
-.system-message{border-left:4px solid var(--book-outline, #c99a2e);background:var(--book-surface, #fff4d6);color:var(--book-text, #3a2a00);padding:0.4em 0.8em;margin:0.8em 0;font-family:monospace;font-weight:bold;break-inside:avoid;-webkit-column-break-inside:avoid}
+.system-message{border-left:4px solid var(--book-outline, #c99a2e);background:var(--book-surface, #fff4d6);color:var(--book-text, #3a2a00);padding:0.4em 0.8em;margin:0.8em 0;font-family:monospace!important;font-weight:bold;break-inside:avoid;-webkit-column-break-inside:avoid}
 .system-message.warning{border-left-color:var(--book-outline, #b23a3a);background:var(--book-surface, #fde2e2);color:var(--book-text, #5a1010);break-inside:avoid;-webkit-column-break-inside:avoid}
 table.stats{border-collapse:collapse;width:100%;margin:0.5em 0}
 table.stats th,
 table.stats td{border:1px solid var(--book-outline, #7fb3d5);padding:0.2em 0.5em;text-align:left;break-inside:avoid;-webkit-column-break-inside:avoid}
 table.stats td.num{text-align:right}
 table.stats thead th{background:var(--book-surface, #16325e);break-inside:avoid;-webkit-column-break-inside:avoid}
-pre.ascii-window{font-family:monospace;background:var(--book-surface, #111);color:var(--book-text, #9f9);padding:0.5em;white-space:pre;break-inside:avoid;-webkit-column-break-inside:avoid}
+pre.ascii-window{font-family:monospace!important;background:var(--book-surface, #111);color:var(--book-text, #9f9);padding:0.5em;white-space:pre;break-inside:avoid;-webkit-column-break-inside:avoid}
 figure{text-align:center;margin:1em 0}

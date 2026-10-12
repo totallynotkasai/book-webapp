@@ -69,9 +69,9 @@
 		"content/text/chapter-2.xhtml": "fceba3bf21cd40a51dd76f32d87ecf90afc89828011164ae01fecc0c732bb099",
 		"index/text/chapter-1.xhtml.words.json": "0fa403a8d1ed9756fd9414f7f37dc6bd67d3e7d1f4a89a6694f9f261b4aa3026",
 		"index/text/chapter-2.xhtml.words.json": "6cbd8cf1aa4b7707c3f8b23a96b3e104c089d152fccc859c9a4b155effa85831",
-		"manifest.json": "ff61eaca6a9c8536a593a659fd56cbce653d16507e5a42c3d860a10cd9350adf",
+		"manifest.json": "8d7050cfdcc5edb8cc2f5ef2a4c0d12c2040761ec9898c8af90631a8ff329bf9",
 		"res/images/map.png": "7a985576cad2d144b27afb8a247a83f3dd71f66a1f05d2e6bc2138ee8fb0855b",
 		"res/images/sigil.png": "f9714cd50387bd44867de5e74ab89499f1d0351a63ab372c216b7d3c25d228f5",
-		"res/styles/book.css": "2f5c93c7558377df82aa83c817c2611d857f78fb7baa7d17b0ecd8b95eaae124"
+		"res/styles/book.css": "31eafe3620e7b36249c7c9017ae469c659fc8092948956595842e8bb8d0290b7"
 	}
 }

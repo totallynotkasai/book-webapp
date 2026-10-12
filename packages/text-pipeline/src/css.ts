@@ -1,3 +1,6 @@
+// The css-tree subpath typings are ambient; packages that type-check this source need them too.
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference path="./css-tree.d.ts" />
 /**
  * The CSS allowlist (DESIGN.md §7.1 step 2, §9.6). Book CSS is untrusted (Invariant 10): only
  * typography, colour, borders, spacing, tables and lists survive, `url()` may only point inside
@@ -378,6 +381,19 @@ function listToArray<T>(list: { toArray(): T[] } | null | undefined): T[] {
 	return list ? list.toArray() : [];
 }
 
+const MONOSPACE =
+	/\bmonospace\b|courier|consolas|menlo|monaco|lucida console|lucida sans typewriter|\bsf mono\b|source code|fira (?:code|mono)|jetbrains mono|dejavu sans mono|liberation mono|roboto mono|\bmono\b/i;
+
+/**
+ * The reader's font replaces the book's (§9.4) everywhere except monospace, which status windows
+ * and code keep (§9.6). Its override has no specificity, so a book declaration wins over it only
+ * when it's important: font families are made important when, and only when, they're monospace.
+ */
+function important(property: string, value: string, declared: boolean): boolean {
+	if (property === 'font-family' || property === 'font') return MONOSPACE.test(value);
+	return declared;
+}
+
 /** Filters a declaration block in place; returns how many were removed. */
 function sanitiseBlock(
 	declarations: Declaration[],
@@ -395,8 +411,13 @@ function sanitiseBlock(
 			continue;
 		}
 		box ||= outcome.drawsBox;
-		const important = decl.important ? '!important' : '';
-		kept.push(`${decl.property.toLowerCase()}:${outcome.value}${important}`);
+		const property = decl.property.toLowerCase();
+		// In @font-face, font-family names the face; importance there would void it.
+		const flag =
+			allowed === ALLOWED
+				? important(property, outcome.value, decl.important === true)
+				: decl.important === true;
+		kept.push(`${property}:${outcome.value}${flag ? '!important' : ''}`);
 	}
 	if (box && allowed === ALLOWED && !kept.some((d) => d.startsWith('break-inside:'))) {
 		kept.push('break-inside:avoid', '-webkit-column-break-inside:avoid');

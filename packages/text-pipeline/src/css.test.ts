@@ -15,6 +15,22 @@ describe('CSS allowlist (§7.1)', () => {
 		expect(removed).toBe(3);
 	});
 
+	it('makes monospace font families important and no other (the reading font wins, §9.4/§9.6)', () => {
+		const { css } = sanitiseStylesheet(
+			`.status { font-family: 'Courier New', monospace }
+			 p { font-family: Georgia, serif !important; color: red !important }
+			 code { font: 0.9em Menlo, monospace }
+			 @font-face { font-family: "Fira Mono"; src: url(fonts/f.woff2) }`,
+			ctx
+		);
+		expect(css.split('\n')).toEqual([
+			`.status{font-family:'Courier New', monospace!important}`,
+			'p{font-family:Georgia, serif;color:var(--book-text, red)!important}',
+			'code{font:0.9em Menlo, monospace!important}',
+			'@font-face{font-family:"Fira Mono";src:url("../res/fonts/f.woff2")}'
+		]);
+	});
+
 	it('keeps @media and @font-face with internal sources, drops @import and @keyframes', () => {
 		const { css } = sanitiseStylesheet(
 			`@import url("x.css");
