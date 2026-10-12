@@ -2,6 +2,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import {
+		chapterForOrdinal,
 		clampFontScale,
 		isBackendError,
 		type Anchor,
@@ -32,6 +33,8 @@
 	import { BookIllustrations, type Current } from './illustrations.svelte';
 	import LayersSheet from './LayersSheet.svelte';
 	import Lightbox from './Lightbox.svelte';
+	import { BookNarration, type NarratedWord } from './narration.svelte';
+	import NarrationPlayer from './NarrationPlayer.svelte';
 	import { BookNotes } from './notes.svelte';
 	import { exportFileName, notesMarkdown, notesPlainText } from './notes-export';
 	import { openBook, type OpenedBook } from './open-book';
@@ -49,6 +52,7 @@
 	 * screen, calm: the chrome fades after the first page turn and comes back on a centre tap, Esc
 	 * or Tab. Position comes only from the engine's `relocated` event (§9.1), as Anchors.
 	 * Selecting text (mouse, long-press, or Shift+arrows) brings up the selection toolbar.
+	 * Pictures (§8.2) and narration (§8.3) come from the Book's Layers.
 	 */
 	let { bookId }: { bookId: string } = $props();
 
@@ -93,6 +97,15 @@
 	/** The picture last looked at, so the button's dot can say when there's a new one. */
 	let lastSeen = $state<string | null>(null);
 	let panelCollapsed = $state(false);
+
+	// ---- Narration (§8.3) ----
+	let narration = $state.raw<BookNarration>();
+	let playerExpanded = $state(false);
+	/** Set while narration turns the page itself, so the turn isn't taken for the reader's. */
+	let autoTurning = false;
+	let narrationHint = $state(false);
+	let narrationHintTimer: ReturnType<typeof setTimeout> | undefined;
+
 	let prefsOpen = $state(false);
 	let shortcutsOpen = $state(false);
 	let back = $state.raw<{ anchor: PointAnchor } | null>(null);
@@ -183,9 +196,12 @@
 							(illustrationMode === 'spread' ? (windowWidth > windowHeight ? 0.42 : 0.3) : 0.32)
 					)
 	);
+	/** The mini-player's room at the foot of the page, so it never covers the text. */
+	const playerRoom = $derived(narration?.active ? 72 : 0);
 	/** The stage's offsets as applied (changes go through engine.relayout, keeping place). */
 	let stageLeft = $state(0);
 	let stageTop = $state(0);
+	let stageBottom = $state(0);
 
 	/** Placed Bookmarks on the visible page: the ribbon shows and the toggle is on. */
 	const pageBookmarks = $derived(
@@ -206,7 +222,9 @@
 
 	onDestroy(() => {
 		illustrations?.destroy();
+		narration?.destroy();
 		clearTimeout(backTimer);
+		clearTimeout(narrationHintTimer);
 		void saver?.close();
 		engine?.destroy();
 		preferences.closeBook();
@@ -240,7 +258,7 @@
 				fontFaceCss,
 				start
 			});
-			void loadIllustrations(book.manifest.revisionId);
+			void loadLayers(book);
 			applied = {
 				typography: JSON.stringify(typographyOf(prefs)),
 				layout: layoutOf(prefs, windowWidth, windowHeight),
@@ -268,6 +286,15 @@
 				saver?.record(range);
 				if (range.cause === 'turn' || range.cause === 'scroll') chrome = false;
 				if (range.cause === 'link' && previous) showBack(previous.first);
+				// Turning pages by hand with the player open: auto-turn waits (§8.3), and never
+				// pulls the reader back while paused either.
+				if (
+					!autoTurning &&
+					narration?.active &&
+					(range.cause === 'turn' || range.cause === 'scroll' || range.cause === 'link')
+				) {
+					narration.following = false;
+				}
 				announce(range);
 			}),
 			e.on('tap', ({ x }) => onTap(x)),
@@ -289,10 +316,18 @@
 					keyboardSelection = null;
 				}
 			}),
-			e.on('wordActivated', ({ anchor, clientRect }) => {
+			e.on('wordActivated', ({ wordId, anchor, clientRect }) => {
 				if (toolbar) {
 					closeToolbar();
 					tapConsumed = true;
+					return;
+				}
+				// Tap to seek (§8.3): while narration plays, a Word moves it there.
+				const tapped = manifest && chapterForOrdinal(manifest.chapters, anchor.ordinal);
+				if (narration?.playing && tapped && narration.covers(tapped.chapterId)) {
+					tapConsumed = true;
+					void narration.seekToWord(tapped.chapterId, wordId);
+					dismissNarrationHint();
 					return;
 				}
 				const annotation = notes?.at(anchor.ordinal);
@@ -350,28 +385,196 @@
 		}
 	});
 
+	// ---- Narration: the highlight, auto-turn, the hint (§8.3) ----
+
+	$effect(() => {
+		const word = narration?.active ? narration.word : null;
+		const mode = prefs.narration.highlight;
+		if (phase.kind !== 'ready' || !engine || !manifest) return;
+		engine.setDecorations(
+			'narration',
+			word && mode !== 'off'
+				? [{ id: 'narration', anchor: narratedRange(word, mode), style: 'narration' }]
+				: []
+		);
+	});
+
+	function narratedRange(word: NarratedWord, mode: 'word' | 'sentence'): RangeAnchor {
+		const sentence = mode === 'sentence';
+		return {
+			kind: 'range',
+			bookId: manifest!.bookId,
+			revisionId: manifest!.revisionId,
+			startWordId: sentence ? word.sentence.firstWordId : word.wordId,
+			endWordId: sentence ? word.sentence.lastWordId : word.wordId,
+			startOrdinal: sentence ? word.sentence.first : word.ordinal,
+			endOrdinal: sentence ? word.sentence.last : word.ordinal,
+			quote: { exact: word.text, prefix: '', suffix: '' }
+		};
+	}
+
+	function onScreen(word: NarratedWord, range: VisibleRange | null): boolean {
+		return (
+			!!range &&
+			range.chapterId === word.chapterId &&
+			word.ordinal >= range.first.ordinal &&
+			word.ordinal <= range.last.ordinal
+		);
+	}
+
+	// Whenever the narrated Word or the page changes: keep the Word on screen while following,
+	// and start following again once the narration reaches what's on screen.
+	$effect(() => {
+		const active = narration?.active;
+		const word = active ? narration!.word : null;
+		const current = active ? narration!.current : undefined;
+		if (!active || phase.kind !== 'ready') return;
+		if (word) void follow(word, visible);
+		// A new Chapter's recording starts with its own introduction: turn to it already.
+		else if (current) void followChapter(current.chapterId, visible);
+	});
+
+	async function followChapter(chapterId: string, range: VisibleRange | null) {
+		if (!engine || !narration || !range || autoTurning || range.chapterId === chapterId) return;
+		if (!narration.following || !prefs.narration.autoTurn) return;
+		autoTurning = true;
+		try {
+			await engine.goTo({ chapterId });
+		} finally {
+			autoTurning = false;
+		}
+	}
+
+	async function follow(word: NarratedWord, range: VisibleRange | null) {
+		if (!engine || !narration || !range || autoTurning) return;
+		if (onScreen(word, range)) {
+			narration.following = true;
+			return;
+		}
+		if (!narration.following || !prefs.narration.autoTurn) return;
+		autoTurning = true;
+		try {
+			// Just past the page: turn it, as a reader would. Further: go straight there.
+			const span = range.last.ordinal - range.first.ordinal + 1;
+			if (
+				range.chapterId === word.chapterId &&
+				word.ordinal > range.last.ordinal &&
+				word.ordinal <= range.last.ordinal + span
+			) {
+				await engine.next();
+			}
+			if (!onScreen(word, engine.getVisibleRange())) await engine.goTo(pointOf(word));
+		} finally {
+			autoTurning = false;
+		}
+	}
+
+	function pointOf(word: NarratedWord): PointAnchor {
+		return {
+			kind: 'point',
+			bookId: manifest!.bookId,
+			revisionId: manifest!.revisionId,
+			wordId: word.wordId,
+			ordinal: word.ordinal,
+			quote: { exact: word.text, prefix: '', suffix: '' }
+		};
+	}
+
+	async function backToNarration() {
+		if (!narration) return;
+		narration.following = true;
+		const word = narration.word;
+		if (word && !onScreen(word, visible)) {
+			autoTurning = true;
+			try {
+				await engine?.goTo(pointOf(word));
+			} finally {
+				autoTurning = false;
+			}
+		}
+	}
+
+	/** The play button: the first press starts narration from the first Word on the page. */
+	async function playNarration() {
+		if (!narration) return;
+		if (!narration.track?.entitled) {
+			snackbars.show('You don’t have the narration for this book yet.');
+			return;
+		}
+		if (!narration.active && !narration.covers(visible?.chapterId)) {
+			snackbars.show(`Narration covers ${narration.coverage}.`);
+			return;
+		}
+		const first = !narration.active;
+		await narration.toggle(
+			visible ? { chapterId: visible.chapterId, ordinal: visible.first.ordinal } : undefined
+		);
+		if (narration.error) snackbars.show(narration.error, { tone: 'error' });
+		if (first && narration.playing && !preferences.current.hintsSeen.includes('narration')) {
+			narrationHint = true;
+			clearTimeout(narrationHintTimer);
+			// Seen once it has been up a while (the gesture is the same in every Book).
+			narrationHintTimer = setTimeout(dismissNarrationHint, 8000);
+		}
+	}
+
+	function dismissNarrationHint() {
+		narrationHint = false;
+		clearTimeout(narrationHintTimer);
+		if (preferences.current.hintsSeen.includes('narration')) return;
+		void preferences.update({ hintsSeen: [...preferences.current.hintsSeen, 'narration'] });
+	}
+
+	function closeNarration() {
+		narration?.stop();
+		playerExpanded = false;
+		narrationHint = false;
+	}
+
+	$effect(() => {
+		narration?.setRate(prefs.narration.rate);
+	});
+
 	// ---- Illustrations: loading, the panels' room, and in-text figures ----
 
-	async function loadIllustrations(revisionId: string) {
+	/** Pictures and narration are extra: the book reads fine without them (offline, an import). */
+	async function loadLayers(book: OpenedBook) {
 		try {
 			const [backend, stores] = await Promise.all([getBackend(), getStores()]);
-			const loaded = new BookIllustrations(backend, stores, bookId, revisionId);
-			await loaded.load();
-			illustrations = loaded;
+			const layers = await backend.layers.list(bookId);
+			const pictures = new BookIllustrations(backend, stores, bookId, book.manifest.revisionId);
+			const voice = new BookNarration({
+				backend,
+				audio: getPlatform().audio,
+				manifest: book.manifest,
+				textOf: (chapterId) => engine!.chapterText(chapterId)
+			});
+			voice.setRate(prefs.narration.rate);
+			await Promise.all([
+				pictures.load(layers).then(
+					() => (illustrations = pictures),
+					(error) => console.warn('Illustrations didn’t load', error)
+				),
+				voice.load(layers).then(
+					() => (narration = voice),
+					(error) => console.warn('Narration didn’t load', error)
+				)
+			]);
 		} catch (error) {
-			// Pictures are extra: the book reads fine without them (offline, or none for an import).
-			console.warn('Illustrations didn’t load', error);
+			console.warn('Layers didn’t load', error);
 		}
 	}
 
 	$effect(() => {
 		const left = panelWidth;
 		const top = panelAbove ? 56 + panelHeight : 0;
+		const bottom = playerRoom;
 		if (phase.kind !== 'ready' || !engine) return;
-		if (left === stageLeft && top === stageTop) return;
+		if (left === stageLeft && top === stageTop && bottom === stageBottom) return;
 		void engine.relayout(async () => {
 			stageLeft = left;
 			stageTop = top;
+			stageBottom = bottom;
 			await tick();
 		});
 	});
@@ -483,6 +686,7 @@
 	/** A jump the reader may want to undo: TOC, scrubber, chapter start or end (§4.1 "Back"). */
 	async function jump(target: Parameters<ReaderEngine['goTo']>[0]) {
 		if (!engine) return;
+		if (narration?.active) narration.following = false;
 		const from = visible?.first;
 		await engine.goTo(target);
 		if (from) showBack(from);
@@ -775,7 +979,7 @@
 <svelte:window bind:innerWidth={windowWidth} bind:innerHeight={windowHeight} onkeydown={onKey} />
 <svelte:head><title>{manifest?.title ?? 'Reading'} · Book Reader</title></svelte:head>
 
-<!-- data-first/last: the visible Words, for tests (never stored, Invariant 1). -->
+<!-- data-first/last: the visible Words; data-narrated: the narrated one. For tests, never stored. -->
 <div
 	class={['reader', { 'chrome-hidden': !chrome }]}
 	style={themeStyle}
@@ -786,6 +990,9 @@
 	data-first={visible?.first.ordinal}
 	data-last={visible?.last.ordinal}
 	data-first-word={visible?.first.quote.exact}
+	data-narrated={narration?.active ? narration.word?.ordinal : undefined}
+	data-narrated-start={narration?.active ? narration.word?.startMs : undefined}
+	data-following={narration?.active ? narration.following : undefined}
 >
 	<header class="bar top" inert={!chrome || undefined}>
 		<IconButton icon="arrow_back" label="Back to library" href={resolve('/library')} />
@@ -825,6 +1032,7 @@
 		role="region"
 		style:--stage-left={`${stageLeft}px`}
 		style:--stage-top={`${stageTop}px`}
+		style:--stage-bottom={`${stageBottom}px`}
 	></div>
 
 	{#if illustrations && (panelBeside || panelAbove)}
@@ -881,11 +1089,36 @@
 		</div>
 	{/if}
 
-	{#if back}
-		<div class="back-chip">
-			<Button variant="tonal" icon="undo" onclick={goBack}>Back</Button>
-		</div>
-	{/if}
+	<!-- The foot of the page: the Back chips, then the narration hint and mini-player (§8.3). -->
+	<div class={['dock', { player: narration?.active, lowered: !chrome }]}>
+		{#if back || (narration?.active && !narration.following)}
+			<div class="chips">
+				{#if back}
+					<Button variant="tonal" icon="undo" onclick={goBack}>Back</Button>
+				{/if}
+				{#if narration?.active && !narration.following}
+					<Button variant="tonal" icon="headphones" onclick={() => void backToNarration()}
+						>Back to narration</Button
+					>
+				{/if}
+			</div>
+		{/if}
+		{#if narration?.active}
+			{#if narrationHint}
+				<div class="narration-hint" role="status" data-testid="narration-hint">
+					<span>Tap any word to move the narration there.</span>
+					<IconButton icon="close" size="small" label="Got it" onclick={dismissNarrationHint} />
+				</div>
+			{/if}
+			<NarrationPlayer
+				{narration}
+				prefs={prefs.narration}
+				bind:expanded={playerExpanded}
+				onchange={(patch) => change({ narration: patch })}
+				onclose={closeNarration}
+			/>
+		{/if}
+	</div>
 
 	{#if pinchPreview !== null}
 		<div class="pinch" aria-hidden="true">{Math.round(pinchPreview * 100)}%</div>
@@ -898,7 +1131,31 @@
 			disabled={phase.kind !== 'ready'}
 			onclick={() => turn(-1)}
 		/>
-		<!-- Narration Play (1.5) goes here; the scrubber gives way. -->
+		{#if narration?.track}
+			<!-- Unavailable here: it looks disabled but still says why when pressed. -->
+			<IconButton
+				icon={narration.playing ? 'pause' : narration.active ? 'play_arrow' : 'headphones'}
+				label={narration.playing
+					? 'Pause narration'
+					: narration.active
+						? 'Play narration'
+						: 'Listen to the narration'}
+				aria-disabled={!narration.active &&
+				!(narration.available && narration.covers(visible?.chapterId))
+					? 'true'
+					: undefined}
+				aria-describedby={!narration.active && !narration.covers(visible?.chapterId)
+					? 'narration-reason'
+					: undefined}
+				disabled={phase.kind !== 'ready' || narration.loading}
+				onclick={() => void playNarration()}
+			/>
+			<span id="narration-reason" class="visually-hidden"
+				>{narration.track.entitled
+					? `Narration covers ${narration.coverage}.`
+					: 'You don’t have the narration for this book yet.'}</span
+			>
+		{/if}
 		<Scrubber
 			progression={visible?.progression ?? 0}
 			chapters={scrubberChapters}
@@ -943,7 +1200,7 @@
 	<SelectionToolbar
 		rect={toolbar.rect}
 		pointer={toolbar.pointer}
-		bottomInset={chrome ? 72 : 0}
+		bottomInset={(chrome ? 72 : 0) + playerRoom}
 		colour={toolbar.kind === 'annotation' ? toolbar.annotation.colour : undefined}
 		hasNote={toolbar.kind === 'annotation' && !!toolbar.annotation.note}
 		canRemove={toolbar.kind === 'annotation' ||
@@ -1046,7 +1303,8 @@
 	.stage {
 		position: absolute;
 		inset: calc(var(--safe-top) + 8px + var(--stage-top, 0px)) var(--safe-right)
-			calc(var(--safe-bottom) + 8px) calc(var(--safe-left) + var(--stage-left, 0px));
+			calc(var(--safe-bottom) + 8px + var(--stage-bottom, 0px))
+			calc(var(--safe-left) + var(--stage-left, 0px));
 	}
 
 	/* Over the page's top-right corner, and still there when the chrome fades (it's the showpiece). */
@@ -1186,14 +1444,57 @@
 		pointer-events: none;
 	}
 
-	.back-chip {
+	/* Above the bottom bar while it shows; with the player, at the foot of the page otherwise. */
+	.dock {
 		position: absolute;
+		right: calc(var(--safe-right) + var(--space-2));
 		bottom: calc(80px + var(--safe-bottom));
-		left: 50%;
+		left: calc(var(--safe-left) + var(--space-2));
 		z-index: 6;
-		transform: translateX(-50%);
+		display: grid;
+		justify-items: center;
+		gap: var(--space-2);
+		pointer-events: none;
+		transition: bottom var(--duration-base) var(--easing-standard);
+	}
+
+	.dock > :global(*) {
+		pointer-events: auto;
+	}
+
+	.dock.player.lowered {
+		bottom: calc(var(--safe-bottom) + var(--space-2));
+	}
+
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--space-2);
+	}
+
+	.chips > :global(*) {
 		box-shadow: var(--md-sys-elevation-2);
 		border-radius: var(--md-sys-shape-corner-full);
+	}
+
+	.narration-hint {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+		border-radius: var(--md-sys-shape-corner-full);
+		background: var(--md-sys-color-inverse-surface);
+		color: var(--md-sys-color-inverse-on-surface);
+		box-shadow: var(--md-sys-elevation-2);
+		font-size: var(--md-sys-typescale-body-medium-size);
+		--md-sys-color-on-surface: var(--md-sys-color-inverse-on-surface);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.dock {
+			transition: none;
+		}
 	}
 
 	.pinch {

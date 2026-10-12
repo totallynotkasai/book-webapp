@@ -749,7 +749,8 @@ Injection happens at render time through `ReaderEngine.injectFigures()`, and onl
 - If the reader turns pages by hand while narration plays, auto-turn pauses and a "Back to narration" chip appears. Following resumes when they tap it or when the narration reaches the visible range. Auto-turn must never fight the reader.
 - Tapping a Word while narration plays seeks to its `startMs`.
 - Controls: play/pause, ±15 s, previous/next sentence, speed 0.5×–3×.
-- Time → Word uses binary search on the Sync Map; Word → time uses a `Map<WordId, index>` built on load.
+- Time → Word uses binary search on the Sync Map; Word → time uses a `Map<WordId, index>` built on load. Sentences come from the Chapter's Words (`sentenceSpans` in `domain`): they end at a Block's end, or after `.`, `!`, `?` or `…` when the next Word starts like a sentence, never at an abbreviation or an initial.
+- The reader pages by hand (or jumps) while the player is open: auto-turn waits until the narration reaches the page or the reader taps "Back to narration", playing or paused. When the narration moves to the next Chapter, the reader turns to it as its recording starts.
 - On mobile, background playback with lock-screen and Media Session controls is required.
 - Narration updates Reading Progress the same way manual reading does.
 - Pauses when the app is backgrounded only if narration isn't the thing playing.
@@ -838,6 +839,7 @@ export interface ReaderEngine {
   getVisibleRange(): VisibleRange | null;
   select(range: { startOrdinal: number; endOrdinal: number } | null): void; // keyboard selection
   rectOf(anchor: Anchor): DOMRect | null;                                    // where it is on screen
+  chapterText(chapterId: string): Promise<ChapterText>; // a Chapter's Words with their text (narration's sentences)
   on<E extends keyof EngineEvents>(event: E, cb: (payload: EngineEvents[E]) => void): () => void;
 }
 ```
@@ -886,7 +888,7 @@ export interface ReaderPreferences {
   pageTurn: 'none' | 'slide' | 'fade';
   illustrations: 'popup' | 'per-page' | 'spread' | 'in-text' | 'off';
   narration: { rate: number; autoTurn: boolean; highlight: 'word' | 'sentence' | 'off' };
-  hintsSeen: string[];           // one-off hints dismissed (e.g. 'illustrations'), global only
+  hintsSeen: string[];           // one-off hints dismissed ('illustrations', 'narration'), global only
 }
 ```
 

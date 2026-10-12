@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { nativeAudio } from './native-audio';
 import type { FilesAdapter, Platform } from './types';
 import { webAudio, webDeepLinks, webFiles, webHaptics, webShare } from './web';
 
@@ -39,13 +40,15 @@ async function blobToBase64(blob: Blob): Promise<string> {
 
 /**
  * Capacitor (Android now, iOS from the backlog). File import uses the web file input (ADR-004
- * check 3); saving goes through the share sheet. Audio and deep links still use the web
- * implementations until their phases (P1-LAY-04 for narration).
+ * check 3); saving goes through the share sheet; narration plays natively (ADR-004 check 4,
+ * P1-LAY-04). iOS keeps web audio until backlog item IOS-04; deep links use the web
+ * implementation until they're needed.
  */
 export function capacitorPlatform(): Platform {
+	const ios = Capacitor.getPlatform() === 'ios';
 	return {
-		kind: Capacitor.getPlatform() === 'ios' ? 'ios' : 'android',
-		audio: webAudio(),
+		kind: ios ? 'ios' : 'android',
+		audio: ios ? webAudio() : nativeAudio(),
 		files: capacitorFiles,
 		share: webShare,
 		haptics: webHaptics,

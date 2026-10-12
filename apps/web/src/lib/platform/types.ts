@@ -4,25 +4,57 @@
  * The Capacitor implementations are stubs until ADR-004 (P0-07) names the plugins.
  */
 
-export interface AudioTrackInfo {
+/** One file of a playlist: for narration, a Chapter. */
+export interface AudioItem {
+	/** Absolute, or relative to the app's own origin. */
+	src: string;
+	/** Shown on the lock screen, e.g. the Chapter's title. */
 	title: string;
+}
+
+/** What the lock screen shows for every item. */
+export interface AudioTrackInfo {
+	/** The narrator. */
 	artist?: string;
+	/** The Book. */
 	album?: string;
 	artworkUrl?: string;
 }
 
-export type AudioEvent = 'play' | 'pause' | 'timeupdate' | 'ended' | 'error';
+/**
+ * `play`/`pause`: playing started or stopped, from the app or the lock screen. `item`: another
+ * item became current (the last one ended, or "next" on the lock screen). `ended`: the last item
+ * finished. `error`: an item couldn't be played; `error` says why.
+ */
+export type AudioEvent = 'play' | 'pause' | 'item' | 'ended' | 'error';
 
-/** Narration playback, including lock-screen controls where the platform has them. */
+/**
+ * Narration playback as a playlist, with lock-screen and Media Session controls where the
+ * platform has them (DESIGN.md §8.3, ADR-004). On Android it's native (Media3), so it keeps
+ * playing, and moves on to the next Chapter, while the app is in the background.
+ */
 export interface AudioAdapter {
-	/** Never starts playing by itself (Invariant 11). */
-	load(src: string, info: AudioTrackInfo): Promise<void>;
+	/** Loads a playlist, ready at an item and position. Never starts playing (Invariant 11). */
+	load(
+		items: AudioItem[],
+		info: AudioTrackInfo,
+		start: { index: number; positionMs: number }
+	): Promise<void>;
 	play(): Promise<void>;
 	pause(): void;
-	seek(positionMs: number): void;
+	/** Moves within the current item, or to a position in another one. */
+	seek(positionMs: number, index?: number): void;
+	/** 0.5–3; keeps the pitch. */
 	setRate(rate: number): void;
+	/** Stops, and removes the lock-screen controls. */
+	unload(): void;
+	readonly index: number;
+	/** Current to within a frame, so it can drive highlighting (§8.3: within 100 ms). */
 	readonly positionMs: number;
+	/** The current item's duration, or 0 while unknown. */
+	readonly durationMs: number;
 	readonly playing: boolean;
+	readonly error: string | null;
 	on(event: AudioEvent, callback: () => void): () => void;
 }
 

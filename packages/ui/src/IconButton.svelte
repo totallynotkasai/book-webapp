@@ -147,13 +147,16 @@
 		color: var(--md-sys-color-inverse-on-surface);
 	}
 
-	.icon-button:disabled {
+	/* aria-disabled: looks unavailable but stays focusable, so a tap can say why (§11.7). */
+	.icon-button:disabled,
+	.icon-button[aria-disabled='true'] {
 		cursor: default;
 		color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
 		background: transparent;
 	}
 
-	.icon-button:disabled::before {
+	.icon-button:disabled::before,
+	.icon-button[aria-disabled='true']::before {
 		display: none;
 	}
 

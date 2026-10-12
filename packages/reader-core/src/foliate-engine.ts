@@ -16,6 +16,7 @@ import {
 import { ChapterContent } from './content';
 import { BASE_CSS, MARGINS, themeCss, typographyCss } from './styles';
 import type {
+	ChapterText,
 	Decoration,
 	EngineEvent,
 	EngineEvents,
@@ -792,7 +793,32 @@ export class FoliateEngine implements ReaderEngine {
 		for (const name of [...win.CSS.highlights.keys()]) {
 			if (String(name).startsWith('rd-')) win.CSS.highlights.delete(name);
 		}
-		for (const [name, ranges] of byName) win.CSS.highlights.set(name, new win.Highlight(...ranges));
+		for (const [name, ranges] of byName) {
+			const highlight = new win.Highlight(...ranges);
+			// The narrated Word shows over the reader's own highlights.
+			if (name === 'rd-narration') highlight.priority = 1;
+			win.CSS.highlights.set(name, highlight);
+		}
+	}
+
+	async chapterText(chapterId: string): Promise<ChapterText> {
+		const index = this.#manifest.chapters.findIndex((c) => c.chapterId === chapterId);
+		if (index < 0) throw new Error(`This Revision has no Chapter ${chapterId}.`);
+		const words = await this.#chapterWords(index);
+		const current = this.#current();
+		const map =
+			(current?.index === index && this.#maps.get(current.doc)) ||
+			new DocWordMap(
+				await this.#content.chapterDocument(this.#manifest.chapters[index]!.href),
+				words
+			);
+		return {
+			chapterId,
+			firstOrdinal: words.index.firstOrdinal,
+			wordIds: words.index.words.map((w) => w[0]),
+			texts: words.index.words.map((_, i) => map.text(i)),
+			blocks: words.index.words.map((w) => w[1])
+		};
 	}
 
 	injectFigures(items: FigureInjection[]): void {

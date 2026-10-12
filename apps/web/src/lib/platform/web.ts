@@ -1,52 +1,13 @@
 import type {
-	AudioAdapter,
-	AudioEvent,
 	DeepLinksAdapter,
 	FilesAdapter,
 	HapticsAdapter,
 	Platform,
 	ShareAdapter
 } from './types';
+import { webAudio } from './web-audio';
 
-/** HTML audio plus Media Session, for browsers. Background playback is browser-dependent. */
-export function webAudio(): AudioAdapter {
-	const element = new Audio();
-	element.preload = 'metadata';
-
-	return {
-		async load(src, info) {
-			element.src = src;
-			if ('mediaSession' in navigator) {
-				navigator.mediaSession.metadata = new MediaMetadata({
-					title: info.title,
-					artist: info.artist,
-					album: info.album,
-					artwork: info.artworkUrl ? [{ src: info.artworkUrl }] : []
-				});
-				navigator.mediaSession.setActionHandler('play', () => void element.play());
-				navigator.mediaSession.setActionHandler('pause', () => element.pause());
-			}
-		},
-		play: () => element.play(),
-		pause: () => element.pause(),
-		seek(positionMs) {
-			element.currentTime = positionMs / 1000;
-		},
-		setRate(rate) {
-			element.playbackRate = rate;
-		},
-		get positionMs() {
-			return element.currentTime * 1000;
-		},
-		get playing() {
-			return !element.paused;
-		},
-		on(event: AudioEvent, callback) {
-			element.addEventListener(event, callback);
-			return () => element.removeEventListener(event, callback);
-		}
-	};
-}
+export { webAudio };
 
 export const webFiles: FilesAdapter = {
 	pickFiles({ accept, multiple = false }) {
