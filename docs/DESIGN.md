@@ -795,6 +795,8 @@ export interface FigureInjection {
   srcset?: string;
   alt: string;
   caption?: string;
+  width?: number;   // the image's size, so its space is kept while it loads
+  height?: number;
 }
 
 export interface EngineEvents {
@@ -830,7 +832,8 @@ export interface ReaderEngine {
   setPageTurn(turn: PageTurn): void;
 
   setDecorations(group: string, items: Decoration[]): void; // replaces the group
-  injectFigures(items: FigureInjection[]): void;            // replaces all figures
+  injectFigures(items: FigureInjection[]): void;            // replaces all figures; re-paginates, keeping place
+  relayout(change: () => void | Promise<void>): Promise<void>; // the mount element changes size (a panel opens)
 
   getVisibleRange(): VisibleRange | null;
   select(range: { startOrdinal: number; endOrdinal: number } | null): void; // keyboard selection
@@ -883,6 +886,7 @@ export interface ReaderPreferences {
   pageTurn: 'none' | 'slide' | 'fade';
   illustrations: 'popup' | 'per-page' | 'spread' | 'in-text' | 'off';
   narration: { rate: number; autoTurn: boolean; highlight: 'word' | 'sentence' | 'off' };
+  hintsSeen: string[];           // one-off hints dismissed (e.g. 'illustrations'), global only
 }
 ```
 

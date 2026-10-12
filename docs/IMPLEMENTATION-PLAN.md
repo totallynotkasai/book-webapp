@@ -19,7 +19,7 @@
 | **1.1** App shell and design system | Every area clickable with demo data; the whole app themed from one seed colour | P1-UI-01 to 03, P1-APP-01, P1-APP-02 | Done (12 Oct 2026; notes in §6) |
 | **1.2** Read a book | *Alice*, the status-window fixture and your own EPUBs, fully customisable, resuming at the same Word | P1-ING-01, P1-ING-02, P1-RDR-01 to 05, P1-RDR-08, P1-APP-03 | Done (12 Oct 2026; notes in §6) |
 | **1.3** Make it yours | Highlights, notes, Placed Bookmarks, export; an edited re-import keeps your notes | P1-RDR-06, P1-RDR-07, P1-ING-03, P1-APP-04 | Done (12 Oct 2026; notes in §6) |
-| **1.4** Illustrations ★ | All four Illustration modes with the Tenniel pack, plus a second pack | P1-LAY-01, P1-LAY-02, P1-LAY-06, P1-LAY-07 | Not started |
+| **1.4** Illustrations ★ | All four Illustration modes with the Tenniel pack, plus a second pack | P1-LAY-01, P1-LAY-02, P1-LAY-06, P1-LAY-07 | Done (12 Oct 2026; notes in §6) |
 | **1.5** Narration ★ | Synced narration for chapters 1–3: highlighting, auto-turn, tap-to-seek, lock-screen playback | P1-LAY-03, P1-LAY-04 | Not started |
 | **1.6** Store and ownership (simulated) | Browse, buy (simulated) and claim Books; Complete edition; Bookmark Designs; Tips; Creator Subscriptions with early-access Chapters | P1-STO-01 to 05 | Not started |
 | **1.7** Creator Studio (simulated) | Upload and publish a Book, publish a new Revision, build an Illustration Pack, add narration, set up plans | P1-STU-01 to 04, P1-LAY-05 | Not started |
@@ -492,6 +492,23 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 - Open the lightbox and zoom.
 - Turn on the Rackham pack too, put it first, and swipe between packs.
 - Jump far ahead with the scrubber, then back: nothing from ahead of you ever appears.
+
+**Done (12 October 2026): what was built and how it differs from the plan.** Every Try-it item is a Playwright spec in Chromium and WebKit (`apps/web/e2e/illustrations.spec.ts`), with the never-ahead rule checked in each mode and after scrubber jumps, and the Layers contract cases in `@book/contract-tests`. Deviations:
+
+- **`tools/resolve-anchors` and `tools/images` are one command**, `npm run layers` (`tools/src/build-packs.ts`, a new `@book/tools` workspace run with tsx; sharp 0.35.5 for images). It reads hand-checked pack sources in `fixtures/layers/*.source.json`, fails unless every quote occurs exactly once in the catalogue *Alice* and every picture has alt text, and writes `pack.json` (Anchors on the Revision `backend-local` makes) plus WebP variants under `apps/web/static/demo/layers/`. **That output isn't committed** (about 14 MB): `dev`, `build`, `build:tester` and `test` build it first when it's missing or older than its sources. `draft-pack-sources.ts` drafted the quotes from the captions and the Rackham edition's text; they were then checked by hand.
+- **Variants never upscale:** the Tenniel scans are 1,184 px wide, so they get 640 and 1,184; Rackham's are smaller still. WebP quality 78 (lossless was twice the size on the engravings).
+- **Rackham's alt text was written for this pack** from the pictures (Gutenberg's are titles or missing); Tenniel's is Standard Ebooks' (CC0). Placement: Tenniel inline; Rackham's colour plates full page, drawings inline. Early pictures (Chapters 1–2) are marked `spoilerSafe` for store pages in 1.6.
+- **Seed version 5, backend database version 4:** Illustration Pack records with Products and grant Entitlements. Every Persona holds both packs except the Moderator, who lacks Rackham's, so the "can't turn on" path is tryable. Claiming or buying packs comes with the store (1.6).
+- **`Backend.layers`** has `list(bookId)` (with `entitled` per pack) and `openPack(packId)`; images are read with `content.read` under a pack-scoped content token, so Layer files and Book files share one loader, as P1-LAY-01 says. A pack token reads only that pack's files.
+- **Default selection** (every official pack held) and saved-selection clean-up (packs no longer held drop out) are rules in `@book/domain`. Nothing is written to `layerSelection` until the reader changes it.
+- **The engine** gained `relayout(change)` (the per-page and spread panels resize the page; the first visible Word stays on screen) and re-paginates around `injectFigures`; figures carry their image size so pages don't shift while images load. DESIGN.md §9.1 updated.
+- **Mode switching keeps the first visible Word on screen**, as §9.1 requires; it can end up near the bottom of the new page, so several switches in a row drift back a little.
+- **The mode picker is a radio list with a line about each mode** (five segments didn't fit the side sheet), in an Illustrations sheet opened from a top-bar button; I opens the picture (pop-up mode) or the sheet.
+- **First-use hint** is a dismissible card under the picture button, shown in pop-up mode until "Got it" or the first look; it's remembered in Reader Preferences as `hintsSeen` (DESIGN.md §9.4), so it's per reader and syncs later.
+- **The new-picture dot** compares with the picture last opened in this session (not stored).
+- **Spread mode** shows the previous and current pictures side by side from 900 px wide when both are single-page; there's no double-page art in either pack yet, so `span: 'double'` is untested with real art.
+- **A crossfade can show the outgoing picture for its 600 ms fade** after moving back past its Anchor; the current picture is always one at or before the last visible Word.
+- **New `Overlay` component** in `@book/ui` (a modal without a title bar, card or full screen) for the pop-up card and the lightbox; `Switch` gained `hideLabel`.
 
 ### Phase 1.5 — Narration ★
 
