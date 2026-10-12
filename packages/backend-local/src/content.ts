@@ -28,11 +28,22 @@ export type IngestFn = (
 /** Tokens last an hour (§10.3). */
 export const CONTENT_TOKEN_MS = 60 * 60 * 1000;
 
-interface Grant {
-	userId: string;
-	bookId: string;
-	revisionId: string;
-	expiresAt: number;
+/** What a content token opens: one Book Revision's files, or one Illustration Pack's images. */
+type Grant =
+	| { kind: 'revision'; userId: string; bookId: string; revisionId: string; expiresAt: number }
+	| { kind: 'pack'; userId: string; packId: string; baseUrl: string; expiresAt: number };
+
+const MEDIA_TYPES: Record<string, string> = {
+	webp: 'image/webp',
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	png: 'image/png',
+	json: 'application/json'
+};
+
+/** `ContentApi` plus issuing tokens for pack files, which `layers.openPack` uses. */
+export interface ContentModule extends ContentApi {
+	grantPack(packId: string, baseUrl: string): { token: string; expiresAt: number };
 }
 
 export function createContentApi(deps: {
@@ -41,7 +52,7 @@ export function createContentApi(deps: {
 	requireUser: () => UserDto;
 	loadFile: (url: string) => Promise<Uint8Array>;
 	ingest: IngestFn;
-}): ContentApi {
+}): ContentModule {
 	const { db, clock } = deps;
 	const grants = new Map<string, Grant>();
 	const processing = new Map<string, Promise<string>>();
@@ -114,7 +125,7 @@ export function createContentApi(deps: {
 			const creator = await db.get('creators', book.creatorId);
 			const token = newToken();
 			const expiresAt = clock.now().getTime() + CONTENT_TOKEN_MS;
-			grants.set(token, { userId: user.id, bookId, revisionId, expiresAt });
+			grants.set(token, { kind: 'revision', userId: user.id, bookId, revisionId, expiresAt });
 			return {
 				bookId,
 				revisionId,
@@ -135,9 +146,34 @@ export function createContentApi(deps: {
 					'Your reading session ended. Open the book again.'
 				);
 			}
+			if (grant.kind === 'pack') {
+				// Only files inside the pack: no parent directories, no absolute paths.
+				if (
+					path.split('/').some((part) => part === '..' || part === '') ||
+					/^[a-z]+:/i.test(path)
+				) {
+					throw new BackendError('NOT_FOUND', `This pack has no file ${path}.`);
+				}
+				const type =
+					MEDIA_TYPES[path.split('.').pop()!.toLowerCase()] ?? 'application/octet-stream';
+				try {
+					const bytes = await deps.loadFile(`${grant.baseUrl}/${path}`);
+					return new Blob([bytes as Uint8Array<ArrayBuffer>], { type });
+				} catch {
+					throw new BackendError('NOT_FOUND', `This pack has no file ${path}.`);
+				}
+			}
 			const file = await db.get('content', [grant.revisionId, path]);
 			if (!file) throw new BackendError('NOT_FOUND', `This book has no file ${path}.`);
 			return new Blob([file.bytes], { type: file.type });
+		},
+
+		grantPack(packId, baseUrl) {
+			const user = deps.requireUser();
+			const token = newToken();
+			const expiresAt = clock.now().getTime() + CONTENT_TOKEN_MS;
+			grants.set(token, { kind: 'pack', userId: user.id, packId, baseUrl, expiresAt });
+			return { token, expiresAt };
 		}
 	};
 }

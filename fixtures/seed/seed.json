@@ -1,5 +1,5 @@
 {
-	"version": 4,
+	"version": 5,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -165,6 +165,34 @@
 			"listingState": "listed"
 		}
 	],
+	"illustrationPacks": [
+		{
+			"id": "pack-alice-tenniel",
+			"bookId": "book-alice",
+			"creatorId": "creator-lewis-carroll",
+			"name": "John Tenniel’s illustrations",
+			"description": "The 42 wood engravings from the first edition (1865), placed where Carroll’s text describes them.",
+			"isOfficial": true,
+			"aiUse": "none",
+			"credit": "Illustrations by John Tenniel (1865), public domain. Images: Standard Ebooks, CC0.",
+			"packUrl": "/demo/layers/pack-alice-tenniel/pack.json",
+			"illustrationCount": 42,
+			"listingState": "listed"
+		},
+		{
+			"id": "pack-alice-rackham",
+			"bookId": "book-alice",
+			"creatorId": "creator-ink-and-quill",
+			"name": "Arthur Rackham’s illustrations",
+			"description": "Rackham’s 1907 colour plates and drawings, curated for this edition by Ink & Quill.",
+			"isOfficial": false,
+			"aiUse": "none",
+			"credit": "Illustrations by Arthur Rackham (1907), public domain, from Project Gutenberg #28885. Curated by Ink & Quill.",
+			"packUrl": "/demo/layers/pack-alice-rackham/pack.json",
+			"illustrationCount": 27,
+			"listingState": "listed"
+		}
+	],
 	"products": [
 		{
 			"id": "product-book-alice",
@@ -243,6 +271,32 @@
 				"currency": "GBP"
 			},
 			"status": "active"
+		},
+		{
+			"id": "product-pack-alice-tenniel",
+			"kind": "illustration_pack",
+			"refId": "pack-alice-tenniel",
+			"bookId": "book-alice",
+			"creatorId": "creator-lewis-carroll",
+			"isOfficial": true,
+			"price": {
+				"amountMinor": 0,
+				"currency": "GBP"
+			},
+			"status": "active"
+		},
+		{
+			"id": "product-pack-alice-rackham",
+			"kind": "illustration_pack",
+			"refId": "pack-alice-rackham",
+			"bookId": "book-alice",
+			"creatorId": "creator-ink-and-quill",
+			"isOfficial": false,
+			"price": {
+				"amountMinor": 0,
+				"currency": "GBP"
+			},
+			"status": "active"
 		}
 	],
 	"entitlements": [
@@ -278,6 +332,55 @@
 			"id": "ent-author-lamplighters-ledger",
 			"userId": "user-author",
 			"productId": "product-book-lamplighters-ledger",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-reader-alice-tenniel",
+			"userId": "user-reader",
+			"productId": "product-pack-alice-tenniel",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-author-alice-tenniel",
+			"userId": "user-author",
+			"productId": "product-pack-alice-tenniel",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-illustrator-alice-tenniel",
+			"userId": "user-illustrator",
+			"productId": "product-pack-alice-tenniel",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-moderator-alice-tenniel",
+			"userId": "user-moderator",
+			"productId": "product-pack-alice-tenniel",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-reader-alice-rackham",
+			"userId": "user-reader",
+			"productId": "product-pack-alice-rackham",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-author-alice-rackham",
+			"userId": "user-author",
+			"productId": "product-pack-alice-rackham",
+			"source": "grant",
+			"grantedAt": "2026-01-01T00:00:00.000Z"
+		},
+		{
+			"id": "ent-illustrator-alice-rackham",
+			"userId": "user-illustrator",
+			"productId": "product-pack-alice-rackham",
 			"source": "grant",
 			"grantedAt": "2026-01-01T00:00:00.000Z"
 		}

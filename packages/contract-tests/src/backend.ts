@@ -214,6 +214,67 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 			}, 60_000);
 		});
 
+		describe('layers (Entitlements first, §8.1, Invariants 15 and 16)', () => {
+			/** The first Book in the reader's library that has Illustration Packs. */
+			async function bookWithPacks() {
+				await backend.session.signInAs(personaWithRole('reader').id);
+				const library = await backend.library.list();
+				for (const entry of library.items) {
+					const packs = await backend.layers.list(entry.book.id);
+					if (packs.length) return { bookId: entry.book.id, packs };
+				}
+				throw new Error('The seed needs a Book with Illustration Packs in the reader’s library.');
+			}
+
+			it('lists a Book’s packs, official first, saying which the user holds', async () => {
+				const { packs } = await bookWithPacks();
+				conforms('layers', 'list', packs);
+				const official = packs.map((p) => p.isOfficial);
+				expect(official).toEqual([...official].sort((a, b) => Number(b) - Number(a)));
+				expect(packs.some((p) => p.entitled)).toBe(true);
+				expect(await backend.layers.list('no-such-book')).toEqual([]);
+			});
+
+			it('opens a pack: Illustrations on Anchors, in reading order, images through content.read', async () => {
+				const { packs } = await bookWithPacks();
+				const opened = await backend.layers.openPack(packs.find((p) => p.entitled)!.id);
+				conforms('layers', 'openPack', opened);
+				expect(opened.illustrations.length).toBeGreaterThan(0);
+				const starts = opened.illustrations.map((i) => i.anchor.startOrdinal);
+				expect(starts).toEqual([...starts].sort((a, b) => a - b));
+				for (const ill of opened.illustrations) {
+					expect(ill.alt.trim()).not.toBe('');
+					expect(ill.anchor.revisionId).toBe(opened.revisionId);
+				}
+				const image = await backend.content.read(
+					opened.contentToken,
+					opened.illustrations[0]!.image.variants[0]!.path
+				);
+				expect(image.type).toMatch(/^image\//);
+				expect(image.size).toBeGreaterThan(0);
+				// A pack's token opens that pack's files and nothing else.
+				await expectBackendError(
+					backend.content.read(opened.contentToken, '../../books/alice.epub'),
+					'NOT_FOUND'
+				);
+			});
+
+			it('rejects packs the user doesn’t hold, and unknown ones', async () => {
+				const { bookId } = await bookWithPacks();
+				let rejected = false;
+				for (const persona of await backend.session.listPersonas()) {
+					await backend.session.signInAs(persona.id);
+					const missing = (await backend.layers.list(bookId)).find((p) => !p.entitled);
+					if (!missing) continue;
+					await expectBackendError(backend.layers.openPack(missing.id), 'ENTITLEMENT_REQUIRED');
+					rejected = true;
+					break;
+				}
+				expect(rejected, 'the seed needs a Persona without some pack').toBe(true);
+				await expectBackendError(backend.layers.openPack('no-such-pack'), 'NOT_FOUND');
+			});
+		});
+
 		describe('studio (authorisation enforced in the backend, §10.6)', () => {
 			it('rejects non-Creators with FORBIDDEN', async () => {
 				await backend.session.signInAs(personaWithRole('reader').id);
