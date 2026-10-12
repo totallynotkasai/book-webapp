@@ -1,0 +1,35 @@
+{
+	"revisionId": "1d6f6fe4d92b27f07b6dc539f6f96d2b313aec8f73d95e34889b9e93acac7a4e",
+	"title": "The Lamplighter's Ledger",
+	"wordCount": 8262,
+	"chapters": 8,
+	"toc": 7,
+	"report": {
+		"title": "The Lamplighter's Ledger",
+		"chapterCount": 7,
+		"wordCount": 8262,
+		"imageCount": 1,
+		"warnings": []
+	},
+	"files": {
+		"content/text/chapter-1.xhtml": "7656b7583a22ddc81556eac16f2462f09ee369590920673f45e516974f397e97",
+		"content/text/chapter-2.xhtml": "d1557c0093b18b42d9459bb84c6ae1b9f4a13f2880c50a10829f2b1212c7113a",
+		"content/text/chapter-3.xhtml": "98c2afc089419ac9f704aa7fdb42cd515fd75dc4fd1a3ba6ed0b316e13c38ab2",
+		"content/text/chapter-4.xhtml": "ac98acdd4feddc79658dee542822dc7f6a52f1cb216193f8db9594623909a793",
+		"content/text/chapter-5.xhtml": "507396c8aff5efc696b33b1e81aed921aa919f642edb28e4cfd0ef2c2185da0d",
+		"content/text/chapter-6.xhtml": "797ed98f9653887d117c62af76867645ddcdf368db9fd57bfa56dac9b31e42bd",
+		"content/text/cover.xhtml": "e123562721995c86a64429ef1a68df7ea52b1a6b71a3d1026e1e7aa96f701723",
+		"content/text/notice.xhtml": "431ab2463ca1c9eaec0c0b1dbd75b696b3d4760014c3624d3f71e36f8f75a1ba",
+		"index/text/chapter-1.xhtml.words.json": "169db5764405b3dcb1ad71a9eff4dcc8aaa7319af553dd4a2a6d487db0bd2668",
+		"index/text/chapter-2.xhtml.words.json": "9a3f4350479af6a05fd0cec0bdc1af386e55ce61ce521b5e4e9c6d2c42b45367",
+		"index/text/chapter-3.xhtml.words.json": "c32c235449ccfc891abd7477ad52b32b0666f23f128cb1c5caeaa81047597bbf",
+		"index/text/chapter-4.xhtml.words.json": "5eaad245ee2f3e48d6d9b0726368304eb67bcddad07b8ca4f9f3ae004122a0bf",
+		"index/text/chapter-5.xhtml.words.json": "74c4d362f70de48fbe2400516bf52d2a05db5d4fb6da2806194ab7a020b2ceba",
+		"index/text/chapter-6.xhtml.words.json": "54961d27107056a77d3e68bea34f9b9e6dd9fdf60d28e9d3a964973a010ea2a7",
+		"index/text/cover.xhtml.words.json": "ca214116f82e81bf2e3e30e06b8802c9be73c254bd5e8acbfba2d6c28f5c80c6",
+		"index/text/notice.xhtml.words.json": "4efc2a49753acc7c6ae84411031b595a2290b16e3cbc1e27c5666828935df726",
+		"manifest.json": "0178e2fb8fb350c1a1d4cf1db5657f708401de5f5d4795aacb5f5ec1be925f95",
+		"res/images/cover.jpg": "8a2d606a45f9663c2509b0f366313bca6d4c2cc280a760369ac3d54b89da2799",
+		"res/styles/book.css": "d1dd026add8be91a35e3a38f3d3bb44bbd37468eb1258aa4dc00c3b25661e36e"
+	}
+}

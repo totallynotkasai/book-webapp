@@ -1,0 +1,23 @@
+{
+	"name": "@book/text-pipeline",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "EPUB ingestion: validate, sanitise, mark Blocks, tokenise, assign WordIds and Ordinals, emit the word index and manifest (DESIGN.md §7.1). Pure and deterministic; runs in browsers (in a Web Worker) and in Node.",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc -p ."
+	},
+	"dependencies": {
+		"@book/core": "*",
+		"css-tree": "3.2.1",
+		"domhandler": "6.0.1",
+		"fflate": "0.8.3",
+		"htmlparser2": "12.0.0"
+	},
+	"devDependencies": {
+		"@types/css-tree": "3.2.0"
+	}
+}
