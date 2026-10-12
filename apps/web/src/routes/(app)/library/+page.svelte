@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from '@book/ui';
+	import { readerHref } from '$lib/links';
 	import BookCard from '$lib/components/BookCard.svelte';
 	import BookGrid from '$lib/components/BookGrid.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
@@ -76,7 +77,7 @@
 							<li>
 								<BookCard
 									book={{ ...item.book, coverUrl: item.coverUrl }}
-									href={resolve('/read/[bookId]', { bookId: item.bookId })}
+									href={readerHref(item.bookId)}
 									detail={percent(item)}
 								/>
 							</li>
@@ -91,7 +92,7 @@
 						<li>
 							<BookCard
 								book={{ ...item.book, coverUrl: item.coverUrl }}
-								href={resolve('/read/[bookId]', { bookId: item.bookId })}
+								href={readerHref(item.bookId)}
 								showPrice={false}
 								detail={item.source === 'import' ? 'Imported' : percent(item)}
 							/>

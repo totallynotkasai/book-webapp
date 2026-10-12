@@ -4,7 +4,12 @@
  */
 import type { IngestFailureCode } from '@book/core';
 import type { IngestResult } from '@book/text-pipeline';
-import type { WorkerRequest, WorkerResponse } from './protocol';
+import type {
+	MigrationResult,
+	PreviousRevisionRequest,
+	WorkerRequest,
+	WorkerResponse
+} from './protocol';
 
 /** An import failed for a reason the reader can act on (the message says what to do). */
 export class ImportFailure extends Error {
@@ -22,7 +27,7 @@ let nextId = 1;
 const pending = new Map<
 	number,
 	{
-		resolve: (r: IngestResult) => void;
+		resolve: (r: IngestOutput) => void;
 		reject: (e: Error) => void;
 		onProgress?: (done: number, total: number) => void;
 	}
@@ -37,7 +42,7 @@ function getWorker(): Worker {
 			if (!job) return;
 			if (message.type === 'progress') return job.onProgress?.(message.done, message.total);
 			pending.delete(message.id);
-			if (message.type === 'done') job.resolve(message.result);
+			if (message.type === 'done') job.resolve({ ...message.result, migration: message.migration });
 			else job.reject(new ImportFailure(message.code, message.message));
 		};
 		worker.onerror = (event) => {
@@ -55,14 +60,19 @@ export interface IngestRequest {
 	bookId?: string;
 	firstWordId?: number;
 	newBookId?: string;
+	/** A new version of a Book already here: carry WordIds forward and migrate its Anchors. */
+	previous?: PreviousRevisionRequest;
 	onProgress?: (done: number, total: number) => void;
 }
+
+/** What the worker returns: the processed Revision, and migrated Anchors for a new version. */
+export type IngestOutput = IngestResult & { migration?: MigrationResult };
 
 /** Processes an EPUB in the worker. The bytes are copied, so the caller can keep its buffer. */
 export function ingestInWorker(
 	bytes: Uint8Array,
 	request: IngestRequest = {}
-): Promise<IngestResult> {
+): Promise<IngestOutput> {
 	const id = nextId++;
 	const copy = bytes.slice().buffer;
 	return new Promise((resolve, reject) => {
@@ -72,7 +82,8 @@ export function ingestInWorker(
 			bytes: copy,
 			bookId: request.bookId,
 			firstWordId: request.firstWordId,
-			newBookId: request.newBookId
+			newBookId: request.newBookId,
+			previous: request.previous
 		};
 		getWorker().postMessage(message, [copy]);
 	});

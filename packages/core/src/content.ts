@@ -143,7 +143,11 @@ export const revisionManifestSchema = z.object({
 	coverPath: z.string().nullable(),
 	wordCount: nonNegative,
 	/** The Book's WordId counter after this Revision (§6.2). */
-	nextWordId: int.positive()
+	nextWordId: int.positive(),
+	/** The Revision this one was carried forward from; absent on a Book's first Revision. */
+	previousRevisionId: z.string().min(1).optional(),
+	/** WordIds of the previous Revision that this one no longer has (§6.2 step 2). */
+	deletedWordIds: z.array(int.positive()).optional()
 });
 export type RevisionManifest = z.infer<typeof revisionManifestSchema>;
 

@@ -70,6 +70,37 @@ export function storedPreferences(page: Page, userId: string) {
 	);
 }
 
+/** Every live record in one of a user's Stores object stores (soft-deleted ones left out). */
+export function storedRecords<T = Record<string, unknown>>(
+	page: Page,
+	userId: string,
+	store: string
+): Promise<T[]> {
+	return page.evaluate(
+		([name, storeName]) =>
+			new Promise<T[]>((resolve) => {
+				const open = indexedDB.open(name!);
+				open.onupgradeneeded = () => open.transaction?.abort();
+				open.onerror = () => resolve([]);
+				open.onsuccess = () => {
+					const db = open.result;
+					if (!db.objectStoreNames.contains(storeName!)) {
+						db.close();
+						return resolve([]);
+					}
+					const all = db.transaction(storeName!).objectStore(storeName!).getAll();
+					all.onsuccess = () =>
+						resolve(
+							(all.result as { deletedAt?: string | null }[]).filter((r) => !r.deletedAt) as T[]
+						);
+					all.onerror = () => resolve([]);
+					all.transaction.oncomplete = () => db.close();
+				};
+			}),
+		[`book-reader:${userId}`, store]
+	);
+}
+
 /** Waits until a font-scale change has been written, so navigating away can't lose it. */
 export async function expectStoredFontScale(page: Page, userId: string, fontScale: number) {
 	await expect.poll(() => storedPreferences(page, userId)).toMatchObject({ fontScale });

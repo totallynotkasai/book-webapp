@@ -59,6 +59,20 @@ export const webFiles: FilesAdapter = {
 			input.addEventListener('cancel', () => resolve([]));
 			input.click();
 		});
+	},
+	async saveFile({ name, mimeType, data }) {
+		const blob = typeof data === 'string' ? new Blob([data], { type: mimeType }) : data;
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = name;
+		link.rel = 'noopener';
+		document.body.append(link);
+		link.click();
+		link.remove();
+		// Give the download a moment to start before the URL goes away.
+		setTimeout(() => URL.revokeObjectURL(url), 10_000);
+		return 'saved';
 	}
 };
 

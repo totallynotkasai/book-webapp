@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { Button, Dialog, Icon, Progress } from '@book/ui';
+	import { readerHref } from '$lib/links';
 	import { getPlatform } from '$lib/platform';
-	import { importEpub, reportSummary, type ImportOutcome } from './import';
+	import { importEpub, migrationText, reportSummary, type ImportOutcome } from './import';
 
 	/**
 	 * Import an EPUB (P1-ING-02): pick a file, watch it process, then read a plain-language report
@@ -60,7 +60,7 @@
 		{:else if outcome?.kind === 'imported'}
 			<p data-testid="import-summary">{reportSummary(outcome.title, outcome.report)}</p>
 			{#if outcome.newRevision}
-				<p class="muted">This is a new version of a book you already had.</p>
+				<p class="muted" data-testid="import-migration">{migrationText(outcome.migration)}</p>
 			{/if}
 			{#if outcome.report.warnings.length}
 				<ul class="warnings">
@@ -82,7 +82,7 @@
 		{#if stage === 'done'}
 			<Button variant="text" onclick={() => (open = false)}>Close</Button>
 			{#if outcome && outcome.kind !== 'failed'}
-				<Button href={resolve('/read/[bookId]', { bookId: outcome.bookId })}>Read now</Button>
+				<Button href={readerHref(outcome.bookId)}>Read now</Button>
 			{/if}
 		{/if}
 	{/snippet}

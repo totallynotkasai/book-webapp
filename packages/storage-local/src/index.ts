@@ -13,7 +13,8 @@ import {
 	type PreferencesStore,
 	type ProgressStore,
 	type RecordChanges,
-	type Stores
+	type Stores,
+	type StoresSnapshot
 } from '@book/core';
 import { DEFAULT_DB_NAME, GLOBAL_PREFERENCES_KEY, openReaderDB, type Database } from './db';
 
@@ -212,7 +213,75 @@ function layerSelectionStore(db: Database, clock: Clock): LayerSelectionStore {
 	};
 }
 
-/** Creates the full set of stores backed by the browser's IndexedDB. */
+/** Every record in one read transaction, so the snapshot is consistent (P1-APP-04). */
+async function exportAll(db: Database, clock: Clock): Promise<StoresSnapshot> {
+	const tx = db.transaction(
+		[
+			'libraryBooks',
+			'libraryRevisions',
+			'libraryFiles',
+			'annotations',
+			'placedBookmarks',
+			'progress',
+			'preferences',
+			'layerSelection'
+		],
+		'readonly'
+	);
+	const preferences = tx.objectStore('preferences');
+	const [
+		libraryBooks,
+		libraryRevisions,
+		files,
+		annotations,
+		placedBookmarks,
+		progress,
+		patches,
+		keys,
+		layerSelection
+	] = await Promise.all([
+		tx.objectStore('libraryBooks').getAll(),
+		tx.objectStore('libraryRevisions').getAll(),
+		tx.objectStore('libraryFiles').getAll(),
+		tx.objectStore('annotations').getAll(),
+		tx.objectStore('placedBookmarks').getAll(),
+		tx.objectStore('progress').getAll(),
+		preferences.getAll(),
+		preferences.getAllKeys(),
+		tx.objectStore('layerSelection').getAll()
+	]);
+	await tx.done;
+	return {
+		format: 'book-reader-data',
+		version: 1,
+		exportedAt: timestamp(clock),
+		libraryBooks,
+		libraryRevisions,
+		libraryFiles: files.map((f) => ({
+			revisionId: f.revisionId,
+			path: f.path,
+			type: f.type,
+			bytes: f.bytes.byteLength
+		})),
+		annotations,
+		placedBookmarks,
+		progress,
+		preferences: patches.map((patch, i) => ({
+			bookId: keys[i] === GLOBAL_PREFERENCES_KEY ? null : String(keys[i]),
+			preferences: patch
+		})),
+		layerSelection
+	};
+}
+
+/** Clears every object store in one transaction: the database stays, empty and usable. */
+async function deleteAll(db: Database): Promise<void> {
+	const names = [...db.objectStoreNames];
+	const tx = db.transaction(names, 'readwrite');
+	await Promise.all(names.map((name) => tx.objectStore(name).clear()));
+	await tx.done;
+}
+
 /** `Stores` plus closing the connection, which only the app's composition root needs. */
 export interface LocalStores extends Stores {
 	close(): void;
@@ -228,6 +297,8 @@ export async function createLocalStores(options: LocalStoresOptions = {}): Promi
 		progress: progressStore(db, clock),
 		preferences: preferencesStore(db),
 		layerSelection: layerSelectionStore(db, clock),
+		exportAll: () => exportAll(db, clock),
+		deleteAll: () => deleteAll(db),
 		close: () => db.close()
 	};
 }

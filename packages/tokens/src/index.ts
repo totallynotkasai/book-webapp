@@ -1,4 +1,10 @@
-import type { ContrastLevel, FontId, ReaderPreferences, ThemeMode } from '@book/core';
+import type {
+	ContrastLevel,
+	FontId,
+	HighlightColour,
+	ReaderPreferences,
+	ThemeMode
+} from '@book/core';
 
 export * from './theme';
 
@@ -13,6 +19,15 @@ export const contrastLabels: Record<ContrastLevel, string> = {
 	standard: 'Standard',
 	medium: 'Medium',
 	high: 'High'
+};
+
+/** Names for the five highlight colours (their hues are in `theme.ts`), for screen readers and filters. */
+export const highlightLabels: Record<HighlightColour, string> = {
+	1: 'Yellow',
+	2: 'Green',
+	3: 'Blue',
+	4: 'Pink',
+	5: 'Purple'
 };
 
 export const fontLabels: Record<FontId, string> = {

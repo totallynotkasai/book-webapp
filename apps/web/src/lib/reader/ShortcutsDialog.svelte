@@ -11,6 +11,11 @@
 		['Ctrl +  /  Ctrl −  /  Ctrl 0', 'Larger, smaller or default text'],
 		['Esc', 'Show or hide the reading controls; close a panel'],
 		['Tab', 'Show the reading controls and move through them'],
+		['Shift+→  /  Shift+←', 'Select words on the page, one at a time'],
+		['Tab, then ←  →', 'With a selection: move through highlight colours, note and copy'],
+		['H', 'Highlight the selection in the last colour used'],
+		['B', 'Bookmark this page, or remove its bookmark'],
+		['N', 'Notes and highlights'],
 		['?', 'This list']
 	];
 </script>
