@@ -1487,7 +1487,7 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | D-014 | The PoC uses *Alice* only (Tenniel illustrations, LibriVox narration); status windows tested with a hand-made fixture | Accepted; amended by D-023 |
 | D-015 | Reader engine. **Proposed in ADR-001:** foliate-js behind our `ReaderEngine` adapter, pinned by git commit | Proposed (12 Oct 2026); awaiting the owner's feel score and the Android measurements |
 | D-016 | Word marking and word index format. **Proposed in ADR-002:** Blocks carry `data-b`; a per-Chapter word index holds `[wordId, block, start, end]` with a per-Block check | Proposed (12 Oct 2026); awaiting the TalkBack check |
-| D-017 | Alignment model and hosting | Pending ADR-003 (narration spike in progress) |
+| D-017 | Alignment model and hosting. **Proposed in ADR-003:** whisper.cpp `base.en` with DTW token timestamps (`-ojf -nfa --dtw`), per-chapter bias correction, CPU hosting (about 0.3–0.6 CPU-hours per audio hour), no GPU | Proposed (12 Oct 2026); awaiting the owner's listening check |
 | D-018 | Mobile audio, selection and file plugins. **Draft in ADR-004:** native playback with a native media session for background narration; native selection plus our toolbar; `<input type=file>`; Capacitor SystemBars insets | Draft (12 Oct 2026); awaiting device checks on the owner's phone |
 | D-019 | AI-generated content allowed but must be labelled; readers can hide it; authors can refuse it on their Books (§10.6). Resolves the former OPEN-09 | Accepted |
 | D-020 | Automatic Flags (upload volume, suspected unlabelled AI, reports, new accounts) with a manual admin review queue and author curation tools, from Phase 2 (§10.6) | Accepted |
@@ -1516,6 +1516,7 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | OPEN-11 | *Resolved by D-008* (no platform-wide subscription; Creator Subscriptions instead). Remaining detail: Creator Subscription rules: plan limits, refunds, what happens to early-access benefits when a serial finishes | Before Phase 4 |
 | OPEN-12 | Age policy and content-rating scheme | Before Phase 5 |
 | OPEN-13 | Word marking: spans or offsets? *Proposed in ADR-002: offsets (not yet accepted).* | P0-05 |
+| OPEN-14 | **Deterministic tokenisation.** §7.1 tokenises with `Intl.Segmenter`, whose word boundaries come from each runtime's ICU data: the P0-05/P0-06 spikes found WebKit and Chromium give the same EPUB different WordIds (off by 4 from chapter 1 of *Alice*). `text-pipeline` runs in the browser for imports and for `backend-local`'s catalogue (§5.4), and in Node from Phase 2, so the same Revision could get different WordIds per device, which would break Sync Maps and cross-device Annotations. *Proposed (not decided):* a versioned, deterministic Word tokeniser in `text-pipeline` (UAX #29 word rules with our own data, no `Intl.Segmenter`), with the tokeniser version recorded on each Revision, plus a cross-runtime golden test (Chromium, WebKit, Node). Hard to reverse once WordIds are stored | P1-ING-01 (before any WordId is stored) |
 
 ---
 

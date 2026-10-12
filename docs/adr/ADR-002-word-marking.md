@@ -86,9 +86,13 @@ One JSON file per Chapter, next to its XHTML (`index/{chapterId}.words.json`, §
 - Size, modelled for a 10,854-Word chapter: about 195 KB as plain JSON and 68 KB gzipped. That is still smaller than option A's markup *overhead* (348.7 KB of spans vs 65.4 KB of plain XHTML). If size matters later, delta-encoding `wordId` and `start` is a versioned change.
 - The narration Sync Map (§7.2) and every Anchor keep using WordIds, so nothing else in DESIGN.md changes.
 
+## A finding that affects both options: WordIds depend on the browser
+
+The spike assigns WordIds in the browser with `Intl.Segmenter`, as DESIGN.md §7.1 says. **WebKit and Chromium segment the same EPUB differently** (the narration spike found every WordId from chapter 1 of *Alice* is 4 lower in WebKit, and this spike's runs show the same first page as Words 1–126 in Chromium but 1–122 in WebKit). The marking option doesn't matter; the tokeniser does. Because `text-pipeline` will run in the browser for imports and for `backend-local`'s catalogue, and in Node from Phase 2, this is raised as **OPEN-14** (deterministic tokenisation), to settle in P1-ING-01 before any WordId is stored.
+
 ## Consequences
 
-- P1-ING-01 marks Blocks with `data-b` and emits this index; it does not wrap Words.
+- P1-ING-01 marks Blocks with `data-b` and emits this index; it does not wrap Words. It also settles OPEN-14 first.
 - P1-RDR-01's Anchor ↔ Range mapping is the spike's `WordMap` (offset variant), plus the Block check and quote fallback above.
 - Selection-to-Word, visible-Word search and highlights stay engine-neutral, in `reader-core`.
 - The narration highlight (P1-LAY-04) paints Ranges built from the index. The narration spike (P0-06) uses option A only because it was built first; its alignment is independent of the marking.
