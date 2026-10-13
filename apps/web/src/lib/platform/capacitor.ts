@@ -103,8 +103,40 @@ async function blobToBase64(blob: Blob): Promise<string> {
  * P1-LAY-04). iOS keeps web audio until backlog item IOS-04, and the web's theme-colour bars
  * until IOS-09.
  */
+/** What Escape closes: dialogs, sheets and menus, the selection toolbar and the pop-up picture. */
+const CLOSABLE = [
+	'[role="dialog"]',
+	'[role="alertdialog"]',
+	'[role="menu"]',
+	'[data-testid="selection-toolbar"]',
+	'[data-testid="illustration-card"]'
+].join(', ');
+
+/**
+ * Android's Back (P1-MOB-01): first closes whatever is open on top, as Escape does; otherwise goes
+ * back a screen; on a top-level screen (Library, Store, Studio, You), puts the app in the
+ * background rather than closing it. Without this, Back left the reader with a sheet still open
+ * on it, and on the Library went "back" to `/`, which opens the Library again.
+ */
+function handleBackButton() {
+	void App.addListener('backButton', ({ canGoBack }) => {
+		const topLevel = location.pathname.split('/').filter(Boolean).length <= 1;
+		if (document.querySelector(CLOSABLE)) {
+			const target = document.activeElement ?? document.body;
+			target.dispatchEvent(
+				new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+			);
+		} else if (canGoBack && !topLevel) {
+			history.back();
+		} else {
+			void App.minimizeApp();
+		}
+	});
+}
+
 export function capacitorPlatform(): Platform {
 	const ios = Capacitor.getPlatform() === 'ios';
+	if (!ios) handleBackButton();
 	return {
 		kind: ios ? 'ios' : 'android',
 		// Studio uploads are blob: URLs the native player can't open, so they play in the WebView.

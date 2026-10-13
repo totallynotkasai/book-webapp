@@ -251,6 +251,15 @@ await step('three bookmarks', async () => {
 	return `${count} listed`;
 });
 
+await step('Back closes an open sheet before it leaves the book', async () => {
+	await press('n');
+	await page.getByRole('dialog').waitFor();
+	adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+	await page.getByRole('dialog').waitFor({ state: 'detached' });
+	if (!page.url().includes('/read/')) throw new Error(`left the book for ${page.url()}`);
+	await settle();
+});
+
 await step('closing the app and opening it again resumes at the same Word', async () => {
 	const before = await settle();
 	// As a reader closes it: to the background (where the app saves its place), then gone.
