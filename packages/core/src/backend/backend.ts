@@ -40,6 +40,17 @@ import type {
 	StudioTrackDto,
 	TrackDetailsInput
 } from '../studio';
+import type {
+	ActInput,
+	CommunityHubDto,
+	CreatorProfileDto,
+	CurationDto,
+	FlagDetailDto,
+	InboxMessageDto,
+	ModerationActionLogDto,
+	ReportInput,
+	StudioLayerDto
+} from '../community';
 import type { LayerSummaryDto, OpenPackDto, OpenTrackDto } from '../layers';
 import type {
 	BookmarkDesignDto,
@@ -238,6 +249,44 @@ export interface StudioApi {
 	savePlan(planId: string | null, input: PlanInput): Promise<PlanDto>;
 	/** Simulated earnings with placeholder revenue splits (OPEN-08 stays open). */
 	earnings(): Promise<EarningsDto>;
+
+	/** The Creator's packs and narrations on any Book, their community work included (P1-COM-01). */
+	listLayers(): Promise<StudioLayerDto[]>;
+	/** Curation for one of the author's own Books: submissions, community Layers, Flags (P1-ADM-02). */
+	curation(bookId: string): Promise<CurationDto>;
+	/** Approves or declines a community submission on the author's Book; the creator is told why. */
+	decide(layerId: string, decision: 'approve' | 'decline', reason: string): Promise<CurationDto>;
+	/** "Author-endorsed": endorsed community Layers sort first in the hub (§4.8). */
+	endorse(layerId: string, endorsed: boolean): Promise<CurationDto>;
+	/** Hides (delists) or relists a community Layer on the author's Book (§10.6). */
+	setCommunityListing(layerId: string, listed: boolean): Promise<CurationDto>;
+}
+
+/**
+ * Community Layers (DESIGN.md §4.8, §6.6; P1-COM-01, P1-COM-02): a Book's hub, ratings, follows,
+ * Creator profiles and readers' reports. Making and submitting a community Layer is in `studio`
+ * (createPack/createTrack on another author's Book), where the author's policy is enforced
+ * (Invariant 19).
+ */
+export interface CommunityApi {
+	/** Rejects with `NOT_FOUND` for a Book that isn't listed. */
+	hub(bookId: string): Promise<CommunityHubDto>;
+	/**
+	 * One rating per reader per Layer; rating again replaces it. Needs the Layer
+	 * (`ENTITLEMENT_REQUIRED`). Returns the Layer with its new average.
+	 */
+	rate(layerId: string, stars: number): Promise<LayerSummaryDto>;
+	profile(creatorHandle: string): Promise<CreatorProfileDto>;
+	follow(creatorHandle: string, following: boolean): Promise<CreatorProfileDto>;
+	/** A reader's report (reason required) raises a `report` Flag; more reports raise its priority. */
+	report(input: ReportInput): Promise<void>;
+}
+
+/** A user's in-app inbox: moderation outcomes, submissions, approvals (plan §4.7). */
+export interface InboxApi {
+	/** Newest first. */
+	list(): Promise<InboxMessageDto[]>;
+	markRead(messageId: string): Promise<void>;
 }
 
 export interface ModerationApi {
@@ -246,6 +295,15 @@ export interface ModerationApi {
 	 * `FORBIDDEN` for anyone who isn't a moderator or admin, inside the backend (P1-ADM-02).
 	 */
 	listQueue(page?: PageRequest): Promise<Page<FlagDto>>;
+	/** A Flag with its content, evidence and the creator's history. */
+	getFlag(flagId: string): Promise<FlagDetailDto>;
+	/**
+	 * Approve, require relabelling, hide, remove, warn or suspend, with a reason. Written to the
+	 * append-only action log, and the creator is told in their inbox how to appeal.
+	 */
+	act(flagId: string, input: ActInput): Promise<FlagDetailDto>;
+	/** The append-only action log, newest first. */
+	listActions(page?: PageRequest): Promise<Page<ModerationActionLogDto>>;
 }
 
 /** Topics screens can refresh on. Phase 2 drives them from sync pulls, later push. */
@@ -256,7 +314,10 @@ export const backendTopics = [
 	/** Tips and subscriptions. */
 	'support',
 	'studio',
-	'moderation'
+	'moderation',
+	/** Community hubs, ratings and follows. */
+	'community',
+	'inbox'
 ] as const;
 export type BackendTopic = (typeof backendTopics)[number];
 
@@ -275,5 +336,7 @@ export interface Backend {
 	layers: LayersApi;
 	studio: StudioApi;
 	moderation: ModerationApi;
+	community: CommunityApi;
+	inbox: InboxApi;
 	events: BackendEvents;
 }

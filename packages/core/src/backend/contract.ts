@@ -47,6 +47,17 @@ import {
 	studioTrackSchema,
 	trackDetailsInputSchema
 } from '../studio';
+import {
+	actInputSchema,
+	communityHubSchema,
+	creatorProfileSchema,
+	curationSchema,
+	flagDetailSchema,
+	inboxMessageSchema,
+	moderationActionLogSchema,
+	reportInputSchema,
+	studioLayerSchema
+} from '../community';
 import { pageRequestSchema, pageSchema } from './paging';
 
 const optionalPage = z.tuple([pageRequestSchema.optional()]);
@@ -158,10 +169,35 @@ export const backendContract = {
 		publishTrack: { input: slug, output: studioTrackSchema },
 		listPlans: { input: none, output: z.array(planSchema) },
 		savePlan: { input: z.tuple([id.nullable(), planInputSchema]), output: planSchema },
-		earnings: { input: none, output: earningsSchema }
+		earnings: { input: none, output: earningsSchema },
+		listLayers: { input: none, output: z.array(studioLayerSchema) },
+		curation: { input: slug, output: curationSchema },
+		decide: {
+			input: z.tuple([id, z.enum(['approve', 'decline']), z.string().trim().max(1000)]),
+			output: curationSchema
+		},
+		endorse: { input: z.tuple([id, z.boolean()]), output: curationSchema },
+		setCommunityListing: { input: z.tuple([id, z.boolean()]), output: curationSchema }
+	},
+	community: {
+		hub: { input: slug, output: communityHubSchema },
+		rate: {
+			input: z.tuple([id, z.number().int().min(1).max(5)]),
+			output: layerSummarySchema
+		},
+		profile: { input: slug, output: creatorProfileSchema },
+		follow: { input: z.tuple([id, z.boolean()]), output: creatorProfileSchema },
+		report: { input: z.tuple([reportInputSchema]), output: z.undefined() }
+	},
+	inbox: {
+		list: { input: none, output: z.array(inboxMessageSchema) },
+		markRead: { input: slug, output: z.undefined() }
 	},
 	moderation: {
-		listQueue: { input: optionalPage, output: pageSchema(flagSchema) }
+		listQueue: { input: optionalPage, output: pageSchema(flagSchema) },
+		getFlag: { input: slug, output: flagDetailSchema },
+		act: { input: z.tuple([id, actInputSchema]), output: flagDetailSchema },
+		listActions: { input: optionalPage, output: pageSchema(moderationActionLogSchema) }
 	}
 } satisfies {
 	[M in keyof ApiModules]: { [K in keyof ApiModules[M]]: MethodContract };
