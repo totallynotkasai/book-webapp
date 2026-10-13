@@ -1,8 +1,8 @@
 # Implementation plan: from groundwork to a product you can try
 
-> **Status:** Accepted v1 · 11 October 2026 · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
-> **Purpose:** the order of work that takes the repo from today's groundwork to a build the owner can use on desktop and on their Android phone to try every area of the product (reading, Illustrations, narration, notes, store, Creator Studio, community and moderation) with **no backend**, built so a real backend later replaces the simulated one without rewriting the app.
-> **How it fits with DESIGN.md:** DESIGN.md §13 defines every task (its dependencies and acceptance criteria). This plan splits DESIGN.md's Phase 0 and Phase 1 into smaller phases that each end in something to try, and adds the architecture detail, UX notes and Try-it checklists. Decisions D-021 to D-024 (DESIGN.md §16) record what this plan changed. iOS work is in [BACKLOG.md](BACKLOG.md).
+> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
+> **Purpose:** the order of work that takes the repo from today's groundwork to a build the owner can use on desktop and on their Android phone to try every area of the product (reading, Illustrations, narration, notes, store, Creator Studio, community and moderation) with **no backend**, built so a real backend later replaces the simulated one without rewriting the app. Then, in phases 2.1–2.13, the real backend: accounts, sync across devices, author publishing and a free library.
+> **How it fits with DESIGN.md:** DESIGN.md §13 defines every task (its dependencies and acceptance criteria). This plan splits DESIGN.md's Phases 0, 1 and 2 into smaller phases that each end in something to try, and adds the architecture detail, UX notes and Try-it checklists. Decisions D-021 to D-024 and D-032 (DESIGN.md §16) record what this plan changed. iOS work is in [BACKLOG.md](BACKLOG.md).
 
 ---
 
@@ -10,7 +10,7 @@
 
 **Approach.** Build the core reading experience as DESIGN.md Phase 0 and Phase 1 describe. Alongside it, build a *simulated backend* that runs in the browser: a typed `Backend` interface in `@book/core`, implemented now by `@book/backend-local` (its own IndexedDB database, seeded demo data, simulated payments, a Persona switcher instead of sign-in) and in Phase 2 by an HTTP client for the real API. Shared contract tests prove both implementations behave the same. The business rules (Entitlements, Bundles, subscriptions, Flags, community policy) live in a pure `@book/domain` package that the Phase 2 API imports unchanged. The Store, Creator Studio, community and moderation areas can then be built and tried now, against the same interface the real backend will serve.
 
-**Phases.** Each phase ends with a build the owner can open and try. Phases 0.x belong to DESIGN.md's Phase 0 and phases 1.x to its Phase 1, matching the task IDs (`P0-…`, `P1-…`). ★ marks the features that test the core bet (DESIGN.md §1.3).
+**Phases.** Each phase ends with a build the owner can open and try. Phases 0.x belong to DESIGN.md's Phase 0, phases 1.x to its Phase 1 and phases 2.x to its Phase 2, matching the task IDs (`P0-…`, `P1-…`, `P2-…`). ★ marks the features that test the core bet (DESIGN.md §1.3).
 
 | Phase | What the owner can try at the end | Tasks | Status |
 |---|---|---|---|
@@ -25,8 +25,23 @@
 | **1.7** Creator Studio (simulated) | Upload and publish a Book, publish a new Revision, build an Illustration Pack, add narration, set up plans | P1-STU-01 to 04, P1-LAY-05 | Done (13 Oct 2026; notes in §6) |
 | **1.8** Community and moderation (simulated) | Submit, approve, endorse and rate community Layers; Flags and the admin review queue | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 | Done (13 Oct 2026; notes in §6) |
 | **1.9** Android build and PoC readiness | The Android app, a tester build, the PoC review kit | P1-MOB-01, P1-QA-01 to 03 | Done (13 Oct 2026; notes in §6) |
+| **2.1** Server foundations | Postgres, object storage, the API and the worker running on your PC from one command | P2-OPS-01 | Not started |
+| **2.2** The app on the real API | The app talking to the API on your PC; what the API doesn't serve yet is hidden | P2-APP-01 | Not started |
+| **2.3** Sign in | Real accounts: an email link or Google, on desktop and in the Android app | P2-AUTH-01 | Not started |
+| **2.4** Sync across devices | A note made on one device appears on the other; "You were further ahead on another device" | P2-SYNC-01, P2-RDR-01 | Not started |
+| **2.5** Your data and your account | Your PoC notes kept on first sign-in; export your data; delete your account | P2-SYNC-02, P2-ACC-01 | Not started |
+| **2.6** Upload to the server | An EPUB uploaded in the Studio, processed by the worker, with its ingest report | P2-ING-01 | Not started |
+| **2.7** Open Books from the server | Your upload previewed in the reader, served through content tokens | P2-CAT-02, P2-CAT-03 | Not started |
+| **2.8** Publish and the free library | Publish a Book; as a reader, find it, add it to your library and read it anywhere | P2-CAT-01, P2-CAT-04 | Not started |
+| **2.9** New Revisions keep readers' notes | DESIGN.md's Phase 2 exit flow, end to end | P2-ING-02 | Not started |
+| **2.10** Flags and held content | AI labels and Flag rules on real uploads; unlabelled bursts held for review | P2-MOD-01 | Not started |
+| **2.11** Review queue | Reports, the moderators' queue and action log, outcomes in the creator's inbox | P2-MOD-02 | Not started |
+| **2.12** Staging | The app on the internet: `main` deploys to staging; your phone on mobile data | P2-OPS-02 | Not started |
+| **2.13** Errors and analytics | Errors reported without personal data; documented, cookie-less analytics | P2-OPS-03 | Not started |
 
-After phase 1.3 the work splits into two tracks that can run in parallel or in either order: the **Layers track** (1.4, 1.5) and the **Platform track** (1.6, 1.7, 1.8). See §7.
+After phase 1.3 the work splits into two tracks that can run in parallel or in either order: the **Layers track** (1.4, 1.5) and the **Platform track** (1.6, 1.7, 1.8). After phase 2.3 it splits again: the **Reader track** (2.4, 2.5) and the **Author track** (2.6–2.8) meet in 2.9; **Moderation** (2.10, 2.11) follows the Author track; **Operations** (2.12, 2.13) can start any time after 2.1 once hosting is chosen. See §7.
+
+**Phase 2's phases are smaller than Phase 1's.** Each Phase 1 phase was one working session of 4,000–10,000 changed lines, which proved too much for one session. Each Phase 2 phase is about one **L** task or two **M** tasks, roughly half that; if a phase still looks bigger when it starts, split it again before starting (D-032).
 
 **Fastest routes to something you can feel:** the phase 0.2 spike pages (first real reading and narration on your phone), phase 1.1 (the whole product's shape, clickable) and phase 1.2 (the first reader you'd use every day).
 
@@ -69,6 +84,17 @@ After phase 1.3 the work splits into two tracks that can run in parallel or in e
 | Deterministic tokenisation (OPEN-14) | *Decided 12 Oct 2026: our own versioned tokeniser (D-026)* | P1-ING-01 |
 | Placeholder brand seed colour (does not resolve OPEN-07) | *Decided 12 Oct 2026 (owner): deep teal `#00696B`*, in `PLACEHOLDER_SEED` in `packages/tokens` | P1-UI-01 |
 | How testers get the build | *Decided 13 Oct 2026 (owner): the web build on GitHub Pages, deployed with the built-in token only and kept host-agnostic (D-029); Android as a direct APK signed with a committed PoC-only key (D-030); one tester build, with facilitator links adding simulated areas per device (D-031). Testers with iPhones use the web build in Safari* | P1-QA-03 |
+
+**To decide for Phase 2** (none of these is decided by this plan):
+
+| Decision | Recommendation | Decided by |
+|---|---|---|
+| Go on Phase 2, and the backend stack (D-004, *Proposed*) | — | The PoC review (DESIGN.md §13.3), before 2.1 |
+| Hosting for the API and worker (OPEN-06) | — | The PoC review; needed by 2.12 only |
+| What a build on the real API does with areas the API doesn't serve until Phases 3–5 (Illustrations and narration, payments, community) | Hide them, as flagged-off areas are hidden now; owner builds can still choose the simulated backend to try them | P2-APP-01 |
+| Reading without an account | Reading and importing need no account, as in the PoC; the store, the Studio and sync do | P2-AUTH-01 |
+| Do imported Books sync between devices? (OPEN-15) | Their notes, bookmarks and progress sync; the EPUB file stays on the device that imported it, so on another device the reader imports the same file and their notes appear | P2-SYNC-01 |
+| AI-detection services and thresholds (the rest of OPEN-09) | — | P2-MOD-01 |
 
 ---
 
@@ -208,14 +234,14 @@ Pure, unit-tested functions that decide outcomes, imported by `backend-local` no
 
 ### 4.8 Phase 2: how the backend plugs in
 
-1. `apps/api` (stack per D-004, confirmed at the PoC review) implements each `Backend` module's routes on top of `packages/domain` and `packages/db`.
-2. `packages/backend-http` implements `Backend` with `fetch` and the same Zod schemas, and passes the contract suite against the Docker API.
-3. `packages/storage-remote` wraps `storage-local` with the outbox and pull (DESIGN.md §6.3) and passes the Stores contract suite.
-4. `session` switches from Personas to the auth provider; Personas remain for development and tests only.
-5. `services.ts` swaps the implementations.
-6. First sign-in offers to upload the device's library and reader data.
-7. `apps/worker` reuses `text-pipeline`, `alignment` and `migrateAnchors` as they are.
-8. `backend-local` stays for E2E tests and offline demos, or is deleted.
+1. `apps/api` (stack per D-004, confirmed at the PoC review) implements each `Backend` module's routes on top of `packages/domain` and `packages/db` (from phase 2.1, a module at a time).
+2. `packages/backend-http` implements `Backend` with `fetch` and the same Zod schemas, and passes the contract suite against the Docker API, one module at a time as each phase adds it (from 2.2).
+3. `packages/storage-remote` wraps `storage-local` with the outbox and pull (DESIGN.md §6.3) and passes the Stores contract suite (2.4).
+4. `session` switches from Personas to the auth provider; Personas remain for development and tests only (2.3).
+5. `services.ts` swaps the implementations, chosen per build so the simulated backend stays available (2.2).
+6. First sign-in offers to upload the device's library and reader data (2.5).
+7. `apps/worker` reuses `text-pipeline`, `alignment` and `migrateAnchors` as they are (2.6, 2.9).
+8. `backend-local` stays for E2E tests and offline demos, and for trying the areas the API serves only from Phases 3–5, or is deleted.
 
 ### 4.9 Package map after this plan
 
@@ -266,6 +292,8 @@ Destinations: **Library · Store · Studio** (Creator Personas only) **· You** 
 | Curation for an Author's Books | `/studio/books/[bookId]/community` | Author | — | 1.8 |
 | Admin review queue and Flag detail | `/admin`, `/admin/flags/[flagId]` | Moderator | 1.1 | 1.8 |
 | Dev panel | `/dev` | Owner builds | 0.1 | 0.1 |
+| Sign in | `/sign-in` | Everyone | — | 2.3 |
+| You → Data: sync status, account export and deletion | `/you/data` | Signed in | 1.3 | 2.4–2.5 |
 
 ---
 
@@ -701,6 +729,219 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 - **Android: a signed APK (D-030),** not Play Console internal testing (BACKLOG AND-01). `npm run apk:tester -w @book/web` signs `build-tester` with the committed PoC key; CI builds it on every PR as an artifact (no narration audio there; the tester workflow's has it).
 - **`docs/poc-review.md`:** before the first session, preparing each one, a session script, the observation sheet, the §13.3 questions and what to record afterwards, and the limits testers may meet.
 
+### Phase 2: what applies to every phase
+
+DESIGN.md's Phase 2 (§13.4) is split into phases 2.1–2.13 (D-032). Throughout:
+
+- **It starts after the PoC review** (DESIGN.md §13.3): its go decision, and confirming the backend stack (D-004). Hosting (OPEN-06) is needed only by 2.12; until then everything runs on the owner's PC in Docker.
+- **Two backends side by side.** A build setting chooses `backend-local` (simulated) or `backend-http` (the API). Each phase adds its modules to `apps/api` and `backend-http` and runs their contract cases against the Docker API. `backend-local` keeps passing every case, so the areas the API serves only from Phases 3–5 stay tryable in simulated builds.
+- **Each phase's Try-it list is Playwright specs against the Docker API**, in Chromium and WebKit, in a CI job of its own beside the simulated-backend specs. API modules also get integration tests (Vitest with Docker Postgres and MinIO, DESIGN.md §12.1).
+- **On Android** the app reaches the API on the PC over Wi-Fi or `adb reverse`, as it reaches the dev server now; from 2.12, staging over mobile data.
+- **No push yet.** `events` fire after the app's own changes and when a screen refreshes; other devices' changes arrive with the next pull (DESIGN.md §6.3).
+- **A free library.** Prices stay at zero until Phase 4; checkout, Tips, subscriptions and earnings appear only in simulated builds.
+- **Small phases** (§1), one branch and PR each (`p2-1-server-foundations`, D-025), with a "Done" note added here when each one finishes, as in Phase 1.
+
+### Phase 2.1 — Server foundations
+
+**Goal:** the server-side plumbing, running on the owner's PC. Like 0.1 there's little to look at, but every later phase builds on it.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-OPS-01 | `apps/api` (Hono: `/v1/health`, the §10.1 error envelope, a Zod helper over `@book/core` schemas, CORS for the web and Capacitor origins), `apps/worker` (pg-boss), `packages/db` (Drizzle, drizzle-kit migrations), `docker-compose.yml` (Postgres, MinIO), `.env.example`; import boundaries for the new workspaces; API integration tests in CI | L |
+
+**Try it**
+- Start Postgres, MinIO, the API and the worker with one command, and open `/v1/health`: each part says it's up.
+- Stop Postgres: health says so, and the API recovers when it's back.
+- Open a PR: CI runs the API integration tests against Docker services.
+
+### Phase 2.2 — The app on the real API
+
+**Goal:** the app talks to a real server for the first time, with the simulated backend still one build setting away.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-APP-01 | `packages/backend-http` (`fetch`, the same Zod schemas, §10.1 errors as `BackendError`, `NETWORK_ERROR` when offline, `Idempotency-Key`, paging); the contract suite run module by module; `services.ts` chooses the backend per build; areas the API doesn't serve yet are hidden; the API's test mode (Persona sign-in and a settable clock, for contract tests and E2E, never in staging); `session` over HTTP | M |
+
+**UX notes**
+- The dev panel says which backend the app is using and which areas the API serves. Controls that mean nothing to a real server (latency, failure rate, payment outcome, AI-detector verdict) show only with the simulated backend; offline works with either.
+- `Stores` stay on the device in this phase.
+
+**Try it**
+- Start the stack and the app on the API: you're signed in as a test Persona, your imported Books open as before, and the store, Studio and Admin are hidden because the API doesn't serve them yet.
+- Switch the build back to the simulated backend: every area returns with its demo data.
+- Stop the API: the app shows its offline state, and imported Books still open.
+
+### Phase 2.3 — Sign in
+
+**Goal:** real accounts. Personas stay for development and tests only.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-AUTH-01 | Sign-in with an email link and Google on web and Android, through the auth provider confirmed with D-004 (Apple is BACKLOG IOS-14); the API verifies tokens and upserts `users`; `GET/PATCH /v1/me`; roles; sign out; `Stores` kept per account | L |
+
+**UX notes**
+- Sign in from You, or when an action needs an account (Add to library, the Studio). One screen: an email field with "Email me a link", then "Continue with Google".
+- In the Android app the email link and Google return to the app through its deep link (the `bookpoc://` scheme from P1-QA-03).
+- Locally, sign-in emails go to a mail catcher in Docker, so nothing is sent.
+- Roles (creator, moderator) are given with a command for now; there's no screen for them.
+
+**Try it**
+- Sign in on desktop with an email link, then with Google, and sign out.
+- Do the same in the Android app.
+- Sign in as two accounts in turn on one device: each has its own notes.
+- End the session from the auth provider's side: the app asks you to sign in again and nothing on the device is lost.
+
+### Phase 2.4 — Sync across devices
+
+**Goal:** notes, bookmarks, reading place and preferences follow the reader between devices, still local-first.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-SYNC-01 | `storage-remote` wrapping `storage-local`: outbox, incremental pull, conflict rules (DESIGN.md §6.3, §9.5); API routes and tables for Annotations, Placed Bookmarks, Reading Progress and Reader Preferences (§10.1). Layer selection stays on the device until Phase 3 | L |
+| P2-RDR-01 | Cross-device progress prompt (§9.5) | S |
+
+**UX notes**
+- Sync is quiet: nothing in the reader waits on it. You → Data says "Synced just now" or "3 changes waiting for a connection".
+- The progress prompt appears when a Book opens, never while reading.
+
+**Try it**
+- Import the same EPUB on desktop and on your phone (whether imported files themselves sync is OPEN-15). Highlight on desktop: it appears on the phone.
+- Turn the phone's network off, add a note and a bookmark, turn it back on: they reach the desktop.
+- Edit the same note on both while offline: the later edit wins on both.
+- Read on in the phone, then open the Book on desktop: "You were further ahead on another device. Jump there?"
+
+### Phase 2.5 — Your data and your account
+
+**Goal:** people keep what they made in the PoC, can take everything with them, and can leave.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-SYNC-02 | "Keep my notes and bookmarks": on first sign-in, offer to copy the device's data from before sign-in (signed out, or a PoC build's Reader) into the account | M |
+| P2-ACC-01 | Account data export (`GET /v1/me/export`) and account deletion (`DELETE /v1/me`), in You → Data | M |
+
+**Try it**
+- On a device with PoC notes, install the new build and sign in: "Keep my notes and bookmarks" brings them into your account on the same Words, and they reach your other device.
+- Say no on another device: nothing is uploaded, and the notes stay on that device.
+- Export your account's data and open the file.
+- Delete a test account: it's signed out everywhere and its data is gone.
+
+### Phase 2.6 — Upload to the server
+
+**Goal:** the author's side moves to the server, starting with the worker processing an upload.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-ING-01 | Presigned uploads with DESIGN.md §10.2's limits and checks; the `ingest-epub` job running `text-pipeline` in the worker (epubcheck report-only); Revisions, Chapters and deleted WordIds stored per §6.4 and §6.7; the ingest report; a first upload makes a draft Book | L |
+
+**Try it**
+- As an author account, upload your launch title's EPUB in the Studio: it shows processing, then the ingest report from the server.
+- Upload a broken EPUB (a readable reason), the same file again (nothing new) and a file over the limit (refused before it uploads).
+- Look for the Studio as a reader account: it isn't there, and the API refuses too.
+
+### Phase 2.7 — Open Books from the server
+
+**Goal:** the reader opens Books served by the API, with access decided by Entitlements.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-CAT-02 | Products and Entitlements: the one access function, reusing `domain`; Creators' `grant`s; "Add to library" (free claim); a default Bookmark Design for every account; the cloud Library | M |
+| P2-CAT-03 | `POST /v1/books/:bookId/open`, content tokens and `/v1/content/:token/*` (DESIGN.md §10.3); a Creator's preview of their own Revisions | M |
+
+**Try it**
+- Preview your upload: it opens in the reader from the server with its images and styles; change the font size and the same Word stays on screen.
+- Open a chapter's content address in a browser that isn't signed in: refused. Let the token expire on the test clock: reading carries on.
+- As another account, open the preview's address: the Book doesn't open, because it isn't theirs.
+
+### Phase 2.8 — Publish and the free library
+
+**Goal:** an author publishes; readers find the Book, add it and read it anywhere.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-CAT-01 | Book management: settings (details, cover, content rating and warnings, the AI-use answer, `community_policy`, `community_ai`), publishing and listing states; Creator profiles | M |
+| P2-CAT-04 | Catalogue, search and the public Book and Creator pages, readable signed out | M |
+
+**UX notes**
+- In API builds the Book page offers "Add to library" only; Layers, Tip and Subscribe stay hidden until their phases.
+
+**Try it**
+- As the author, fill in the Book's settings, answer the AI question and publish; edit your Creator profile.
+- Signed out, browse and search the store and open the Book page.
+- As a reader, add the Book to your library, read on desktop and carry on at the same Word on your phone.
+- Place a bookmark: it's drawn with the default Bookmark Design every account owns.
+
+### Phase 2.9 — New Revisions keep readers' notes
+
+**Goal:** DESIGN.md's Phase 2 exit flow on the real platform.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-ING-02 | `migrate-anchors` on publish: a worker job moves every reader's synced Anchors on the Book to the new Revision (DESIGN.md §6.2); Anchors made offline on an older Revision move when that device next opens the Book; orphan notifications in the inbox | M |
+
+**Try it**
+- The Phase 2 exit flow: as the author, upload and publish your launch title. As a reader, sign up bringing your PoC notes, add the Book, read and annotate on desktop, and carry on at the same Word on your phone. As the author, edit one paragraph and publish a new Revision: the reader's other notes and bookmarks are unaffected.
+- A note on the deleted paragraph is re-found by its quote, or listed as orphaned with a message in the reader's inbox.
+- Make a note on the phone while it's offline, publish another Revision meanwhile, then reconnect: the note moves too.
+
+### Phase 2.10 — Flags and held content
+
+**Goal:** the automatic side of moderation (DESIGN.md §10.6) on real uploads.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-MOD-01 | AI-use labels from the API and "Hide AI-generated content" on its data; the Flag rules from `domain` run on publish, with thresholds in one config; the held-for-review state; AI detection as OPEN-09's remaining detail decides | M |
+
+**UX notes**
+- `rapid_new_account` fires on paid content, and Phase 2 has none, so it's wired up and unit-tested but can't be tried until Phase 4.
+
+**Try it**
+- Answer "AI-generated" for a Book: the label shows in the store and on its page, and "Hide AI-generated content" hides it.
+- As one author, publish ten Books in quick succession with a dev helper (as in 1.8): `upload_volume` fires, and the unlabelled ones are held, visible only to you.
+
+### Phase 2.11 — Review queue
+
+**Goal:** the people side of moderation: reports, moderators' decisions, and creators told what happened.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-MOD-02 | Reports (reason required); the admin review queue, Flag detail, actions with reasons and the append-only action log; outcomes and how to appeal in the creator's inbox; authors see Flags and reports on their own Books | L |
+
+**Try it**
+- As a reader, report a Book. As a moderator, require relabelling; as the author, answer the AI question again; as the moderator, approve.
+- Hide a Book and list it again; warn and suspend a test account: the suspended author can't publish.
+- As the author, see the Flags and reports on your Books, and the outcomes in your inbox.
+- As a reader account, try the admin addresses: hidden in the app and refused by the API.
+
+### Phase 2.12 — Staging
+
+**Goal:** the platform on the internet, so the owner can try it anywhere and later show testers. Can start any time after 2.1 once hosting is chosen (OPEN-06); doing it before 2.9 lets the exit flow be tried on staging.
+
+| ID | Task | Size |
+|---|---|---|
+| P2-OPS-02 | Staging on the chosen host: API and worker containers, managed Postgres, R2, the web app on a CDN, `main` deploying to staging (DESIGN.md §12.4), backups with a tried restore; an Android build pointed at staging | L |
+
+**Notes**
+- Staging needs secrets (database, auth provider, token signing), kept in the host's secret store and never committed. D-029's "built-in token only" was for the PoC's static site.
+
+**Try it**
+- Merge a PR: staging updates on its own.
+- On your phone, over mobile data, sign in to staging and carry on reading where you were on desktop.
+- Restore last night's backup into a scratch database.
+
+### Phase 2.13 — Errors and analytics
+
+**Goal:** see what breaks and what's used, without collecting what people read (DESIGN.md §10.5).
+
+| ID | Task | Size |
+|---|---|---|
+| P2-OPS-03 | Error reporting (Sentry) in the web app, the Android app, the API and the worker, with personal data scrubbed; privacy-preserving, cookie-less analytics with every event documented in `docs/analytics.md` | M |
+
+**Try it**
+- Trigger the test error in the app, the API and the worker: each reaches Sentry, without your email, book text or notes.
+- Read a Book on staging: only the events in `docs/analytics.md` are sent, and no cookie is set.
+
+**Exit** (DESIGN.md's Phase 2 exit): the flow in 2.9 passes automatically against the Docker API and by hand on staging, on desktop and on your Android phone.
+
 ---
 
 ## 7. Dependencies and parallel tracks
@@ -735,6 +976,37 @@ flowchart LR
 - **After 1.3:** the dotted links hold back single tasks, not whole phases. Phase 1.6 can start before 1.4; its Book pages show Illustration previews once 1.4 lands. Phase 1.7 can start before 1.4 and 1.5 too, but its pack builder (P1-LAY-05) waits for P1-LAY-02 and its narration manager (P1-STU-03) waits for P1-LAY-04.
 - **If time runs short before the PoC review:** drop 1.8 first, then 1.7. Phases 0.1–1.5 and 1.9 are the PoC DESIGN.md requires; nothing in 1.9 depends on 1.6–1.8.
 
+**Phase 2**
+
+```mermaid
+flowchart LR
+  Review["PoC review<br/>(go; D-004)"] --> P21["2.1 Server foundations"] --> P22["2.2 The app on the real API"] --> P23["2.3 Sign in"]
+
+  subgraph Reader["Reader track"]
+    P24["2.4 Sync across devices"] --> P25["2.5 Your data and your account"]
+  end
+  subgraph Author["Author track"]
+    P26["2.6 Upload to the server"] --> P27["2.7 Open Books from the server"] --> P28["2.8 Publish and the free library"]
+  end
+  subgraph Moderation["Moderation"]
+    P210["2.10 Flags and held content"] --> P211["2.11 Review queue"]
+  end
+  subgraph Ops["Operations"]
+    P212["2.12 Staging"] --> P213["2.13 Errors and analytics"]
+  end
+
+  P23 --> P24
+  P23 --> P26
+  P25 --> P29["2.9 New Revisions keep readers' notes"]
+  P28 --> P29
+  P28 --> P210
+  P21 -. "once hosting is chosen (OPEN-06)" .-> P212
+```
+
+- **After 2.3** the Reader and Author tracks can run in parallel or in either order. 2.9 needs both: its exit flow brings PoC notes (2.5) and publishes a Book (2.8).
+- **Moderation** needs publishing (2.8), not 2.9.
+- **Operations** needs only 2.1 and the hosting decision. Doing 2.12 before 2.9 lets the exit flow be tried on staging.
+
 ---
 
 ## 8. UX standards for every screen
@@ -754,7 +1026,8 @@ flowchart LR
 | Layer | From phase | Covers |
 |---|---|---|
 | Unit (Vitest) | 0.1 | `core`, `domain` rules, theme generation, `text-pipeline`, `alignment`, `reader-core` mapping |
-| Contract | 0.1 | Every `Stores` and `Backend` implementation (local now, remote in Phase 2) |
+| Contract | 0.1 | Every `Stores` and `Backend` implementation: the local ones, then `backend-http` (from 2.2, module by module) and `storage-remote` (from 2.4) against the Docker API |
+| API integration (Vitest + Docker Postgres + MinIO) | 2.1 | Every API module and worker job |
 | Golden files | 1.2 | Ingestion: fixture EPUB → XHTML, word index and manifest |
 | Component (@testing-library/svelte) | 1.1 | `ui` components and reader components: keyboard, focus, reduced motion |
 | End to end (Playwright, Chromium + WebKit) | 0.1 (smoke) | One spec per phase's Try-it list; DESIGN.md's Phase 1 exit flows. WebKit is also the only stand-in for iOS until the backlog item is picked up |
@@ -762,7 +1035,7 @@ flowchart LR
 | Device | 0.1 | The owner's Android phone, per `docs/device-checklist.md` from 1.9 (the emulator meanwhile, D-028; `scripts/android-smoke.mjs` runs the Phase 1 exit flow in the installed app); iPhone checks are in the backlog |
 | Performance | 1.9 | The reader route's JavaScript and the import pipeline in CI; all of DESIGN.md §12.3 at phone speed on demand (`npm run test:perf`, `scripts/perf-android.mjs`) |
 
-E2E tests run `backend-local` with zero latency, no injected failures and a fixed clock, plus dedicated specs that switch failures on to check the error states.
+E2E tests run `backend-local` with zero latency, no injected failures and a fixed clock, plus dedicated specs that switch failures on to check the error states. From 2.2, each Phase 2 phase's Try-it specs also run against the Docker API in its test mode (a settable clock and Persona sign-in), in a CI job of their own.
 
 ---
 
@@ -779,6 +1052,9 @@ E2E tests run `backend-local` with zero latency, no injected failures and a fixe
 | Browser or WebView storage is cleared and testers lose notes | P1-APP-04 (persistent storage, export); P0-07 checks the WebView case |
 | Demo content licensing | Public domain and CC0 sources only, each recorded in `fixtures/LICENSES.md` |
 | Personas tangle user data | Stores data is kept per Persona and the app reloads on switch |
+| Phase 2's phases grow back to Phase 1's size | About one L or two M tasks per phase; a phase that looks bigger is split again before it starts (D-032) |
+| Builds on the API and simulated builds drift apart, or the owner can't tell which one they're using | Every module the API serves runs the same contract cases against both; the dev panel names the backend; areas the API doesn't serve yet stay in simulated builds |
+| Sign-in on Android (the email link or Google returning to the app) breaks late | Checked in the Android app in 2.3, the phase that adds it |
 
 ---
 

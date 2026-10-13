@@ -1,6 +1,6 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 13 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031)
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 13 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15)
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
 > **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
@@ -386,7 +386,7 @@ Existing folders are kept. New ones are added when their phase starts.
 ├─ AGENTS.md                    # short pointer to this doc + commands (Appendix C)   [Phase 0]
 ├─ docs/
 │  ├─ DESIGN.md                 # this document
-│  ├─ IMPLEMENTATION-PLAN.md    # phases 0.1–1.9: order, UX notes, Try-it checklists     [in repo]
+│  ├─ IMPLEMENTATION-PLAN.md    # phases 0.1–2.13: order, UX notes, Try-it checklists    [in repo]
 │  ├─ BACKLOG.md                # deferred work and what brings it back (e.g. iOS)       [in repo]
 │  └─ adr/                      # ADR-001-reader-engine.md, …                          [Phase 0]
 ├─ apps/
@@ -1159,7 +1159,7 @@ Phases are sequential. Each ends with an exit review: acceptance flows pass, ADR
 | 5 | Community | Community Layers with author permission, payouts, moderation |
 | 6 | Discovery and retention | Store SEO, reviews, recaps, glossary, offline, analytics for authors |
 
-**Phases 0 and 1 are split into smaller phases**, each ending in a build the owner can try on desktop and on their Android phone. This section defines the tasks; `docs/IMPLEMENTATION-PLAN.md` gives their order, UX notes and Try-it checklists. Phases 1.4–1.5 (Layers track) and 1.6–1.8 (Platform track) can run in parallel.
+**Phases 0, 1 and 2 are split into smaller phases**, each ending in a build the owner can try on desktop and on their Android phone. This section defines the tasks; `docs/IMPLEMENTATION-PLAN.md` gives their order, UX notes and Try-it checklists. Phases 1.4–1.5 (Layers track) and 1.6–1.8 (Platform track) can run in parallel, and so can Phase 2's Reader track (2.4–2.5), Author track (2.6–2.8) and Operations (2.12–2.13).
 
 | Phase | Tasks |
 |---|---|
@@ -1174,6 +1174,19 @@ Phases are sequential. Each ends with an exit review: acceptance flows pass, ADR
 | 1.7 Creator Studio (simulated) | P1-STU-01 to P1-STU-04, P1-LAY-05 |
 | 1.8 Community and moderation (simulated) | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 |
 | 1.9 Android build and PoC readiness | P1-MOB-01, P1-QA-01 to P1-QA-03 |
+| 2.1 Server foundations | P2-OPS-01 |
+| 2.2 The app on the real API | P2-APP-01 |
+| 2.3 Sign in | P2-AUTH-01 |
+| 2.4 Sync across devices | P2-SYNC-01, P2-RDR-01 |
+| 2.5 Your data and your account | P2-SYNC-02, P2-ACC-01 |
+| 2.6 Upload to the server | P2-ING-01 |
+| 2.7 Open Books from the server | P2-CAT-02, P2-CAT-03 |
+| 2.8 Publish and the free library | P2-CAT-01, P2-CAT-04 |
+| 2.9 New Revisions keep readers' notes | P2-ING-02 |
+| 2.10 Flags and held content | P2-MOD-01 |
+| 2.11 Review queue | P2-MOD-02 |
+| 2.12 Staging | P2-OPS-02 |
+| 2.13 Errors and analytics | P2-OPS-03 |
 
 ### 13.1 Phase 0 — Foundations and spikes
 
@@ -1400,24 +1413,53 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 - **Ask:** would they read the launch title this way? What would they pay for?
 - **Decide and record in §16:** go/no-go on Phase 2; confirm or change the Proposed backend stack (§5.2); hosting (OPEN-06); whether ambient audio stays Parked.
 
-### 13.4 Phase 2 — Platform (detail before starting)
+### 13.4 Phase 2 — Platform
 
-| ID | Task | Depends on |
-|---|---|---|
-| P2-OPS-01 | `apps/api` (Hono, `/v1/health`, error middleware, Zod helper), `apps/worker` (pg-boss), `packages/db` (Drizzle), `docker-compose.yml` (Postgres, MinIO), `.env.example` | PoC review |
-| P2-AUTH-01 | Sign-in (email magic link, Google, Apple) on web and both mobile platforms; API upserts `users` | P2-OPS-01 |
-| P2-SYNC-01 | `storage-remote`: outbox, incremental pull, conflict rules, "keep my local data" on first sign-in (§6.3) | P2-AUTH-01 |
-| P2-ING-01 | Presigned uploads, `ingest-epub` job reusing `text-pipeline`, ingest report, preview, publish | P2-OPS-01 |
-| P2-ING-02 | Server `migrate-anchors` on publish; orphan notifications | P2-ING-01 |
-| P2-CAT-01 | Creator profiles, Book management, public Book page, catalogue | P2-AUTH-01 |
-| P2-CAT-02 | Products and Entitlements (free claim), default Bookmark Design, cloud Library | P2-CAT-01 |
-| P2-CAT-03 | `POST /books/:id/open`, content tokens, `/v1/content` delivery | P2-CAT-02, P2-ING-01 |
-| P2-RDR-01 | Cross-device progress prompt | P2-SYNC-01 |
-| P2-ACC-01 | Account deletion and data export | P2-AUTH-01 |
-| P2-MOD-01 | AI-use question at upload and labels on store pages; "hide AI content" reader setting; Flag rules `upload_volume`, `ai_untagged_suspected`, `report`, `rapid_new_account`; held-for-review state; admin review queue and action log; author view of Flags on their own Books (§10.6) | P2-ING-01, P2-CAT-01 |
-| P2-OPS-02 | Staging: API and worker containers, managed Postgres, R2, web on CDN, Sentry, backups, analytics (§10.5) | P2-OPS-01 |
+Starts after the PoC review's go decision, which also confirms the backend stack (D-004). Split into phases 2.1–2.13 (D-032); `docs/IMPLEMENTATION-PLAN.md` §6 gives their order, UX notes and Try-it lists. Each task adds its module to `apps/api` and `backend-http` (or its records to `storage-remote`) with contract cases run against the Docker API, so the simulated and the real backend stay interchangeable (§5.6). Phase 2 is a free library: prices stay at zero until Phase 4. Sign in with Apple and the other iOS work stay in `docs/BACKLOG.md` (D-024).
 
-**Phase 2 exit:** an author uploads the launch-title EPUB, reviews the ingest report and publishes. A reader signs up (bringing their PoC notes with them), adds the Book to their library, reads and annotates on one device and carries on at the same Word on another. The author publishes a Revision that edits one paragraph; the reader's other notes and bookmarks are unaffected.
+**Foundations**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P2-OPS-01 | `apps/api` (Hono, `/v1/health`, error middleware, Zod helper, CORS for the web and Capacitor origins), `apps/worker` (pg-boss), `packages/db` (Drizzle), `docker-compose.yml` (Postgres, MinIO), `.env.example`; import boundaries for the new workspaces; API integration tests in CI (§12.1, §12.4) | PoC review (go; D-004 confirmed) | One command starts Postgres, MinIO, the API and the worker, and `/v1/health` reports each; a request that fails validation answers 400 with `VALIDATION_FAILED` in the §10.1 envelope; an integration test queues a job the worker runs; CI runs the integration tests against Docker services |
+| P2-APP-01 | `packages/backend-http`: `Backend` over `fetch` with the same Zod schemas, §10.1 errors as `BackendError`, `NETWORK_ERROR` when offline, `Idempotency-Key`, paging; the Backend contract suite runnable per module; `services.ts` chooses `backend-local` or `backend-http` per build; areas the API doesn't serve yet hidden in API builds; an API test mode (Persona sign-in, settable clock) for contract tests and E2E; `session` over HTTP | P2-OPS-01 | `backend-http` passes the `session` contract cases against the Docker API, and `backend-local` still passes every case; the API refuses to start in test mode in a production build; an API build shows only the areas the API serves, and the dev panel names the backend in use |
+
+**Accounts and sync**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P2-AUTH-01 | Sign-in with an email magic link and Google on web and Android (Apple: BACKLOG IOS-14); the API verifies JWTs and upserts `users`; `GET/PATCH /v1/me`; roles from `users.role`; sign out; `Stores` kept per account | P2-APP-01 | Both methods reach the same account on the web and in the Android app (returning through its deep link); an expired or forged token is refused with `UNAUTHENTICATED`, and the app asks to sign in again without losing data on the device; Studio and Admin calls are refused for accounts without the role in the API, not only in the UI |
+| P2-SYNC-01 | `storage-remote` wrapping `storage-local`: local writes plus an outbox flushed when online, incremental pull (`?since=`), last write wins by `updatedAt` with Reading Progress per §9.5 (§6.3); tables and routes for Annotations, Placed Bookmarks, Reading Progress and Reader Preferences (§10.1). Layer selection stays on the device until Phase 3 | P2-AUTH-01, OPEN-15 | The Stores contract suite passes against `storage-remote` with the Docker API; changes made offline on one device reach another once both reconnect; deletions sync as tombstones; no reader action waits on the network |
+| P2-RDR-01 | Cross-device progress prompt (§9.5) | P2-SYNC-01 | Opening a Book offers to jump only when the synced position came from another device and differs from this one's by more than 1% progression |
+| P2-SYNC-02 | "Keep my notes and bookmarks": on first sign-in, offer to copy the device's data from before sign-in (signed out, or a PoC build's Reader) into the account (§6.3) | P2-SYNC-01 | A PoC tester's Annotations and Placed Bookmarks reach their account on the same Words and appear on another device; nothing is uploaded without the reader's yes; doing it twice creates no duplicates |
+| P2-ACC-01 | Account data export (`GET /v1/me/export`) and deletion (`DELETE /v1/me`), from You → Data (§10.5) | P2-SYNC-01 | The export holds every personal record the API keeps for the account, and a test fails if a table holding personal data is left out; deletion removes the account's personal data and signs it out everywhere; what happens to Books an author has published is proposed in the PR |
+
+**Publishing and the free library**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P2-ING-01 | Presigned uploads (`POST /v1/uploads`) with §10.2's limits and checks; the `ingest-epub` job running `text-pipeline` in the worker, with epubcheck's output in the report (non-blocking); Revisions, Chapters and deleted WordIds stored per §6.4 and §6.7, the Book's `next_word_id` covering every Revision processed (§6.2); the ingest report; a first upload makes a draft Book | P2-AUTH-01 | The worker's output for every fixture is byte-identical to the golden files (D-026); a corrupt EPUB ends `failed` with a readable reason; the same file again returns its existing Revision; the raw upload is deleted from `uploads/tmp/` after processing; non-Creators are refused with `FORBIDDEN` |
+| P2-CAT-02 | Products and Entitlements (§6.5): `entitlements.check` and its batch variant, reusing `domain`; a `grant` to each Creator for what they create; "Add to library" (`POST /v1/products/:productId/claim`); a default Bookmark Design for every account; the cloud Library (`GET /v1/library`) | P2-ING-01 | Invariants 15 and 17 hold in the API (contract cases); claiming twice creates one Entitlement; every new account owns the default Bookmark Design |
+| P2-CAT-03 | `POST /v1/books/:bookId/open` after the Entitlement check, content tokens and `/v1/content/:token/*` (§10.3); a Creator's preview of their own Revisions | P2-CAT-02 | Opening without an Entitlement rejects with `ENTITLEMENT_REQUIRED`; content is readable only under an unexpired token for that Book (Invariant 16), and relative URLs inside Chapters resolve under it; the reader behaves the same with either backend; the cold open meets §12.3 |
+| P2-CAT-01 | Book management: settings (details, cover, content rating and warnings, the AI-use answer, `community_policy`, `community_ai`), publishing and listing states (§6.6); Creator profiles | P2-ING-01, P2-CAT-02 | Publishing is refused until the AI-use question is answered; only a Book's author can change or publish it (`FORBIDDEN` in the API); a draft is never listed |
+| P2-CAT-04 | Catalogue (`GET /v1/catalogue`), search, and the public Book and Creator pages, readable signed out | P2-CAT-01 | These are the only reads that work signed out (§10.1); only listed Books appear; search finds a Book by words from its title, Creator or description |
+| P2-ING-02 | `migrate-anchors` on publish: a worker job moves every reader's synced Annotations, Placed Bookmarks and Reading Progress on the Book to the new Revision (§6.2); `POST /v1/books/:bookId/migrate-anchors` moves Anchors made offline on an older Revision when that device next opens the Book; orphan notifications in the in-app inbox | P2-CAT-01, P2-SYNC-01 | The Phase 2 exit flow passes against the Docker API; a note on deleted text is re-found by its quote, or marked orphaned and its reader told; running the job twice changes nothing |
+
+**Moderation**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P2-MOD-01 | AI-use labels from the API and the "Hide AI-generated content" setting on its data; Flag rules `upload_volume`, `ai_untagged_suspected` and `rapid_new_account` from `domain`, run on publish with thresholds in one config; the held-for-review state (§10.6) | P2-CAT-01, the rest of OPEN-09 | Every rule fires in an integration test at its threshold and not below it; held content is private, though its creator can still preview it; with the setting on, AI-generated Books disappear from the store and search |
+| P2-MOD-02 | Reader reports (reason required) raising `report` Flags; the admin review queue, Flag detail, actions with reasons (approve, require relabelling, hide, remove, warn, suspend) and the append-only `moderation_actions` log; outcomes and how to appeal in the creator's inbox; authors see Flags and reports on their own Books (§10.6) | P2-MOD-01 | Moderation calls are refused with `FORBIDDEN` for non-moderators in the API; no route changes or deletes a logged action; requiring relabelling holds content until its creator answers again and a moderator approves |
+
+**Operations**
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P2-OPS-02 | Staging: API and worker containers, managed Postgres, R2, the web app on a CDN, `main` deploying to staging (§12.4), backups; an Android build pointed at staging | P2-OPS-01, OPEN-06 | A merge to `main` reaches staging with no manual steps; the E2E specs of every Phase 2 phase done so far pass against staging; a backup restores into a fresh database; no secret is in the repository |
+| P2-OPS-03 | Error reporting (Sentry) in the web app, the Android app, the API and the worker; privacy-preserving analytics (§10.5) | P2-OPS-02 | A test error from each reaches Sentry with its release and no personal data (emails, book text, notes); every analytics event is documented in `docs/analytics.md`, none carries book text or note contents, and analytics set no cookies |
+
+**Phase 2 exit (automated against the Docker API; by hand on staging, on desktop and on the owner's Android phone):** an author uploads the launch-title EPUB, reviews the ingest report and publishes. A reader signs up (bringing their PoC notes with them), adds the Book to their library, reads and annotates on one device and carries on at the same Word on another. The author publishes a Revision that edits one paragraph; the reader's other notes and bookmarks are unaffected.
 
 ### 13.5 Phase 3 — Official Layers (outline)
 

@@ -7,9 +7,9 @@ The **Emulator** column has the results from 13 October 2026 (tester APK and own
 
 ## Before you start
 
-- **Install.** Testers' app: `book-reader-poc.apk` from the tester site or the CI run's artifact. Android asks once to allow installs from the browser or Files app. The owner's own build: `npm run cap:android -w @book/web` with the phone on USB or wireless debugging. Both can be installed at once: the owner build is **Book Reader (dev)** (`…bookpoc.dev`) and the tester app is **Book Reader (PoC)**.
+- **Install.** Testers' app: `book-reader-poc.apk` from the tester site. The APK the CI run keeps as an artifact has no narration audio; the Tester build workflow's has. Android asks once to allow installs from the browser or Files app, and Play Protect may ask to scan an app it doesn't know. **If the phone still has the app from Phase 0** (a debug build under the same app ID), uninstall it first: Android won't install an app over one signed with a different key, and uninstalling deletes that app's data. The owner's own build: `npm run cap:android -w @book/web` with the phone on USB or wireless debugging. Both can be installed at once: the owner build is **Book Reader (dev)** (`…bookpoc.dev`) and the tester app is **Book Reader (PoC)**.
 - **Mute media** if others are around: narration plays out loud.
-- **Automated part.** With the phone connected (`adb devices` lists it), `node apps/web/scripts/android-smoke.mjs` runs the reading flow inside the tester app and reports each step; `--dev` runs it in the owner build and adds a store purchase, the Studio and the review queue. It adds a note and three bookmarks to *Alice*. `--fresh` starts from a clean app but **deletes the app's data on the phone**: leave it out on a phone you read on.
+- **Automated part.** With the phone connected (`adb devices` lists it), `node apps/web/scripts/android-smoke.mjs` runs the reading flow inside the tester app and reports each step; `--dev` runs it in the owner build and adds a store purchase, the Studio and the review queue. It adds a note and three bookmarks to *Alice*. `--fresh` starts from a clean app but **deletes the app's data on the phone**: leave it out on a phone you read on. Keep the phone unlocked while a script runs (Developer options → Stay awake, while charging).
 - **Performance.** `node apps/web/scripts/perf-android.mjs` measures the reader budgets inside the app (P1-QA-01; results so far in `docs/perf/p1-qa-01.md`). The same `--fresh` warning applies.
 - **Debugging.** The app's WebView shows in `chrome://inspect` on the PC.
 
@@ -82,7 +82,7 @@ Settings → Accessibility → TalkBack on. Swipe right and left to move, double
 
 ### Desktop screen reader
 
-NVDA (free) or Narrator (Windows, Ctrl+Win+Enter), in Chrome, on the web build. Keyboard only.
+NVDA (free) or Narrator (Windows, Ctrl+Win+Enter), in Chrome, on the web build. Keyboard only. In a book, NVDA reads in browse mode, where it keeps the arrow keys for itself: press NVDA+Space (Insert+Space) for focus mode before turning pages with the arrows, and again to go back.
 
 | Step | Expect | Desktop |
 |---|---|---|

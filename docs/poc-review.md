@@ -5,8 +5,8 @@
 
 ## Before the first session (the owner)
 
-1. **Turn on GitHub Pages:** the repository's Settings → Pages → Source: **GitHub Actions**. GitHub Pages needs a public repository, or a paid plan for a private one (D-029). Making the repository public publishes its code and history.
-2. **Build and deploy:** Actions → **Tester build** → Run workflow (leave "Include the narration audio" ticked). It takes about 10 minutes: it encodes the narration, builds the tester web app and the signed APK, and publishes both. The deploy job shows the site's address, `https://totallynotkasai.github.io/book-webapp/`.
+1. **Turn on GitHub Pages:** the repository's Settings → Pages → Source: **GitHub Actions**. GitHub Pages needs a public repository, or a paid plan for a private one (D-029). Making the repository public publishes its code and history. With a paid plan the code stays private, but the site itself is still public to anyone who has its address.
+2. **Build and deploy:** Actions → **Tester build** → Run workflow, from `main` (the `github-pages` environment only takes deploys from the default branch), leaving "Include the narration audio" ticked. It takes about 10 minutes: it encodes the narration, builds the tester web app and the signed APK, and publishes both. The deploy job shows the site's address, `https://totallynotkasai.github.io/book-webapp/`.
 3. **Try it yourself:** open the site on a computer and on your phone; the welcome appears once. On an Android phone, install `…/book-webapp/book-reader-poc.apk` and run the device checklist's install and Phase 1 exit sections.
 4. **Bookmark the sessions page:** `…/book-webapp/sessions.html` has a link for each kind of session. It isn't linked from the app.
 5. **Note the build:** You → Help shows the build's date and commit ("Tester build · 2026-10-14 · a1b2c3d"). Write it on each observation sheet.
