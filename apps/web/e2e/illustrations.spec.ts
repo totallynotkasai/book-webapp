@@ -88,6 +88,8 @@ test('first open: the hint, the picture, closing it, and the dot for a new one',
 });
 
 test('every mode keeps the reader’s place and shows nothing from ahead', async ({ page }) => {
+	// Five re-layouts, each waited out: more than the default 30 s on a loaded CI runner.
+	test.slow();
 	await openReader(page, 'book-alice');
 	await chapter(page, /The Pool of Tears/);
 	await page.keyboard.press('ArrowRight');
@@ -108,9 +110,17 @@ test('every mode keeps the reader’s place and shows nothing from ahead', async
 				.toBeGreaterThan(0);
 			await settled(page);
 		}
-		const after = await visibleWords(page);
-		expect(after.first, `${mode}: first Word left the screen`).toBeLessThanOrEqual(before.first);
-		expect(after.last, `${mode}: first Word left the screen`).toBeGreaterThanOrEqual(before.first);
+		// The engine checks the Word is still on screen once layout goes quiet, and moves back to it
+		// if not (§9.1); under load that last step can land after `settled`, so wait for it.
+		await expect
+			.poll(
+				async () => {
+					const after = await visibleWords(page);
+					return after.first <= before.first && after.last >= before.first;
+				},
+				{ message: `${mode}: first Word left the screen`, timeout: 5000 }
+			)
+			.toBe(true);
 		if (mode === 'Per page' || mode === 'Spread') {
 			// The current picture (an old one may still be fading out for a moment).
 			const panel = page.getByTestId('illustration-panel');

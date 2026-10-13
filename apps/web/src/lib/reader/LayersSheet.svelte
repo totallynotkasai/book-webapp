@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { illustrationModes, type IllustrationMode, type LayerSummaryDto } from '@book/core';
+	import {
+		illustrationModes,
+		type IllustrationMode,
+		type IllustrationPackSummaryDto
+	} from '@book/core';
 	import { AdaptiveSheet, Badge, IconButton, RadioGroup, Switch } from '@book/ui';
 	import type { BookIllustrations } from './illustrations.svelte';
 
@@ -31,7 +35,7 @@
 		'in-text': 'Pictures in the text where the illustrator placed them, like a printed book.',
 		off: 'No pictures.'
 	};
-	const AI_LABELS: Record<LayerSummaryDto['aiUse'], string> = {
+	const AI_LABELS: Record<IllustrationPackSummaryDto['aiUse'], string> = {
 		none: 'No AI used',
 		assisted: 'Made with AI help',
 		generated: 'AI-generated'
@@ -41,7 +45,7 @@
 	const ordered = $derived([
 		...illustrations.enabled
 			.map((id) => illustrations.packs.find((p) => p.id === id))
-			.filter((p): p is LayerSummaryDto => !!p),
+			.filter((p): p is IllustrationPackSummaryDto => !!p),
 		...illustrations.packs.filter((p) => !illustrations.enabled.includes(p.id))
 	]);
 </script>

@@ -71,12 +71,19 @@ export class ChapterContent {
 		return out;
 	}
 
+	/** The Chapter's XHTML as a document, not yet prepared for display. */
+	async chapterDocument(href: string): Promise<Document> {
+		const text = await (await this.#loader.read(revisionPaths.chapter(href))).text();
+		const doc = new DOMParser().parseFromString(text, XHTML);
+		return doc.querySelector('parsererror')
+			? new DOMParser().parseFromString(text, 'text/html')
+			: doc;
+	}
+
 	/** The Chapter as a blob URL foliate-js can load into its frame. */
 	async chapterUrl(href: string): Promise<string> {
 		const path = revisionPaths.chapter(href);
-		const text = await (await this.#loader.read(path)).text();
-		let doc = new DOMParser().parseFromString(text, XHTML);
-		if (doc.querySelector('parsererror')) doc = new DOMParser().parseFromString(text, 'text/html');
+		const doc = await this.chapterDocument(href);
 
 		const refs: [Element, string][] = [];
 		for (const el of doc.querySelectorAll('img[src], link[href], image')) {

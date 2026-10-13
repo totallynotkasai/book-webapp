@@ -28,22 +28,26 @@ export type IngestFn = (
 /** Tokens last an hour (§10.3). */
 export const CONTENT_TOKEN_MS = 60 * 60 * 1000;
 
-/** What a content token opens: one Book Revision's files, or one Illustration Pack's images. */
+/**
+ * What a content token opens: one Book Revision's files, or one Layer's files (an Illustration
+ * Pack's images, an Audio Track's Sync Maps).
+ */
 type Grant =
 	| { kind: 'revision'; userId: string; bookId: string; revisionId: string; expiresAt: number }
-	| { kind: 'pack'; userId: string; packId: string; baseUrl: string; expiresAt: number };
+	| { kind: 'layer'; userId: string; layerId: string; baseUrl: string; expiresAt: number };
 
 const MEDIA_TYPES: Record<string, string> = {
 	webp: 'image/webp',
 	jpg: 'image/jpeg',
 	jpeg: 'image/jpeg',
 	png: 'image/png',
-	json: 'application/json'
+	json: 'application/json',
+	m4a: 'audio/mp4'
 };
 
-/** `ContentApi` plus issuing tokens for pack files, which `layers.openPack` uses. */
+/** `ContentApi` plus issuing tokens for a Layer's files, which `layers` uses. */
 export interface ContentModule extends ContentApi {
-	grantPack(packId: string, baseUrl: string): { token: string; expiresAt: number };
+	grantLayer(layerId: string, baseUrl: string): { token: string; expiresAt: number };
 }
 
 export function createContentApi(deps: {
@@ -146,13 +150,13 @@ export function createContentApi(deps: {
 					'Your reading session ended. Open the book again.'
 				);
 			}
-			if (grant.kind === 'pack') {
-				// Only files inside the pack: no parent directories, no absolute paths.
+			if (grant.kind === 'layer') {
+				// Only files inside the Layer: no parent directories, no absolute paths.
 				if (
 					path.split('/').some((part) => part === '..' || part === '') ||
 					/^[a-z]+:/i.test(path)
 				) {
-					throw new BackendError('NOT_FOUND', `This pack has no file ${path}.`);
+					throw new BackendError('NOT_FOUND', `This layer has no file ${path}.`);
 				}
 				const type =
 					MEDIA_TYPES[path.split('.').pop()!.toLowerCase()] ?? 'application/octet-stream';
@@ -160,7 +164,7 @@ export function createContentApi(deps: {
 					const bytes = await deps.loadFile(`${grant.baseUrl}/${path}`);
 					return new Blob([bytes as Uint8Array<ArrayBuffer>], { type });
 				} catch {
-					throw new BackendError('NOT_FOUND', `This pack has no file ${path}.`);
+					throw new BackendError('NOT_FOUND', `This layer has no file ${path}.`);
 				}
 			}
 			const file = await db.get('content', [grant.revisionId, path]);
@@ -168,11 +172,11 @@ export function createContentApi(deps: {
 			return new Blob([file.bytes], { type: file.type });
 		},
 
-		grantPack(packId, baseUrl) {
+		grantLayer(layerId, baseUrl) {
 			const user = deps.requireUser();
 			const token = newToken();
 			const expiresAt = clock.now().getTime() + CONTENT_TOKEN_MS;
-			grants.set(token, { kind: 'pack', userId: user.id, packId, baseUrl, expiresAt });
+			grants.set(token, { kind: 'layer', userId: user.id, layerId, baseUrl, expiresAt });
 			return { token, expiresAt };
 		}
 	};

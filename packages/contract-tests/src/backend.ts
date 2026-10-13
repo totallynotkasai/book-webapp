@@ -6,11 +6,13 @@
  *
  * It assumes only what any seeded environment provides: at least one Persona per role (reader,
  * creator, moderator), at least two listed Books, a library entry for the reader Persona whose
- * text opens, and a listed Book the reader doesn't own.
+ * text opens, a listed Book the reader doesn't own, and in the reader's library a Book with an
+ * Illustration Pack and one with a narration Audio Track, each of which some Persona lacks.
  */
 import {
 	BackendError,
 	backendContract,
+	parseSyncMap,
 	type Backend,
 	type ErrorCode,
 	type PersonaDto,
@@ -215,23 +217,31 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 		});
 
 		describe('layers (Entitlements first, §8.1, Invariants 15 and 16)', () => {
-			/** The first Book in the reader's library that has Illustration Packs. */
-			async function bookWithPacks() {
+			/** The first Book in the reader's library with a Layer of this kind. */
+			async function bookWith(kind: 'illustration_pack' | 'audio_track') {
 				await backend.session.signInAs(personaWithRole('reader').id);
 				const library = await backend.library.list();
 				for (const entry of library.items) {
-					const packs = await backend.layers.list(entry.book.id);
-					if (packs.length) return { bookId: entry.book.id, packs };
+					const layers = await backend.layers.list(entry.book.id);
+					if (layers.some((l) => l.kind === kind)) return { bookId: entry.book.id, layers };
 				}
-				throw new Error('The seed needs a Book with Illustration Packs in the reader’s library.');
+				throw new Error(`The seed needs a Book with a ${kind} in the reader’s library.`);
+			}
+			async function bookWithPacks() {
+				const { bookId, layers } = await bookWith('illustration_pack');
+				return { bookId, packs: layers.filter((l) => l.kind === 'illustration_pack') };
 			}
 
-			it('lists a Book’s packs, official first, saying which the user holds', async () => {
-				const { packs } = await bookWithPacks();
-				conforms('layers', 'list', packs);
-				const official = packs.map((p) => p.isOfficial);
-				expect(official).toEqual([...official].sort((a, b) => Number(b) - Number(a)));
-				expect(packs.some((p) => p.entitled)).toBe(true);
+			it('lists a Book’s Layers, packs then tracks, official first, saying which the user holds', async () => {
+				const { layers } = await bookWith('illustration_pack');
+				conforms('layers', 'list', layers);
+				const kinds = layers.map((l) => l.kind);
+				expect(kinds).toEqual([...kinds].sort((a, b) => a.localeCompare(b)).reverse());
+				for (const kind of new Set(kinds)) {
+					const official = layers.filter((l) => l.kind === kind).map((l) => l.isOfficial);
+					expect(official).toEqual([...official].sort((a, b) => Number(b) - Number(a)));
+				}
+				expect(layers.some((p) => p.entitled)).toBe(true);
 				expect(await backend.layers.list('no-such-book')).toEqual([]);
 			});
 
@@ -264,7 +274,9 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 				let rejected = false;
 				for (const persona of await backend.session.listPersonas()) {
 					await backend.session.signInAs(persona.id);
-					const missing = (await backend.layers.list(bookId)).find((p) => !p.entitled);
+					const missing = (await backend.layers.list(bookId)).find(
+						(p) => p.kind === 'illustration_pack' && !p.entitled
+					);
 					if (!missing) continue;
 					await expectBackendError(backend.layers.openPack(missing.id), 'ENTITLEMENT_REQUIRED');
 					rejected = true;
@@ -272,6 +284,54 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 				}
 				expect(rejected, 'the seed needs a Persona without some pack').toBe(true);
 				await expectBackendError(backend.layers.openPack('no-such-pack'), 'NOT_FOUND');
+			});
+
+			it('opens an Audio Track: per Chapter a Sync Map through content.read, and its audio', async () => {
+				const { bookId, layers } = await bookWith('audio_track');
+				const track = layers.find((l) => l.kind === 'audio_track' && l.entitled)!;
+				const opened = await backend.layers.openTrack(track.id);
+				conforms('layers', 'openTrack', opened);
+				expect(opened.track.id).toBe(track.id);
+				expect(opened.chapters.length).toBeGreaterThan(0);
+				const book = await backend.content.open(bookId);
+				const first = opened.chapters[0]!;
+				const map = parseSyncMap(
+					JSON.parse(await (await backend.content.read(opened.contentToken, first.syncMap)).text())
+				);
+				expect(map.trackId).toBe(track.id);
+				expect(map.chapterId).toBe(first.chapterId);
+				expect(map.revisionId).toBe(opened.revisionId);
+				expect(map.durationMs).toBe(first.durationMs);
+				// Aligned to the Revision readers open, so every Chapter is ready (§7.2).
+				expect(opened.revisionId).toBe(book.revisionId);
+				for (const chapter of opened.chapters) {
+					expect(chapter.status).toBe(chapter.coverage < 0.9 ? 'needs_review' : 'ready');
+					expect(chapter.audioUrl).not.toBe('');
+				}
+				await expectBackendError(
+					backend.content.read(opened.contentToken, '../../books/alice.epub'),
+					'NOT_FOUND'
+				);
+			}, 60_000);
+
+			it('rejects Audio Tracks the user doesn’t hold, and unknown ones', async () => {
+				const { bookId } = await bookWith('audio_track');
+				let rejected = false;
+				for (const persona of await backend.session.listPersonas()) {
+					await backend.session.signInAs(persona.id);
+					const missing = (await backend.layers.list(bookId)).find(
+						(l) => l.kind === 'audio_track' && !l.entitled
+					);
+					if (!missing) continue;
+					await expectBackendError(backend.layers.openTrack(missing.id), 'ENTITLEMENT_REQUIRED');
+					rejected = true;
+					break;
+				}
+				expect(rejected, 'the seed needs a Persona without some Audio Track').toBe(true);
+				await expectBackendError(backend.layers.openTrack('no-such-track'), 'NOT_FOUND');
+				// A pack isn't a track, and the other way round.
+				const { packs } = await bookWithPacks();
+				await expectBackendError(backend.layers.openTrack(packs[0]!.id), 'NOT_FOUND');
 			});
 		});
 

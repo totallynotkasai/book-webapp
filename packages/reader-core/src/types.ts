@@ -60,6 +60,18 @@ export interface FigureInjection {
 	height?: number;
 }
 
+/** A Chapter's Words in reading order, with their text (narration's sentences, §8.3). */
+export interface ChapterText {
+	chapterId: string;
+	/** A Word's Ordinal is this plus its position. */
+	firstOrdinal: number;
+	wordIds: WordId[];
+	/** Each Word as on the page, punctuation included. */
+	texts: string[];
+	/** Each Word's Block, so paragraphs and headings can be told apart. */
+	blocks: number[];
+}
+
 export interface TypographySettings {
 	/** A CSS font-family list, or null to keep the book's own fonts ("Publisher default"). */
 	fontFamily: string | null;
@@ -160,5 +172,7 @@ export interface ReaderEngine {
 	select(range: { startOrdinal: number; endOrdinal: number } | null): void;
 	/** Where an Anchor is on screen, in top-level coordinates, or null when it isn't shown. */
 	rectOf(anchor: Anchor): DOMRect | null;
+	/** A Chapter's Words with their text, read from the Revision (it needn't be on screen). */
+	chapterText(chapterId: string): Promise<ChapterText>;
 	on<E extends EngineEvent>(event: E, cb: (payload: EngineEvents[E]) => void): () => void;
 }

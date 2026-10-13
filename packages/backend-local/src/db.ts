@@ -1,6 +1,7 @@
 import type { EntitlementRecord } from '@book/domain';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type {
+	AudioTrackRecord,
 	BookRecord,
 	CreatorRecord,
 	FlagRecord,
@@ -20,6 +21,7 @@ export interface BackendDB extends DBSchema {
 	creators: { key: string; value: CreatorRecord; indexes: { handle: string } };
 	books: { key: string; value: BookRecord; indexes: { slug: string; creatorId: string } };
 	illustrationPacks: { key: string; value: IllustrationPackRecord; indexes: { bookId: string } };
+	audioTracks: { key: string; value: AudioTrackRecord; indexes: { bookId: string } };
 	products: { key: string; value: ProductRecord };
 	entitlements: { key: string; value: EntitlementRecord; indexes: { userId: string } };
 	flags: { key: string; value: FlagRecord };
@@ -76,13 +78,14 @@ export const SEEDED_STORES = [
 	'creators',
 	'books',
 	'illustrationPacks',
+	'audioTracks',
 	'products',
 	'entitlements',
 	'flags'
 ] as const;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 4;
+const VERSION = 5;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -118,6 +121,10 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 					'bookId',
 					'bookId'
 				);
+			}
+			if (oldVersion < 5) {
+				// P1-LAY-04: narration Audio Tracks, seeded like packs.
+				db.createObjectStore('audioTracks', { keyPath: 'id' }).createIndex('bookId', 'bookId');
 			}
 		}
 	});

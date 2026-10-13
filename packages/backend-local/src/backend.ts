@@ -104,6 +104,7 @@ async function writeSeed(db: BackendDatabase, seed: Seed): Promise<void> {
 	for (const creator of seed.creators) await tx.objectStore('creators').put(creator);
 	for (const book of seed.books) await tx.objectStore('books').put(book);
 	for (const pack of seed.illustrationPacks) await tx.objectStore('illustrationPacks').put(pack);
+	for (const track of seed.audioTracks) await tx.objectStore('audioTracks').put(track);
 	for (const product of seed.products) await tx.objectStore('products').put(product);
 	for (const entitlement of seed.entitlements)
 		await tx.objectStore('entitlements').put(entitlement);
@@ -360,7 +361,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		loadFile:
 			options.loadFile ??
 			(async () => {
-				throw new Error('backend-local was created without loadFile, so it can’t open packs.');
+				throw new Error('backend-local was created without loadFile, so it can’t open Layers.');
 			}),
 		content
 	});

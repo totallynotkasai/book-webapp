@@ -68,6 +68,24 @@ const illustrationPackRecord = z.object({
 	listingState: z.enum(['draft', 'listed', 'delisted'])
 });
 
+/** A narration Audio Track (§8.3): its record here, its Chapters in a `track.json` (P1-LAY-03). */
+const audioTrackRecord = z.object({
+	id,
+	bookId: id,
+	creatorId: id,
+	name: z.string().min(1),
+	description: z.string(),
+	narrator: z.string().min(1),
+	isOfficial: z.boolean(),
+	aiUse: aiUseSchema,
+	credit: z.string(),
+	/** Static path of the track's `track.json`, written by `npm run narration`. */
+	trackUrl: z.string().min(1),
+	chapterCount: z.number().int().nonnegative(),
+	durationMs: z.number().int().nonnegative(),
+	listingState: z.enum(['draft', 'listed', 'delisted'])
+});
+
 const productRecord = z.object({
 	id,
 	kind: productKindSchema,
@@ -108,6 +126,7 @@ export const seedSchema = z.object({
 	creators: z.array(creatorRecord),
 	books: z.array(bookRecord),
 	illustrationPacks: z.array(illustrationPackRecord).default([]),
+	audioTracks: z.array(audioTrackRecord).default([]),
 	products: z.array(productRecord),
 	entitlements: z.array(entitlementRecord),
 	/** Open items for the admin review queue (P1-APP-01); P1-ADM-01 adds the rules that raise them. */
@@ -120,6 +139,7 @@ export type CreatorRecord = z.infer<typeof creatorRecord>;
 export type BookRecord = z.infer<typeof bookRecord>;
 export type ProductRecord = z.infer<typeof productRecord>;
 export type IllustrationPackRecord = z.infer<typeof illustrationPackRecord>;
+export type AudioTrackRecord = z.infer<typeof audioTrackRecord>;
 export type SeedEntitlementRecord = z.infer<typeof entitlementRecord>;
 export type FlagRecord = z.infer<typeof flagRecord>;
 
@@ -158,6 +178,7 @@ export function parseSeed(raw: unknown): Seed {
 		creators: seed.creators,
 		books: seed.books,
 		illustrationPacks: seed.illustrationPacks,
+		audioTracks: seed.audioTracks,
 		products: seed.products,
 		entitlements: seed.entitlements,
 		flags: seed.flags
@@ -199,6 +220,16 @@ export function parseSeed(raw: unknown): Seed {
 			problems.push(`illustrationPacks.${i}: pack "${pack.id}" has no Product`);
 		}
 	});
+	const tracks = ids(seed.audioTracks);
+	seed.audioTracks.forEach((track, i) => {
+		if (!books.has(track.bookId))
+			problems.push(`audioTracks.${i}.bookId: no book "${track.bookId}"`);
+		if (!creators.has(track.creatorId))
+			problems.push(`audioTracks.${i}.creatorId: no creator "${track.creatorId}"`);
+		if (!seed.products.some((p) => p.kind === 'audio_track' && p.refId === track.id)) {
+			problems.push(`audioTracks.${i}: track "${track.id}" has no Product`);
+		}
+	});
 	seed.products.forEach((p, i) => {
 		if (!creators.has(p.creatorId))
 			problems.push(`products.${i}.creatorId: no creator "${p.creatorId}"`);
@@ -208,6 +239,8 @@ export function parseSeed(raw: unknown): Seed {
 			problems.push(`products.${i}.refId: no book "${p.refId}"`);
 		if (p.kind === 'illustration_pack' && !packs.has(p.refId))
 			problems.push(`products.${i}.refId: no illustration pack "${p.refId}"`);
+		if (p.kind === 'audio_track' && !tracks.has(p.refId))
+			problems.push(`products.${i}.refId: no audio track "${p.refId}"`);
 	});
 	seed.entitlements.forEach((e, i) => {
 		if (!users.has(e.userId))

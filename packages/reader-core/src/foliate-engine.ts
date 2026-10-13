@@ -16,6 +16,7 @@ import {
 import { ChapterContent } from './content';
 import { BASE_CSS, MARGINS, themeCss, typographyCss } from './styles';
 import type {
+	ChapterText,
 	Decoration,
 	EngineEvent,
 	EngineEvents,
@@ -792,7 +793,32 @@ export class FoliateEngine implements ReaderEngine {
 		for (const name of [...win.CSS.highlights.keys()]) {
 			if (String(name).startsWith('rd-')) win.CSS.highlights.delete(name);
 		}
-		for (const [name, ranges] of byName) win.CSS.highlights.set(name, new win.Highlight(...ranges));
+		for (const [name, ranges] of byName) {
+			const highlight = new win.Highlight(...ranges);
+			// The narrated Word shows over the reader's own highlights.
+			if (name === 'rd-narration') highlight.priority = 1;
+			win.CSS.highlights.set(name, highlight);
+		}
+	}
+
+	async chapterText(chapterId: string): Promise<ChapterText> {
+		const index = this.#manifest.chapters.findIndex((c) => c.chapterId === chapterId);
+		if (index < 0) throw new Error(`This Revision has no Chapter ${chapterId}.`);
+		const words = await this.#chapterWords(index);
+		const current = this.#current();
+		const map =
+			(current?.index === index && this.#maps.get(current.doc)) ||
+			new DocWordMap(
+				await this.#content.chapterDocument(this.#manifest.chapters[index]!.href),
+				words
+			);
+		return {
+			chapterId,
+			firstOrdinal: words.index.firstOrdinal,
+			wordIds: words.index.words.map((w) => w[0]),
+			texts: words.index.words.map((_, i) => map.text(i)),
+			blocks: words.index.words.map((w) => w[1])
+		};
 	}
 
 	injectFigures(items: FigureInjection[]): void {
@@ -837,6 +863,15 @@ export class FoliateEngine implements ReaderEngine {
 			if (item.width && item.height) {
 				img.setAttribute('width', String(item.width));
 				img.setAttribute('height', String(item.height));
+				// Its box is settled before the image arrives, so the pages don't shift after the
+				// engine has checked the reader's place (§9.1). The figure CSS's width:auto would
+				// otherwise size it 300 px wide until it decodes.
+				const ratio = (item.width / item.height).toFixed(4);
+				const tallest = item.placement === 'full_page' ? 80 : 60;
+				img.setAttribute(
+					'style',
+					`aspect-ratio:${item.width}/${item.height};width:min(100%,calc(${tallest}vh*${ratio}));height:auto`
+				);
 			}
 			figure.append(img);
 			if (item.caption) {

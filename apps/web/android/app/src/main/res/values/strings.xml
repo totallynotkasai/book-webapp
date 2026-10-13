@@ -4,4 +4,6 @@
     <string name="title_activity_main">Book Reader (PoC)</string>
     <string name="package_name">io.github.totallynotkasai.bookpoc</string>
     <string name="custom_url_scheme">io.github.totallynotkasai.bookpoc</string>
+    <string name="narration_back">Back 15 seconds</string>
+    <string name="narration_forward">Forward 15 seconds</string>
 </resources>

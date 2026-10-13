@@ -3,7 +3,7 @@
 - **Status:** **Accepted** (12 October 2026, owner decision before Phase 1). Records D-017.
 - **Date:** 12 October 2026
 - **Task:** P0-06 Spike: narration alignment.
-- **Code:** `packages/alignment` (kept: it becomes the §7.2 `alignment` package), the Sync Map type and schema in `packages/core/src/sync-map.ts` (kept), `tools/align-spike/` (grows into `tools/align` in P1-LAY-03), and the spike page `/spike/narration` (deleted in Phase 1.1; P1-LAY-04 builds the real narration player).
+- **Code:** `packages/alignment` (kept: it becomes the §7.2 `alignment` package), the Sync Map type and schema in `packages/core/src/sync-map.ts` (kept), `tools/align-spike/` (grew into `tools/src/align.ts` in P1-LAY-03 and was then deleted; see "Phase 1" below), and the spike page `/spike/narration` (deleted in Phase 1.1; P1-LAY-04 built the real narration player).
 
 ## Context
 
@@ -124,6 +124,16 @@ Lag is inside the 100 ms budget everywhere except WebKit with foliate-js at 2×,
 ## Dependencies
 
 None added. `tools/align-spike/align.mjs` runs on Node's built-in TypeScript type stripping (`--experimental-transform-types`, because `@book/core` uses parameter properties) with a 20-line resolve hook (`tools/align-spike/ts-resolve.mjs`) for the packages' extensionless imports. `tools/align-spike/word-index.mjs` uses the Playwright already in the repo. ffmpeg and whisper.cpp are external tools, found through `FFMPEG`, `WHISPER_CLI` and `WHISPER_MODELS` (see the script header and `apps/web/static/demo/audio/README.md`).
+
+## Phase 1: `tools/align` (P1-LAY-03)
+
+`npm run narration` (`tools/src/align.ts`, in the `@book/tools` workspace, run with tsx) replaced the spike script. Same flags and the same pipeline, with three changes:
+
+- **WordIds come from `text-pipeline`**, from the catalogue *Alice* exactly as `backend-local` processes it (Book ID `book-alice`), so the Sync Maps carry the real Revision ID, Chapter IDs and WordIds instead of the spike's runtime ones. `tests/sync-maps.test.ts` fails if `text-pipeline` ever gives that EPUB different WordIds, so the committed Sync Maps can't drift silently.
+- **Chapters 1–3.** Coverage with `base.en` and DTW: chapter 1 0.9958, chapter 2 0.9925, chapter 3 0.9947 (whisper ran only for chapter 3; the run fails below 0.95). Chapter 3's calibrated start error: median 100 ms, p90 290 ms, in line with chapters 1–2.
+- **`track.json`** beside the Sync Maps lists the Chapters with their durations and coverage, validated with `audioTrackFileSchema` in `@book/core`; `backend-local` serves it through `Backend.layers.openTrack`.
+
+`fixtures/sync/alice-word-index.json` (the spike's WordIds) stays only for `packages/alignment`'s P0-06 acceptance test on real data. The player measured in P1-LAY-04 reads the platform adapter's position every animation frame (ADR-004).
 
 ## Consequences
 
