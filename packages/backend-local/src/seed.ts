@@ -7,6 +7,8 @@
  */
 import {
 	aiUseSchema,
+	communityAiSchema,
+	communityPolicySchema,
 	contentRatingSchema,
 	entitlementSourceSchema,
 	flagRuleSchema,
@@ -19,6 +21,17 @@ import {
 import { z } from 'zod';
 
 const id = z.string().min(1);
+
+/**
+ * A file the simulated backend keeps itself (P1-STU-01, P1-STU-02): a Studio upload in
+ * `layerFiles`, or a file of a processed Revision in `content`. Resolved to a URL when shown.
+ */
+const storedFileRef = z.object({
+	store: z.enum(['layerFiles', 'content']),
+	/** The Layer ID (or `cover:<bookId>`), or the Revision ID. */
+	id,
+	path: id
+});
 
 const personaRecord = z.object({
 	id,
@@ -45,9 +58,21 @@ const bookRecord = z.object({
 	title: z.string().min(1),
 	creatorId: id,
 	lang: z.string().min(2),
-	aiUse: aiUseSchema,
+	/** The current Revision's answer to "Was AI used?" (§10.6); null until a Studio publish. */
+	aiUse: aiUseSchema.nullable(),
 	description: z.string(),
 	coverUrl: z.string().nullable(),
+	/** A cover the backend keeps (Studio uploads, or the EPUB's own); wins over `coverUrl`. */
+	coverFile: storedFileRef.nullable().default(null),
+	/**
+	 * The published Revision readers open (P1-STU-01). Null for a seeded Book until its author
+	 * publishes one: its `epubUrl` is processed on first open and that Revision is current.
+	 */
+	currentRevisionId: id.nullable().default(null),
+	/** The Book's WordId counter across every Revision processed, published or not (§6.2). */
+	nextWordId: z.number().int().positive().default(1),
+	communityPolicy: communityPolicySchema.default('closed'),
+	communityAi: communityAiSchema.default('allowed'),
 	/** Static path of the Book's EPUB, processed by text-pipeline on first open (plan §4.3). */
 	epubUrl: z.string().nullable().default(null),
 	listingState: z.enum(['draft', 'listed', 'delisted']),
@@ -73,9 +98,13 @@ const illustrationPackRecord = z.object({
 	name: z.string().min(1),
 	description: z.string(),
 	isOfficial: z.boolean(),
-	aiUse: aiUseSchema,
+	/** Null until its creator answers (Studio drafts). */
+	aiUse: aiUseSchema.nullable(),
 	credit: z.string(),
-	/** Static path of the pack's `pack.json`, built by `npm run layers` (P1-LAY-06). */
+	/**
+	 * Its `pack.json`: a static path built by `npm run layers` (P1-LAY-06), or
+	 * `studio:<packId>/pack.json` for a pack built in the Studio (P1-LAY-05).
+	 */
 	packUrl: z.string().min(1),
 	illustrationCount: z.number().int().nonnegative(),
 	listingState: z.enum(['draft', 'listed', 'delisted']),
@@ -91,10 +120,18 @@ const audioTrackRecord = z.object({
 	description: z.string(),
 	narrator: z.string().min(1),
 	isOfficial: z.boolean(),
-	aiUse: aiUseSchema,
+	/** Null until its creator answers (Studio drafts). */
+	aiUse: aiUseSchema.nullable(),
 	credit: z.string(),
-	/** Static path of the track's `track.json`, written by `npm run narration`. */
+	/**
+	 * Its `track.json`: a static path written by `npm run narration`, or
+	 * `studio:<trackId>/track.json` for one assembled in the Studio (P1-STU-03).
+	 */
 	trackUrl: z.string().min(1),
+	/** Studio tracks: Chapters whose text changed since they were aligned (§6.2, §7.2). */
+	staleChapterIds: z.array(id).default([]),
+	/** Studio tracks: the low-confidence regions a creator has checked, by Chapter. */
+	reviewed: z.record(z.string(), z.array(z.number().int().nonnegative())).default({}),
 	chapterCount: z.number().int().nonnegative(),
 	durationMs: z.number().int().nonnegative(),
 	listingState: z.enum(['draft', 'listed', 'delisted']),
@@ -223,6 +260,7 @@ export type PlanRecord = z.infer<typeof planRecord>;
 export type ShelfRecord = z.infer<typeof shelfRecord>;
 export type SeedEntitlementRecord = z.infer<typeof entitlementRecord>;
 export type FlagRecord = z.infer<typeof flagRecord>;
+export type StoredFileRef = z.infer<typeof storedFileRef>;
 
 export class SeedError extends Error {
 	constructor(readonly problems: string[]) {

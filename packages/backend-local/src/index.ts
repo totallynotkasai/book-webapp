@@ -11,4 +11,11 @@ export {
 	testSimulationDefaults,
 	type SimulationSettings
 } from './simulation';
-export { CONTENT_TOKEN_MS, type IngestFn, type ProcessedRevision } from './content';
+export { CONTENT_TOKEN_MS } from './content';
+export {
+	inThreadPipeline,
+	type Migrated,
+	type Pipeline,
+	type ProcessedRevision,
+	type RevisionText
+} from './pipeline';

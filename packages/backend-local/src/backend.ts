@@ -24,10 +24,13 @@ import {
 } from './db';
 import { createCatalogueApi } from './catalogue';
 import { createCheckoutApi } from './checkout';
-import { createContentApi, type IngestFn } from './content';
+import { createContentApi } from './content';
+import { createStoredFiles, parseStudioUrl } from './files';
 import { createLayersApi } from './layers';
 import { paginate } from './paging';
+import { inThreadPipeline, type Pipeline } from './pipeline';
 import { parseSeed, type Seed } from './seed';
+import { createStudioApi } from './studio';
 import { createSupportApi } from './support';
 import {
 	ownerSimulationDefaults,
@@ -51,10 +54,11 @@ export interface LocalBackendOptions {
 	/** Fetches a seeded Book's EPUB from its static path (the app fetches; tests read files). */
 	loadFile?: (url: string) => Promise<Uint8Array>;
 	/**
-	 * Processes a catalogue EPUB. The app runs text-pipeline in a Web Worker; the default runs it
-	 * in this thread (fine for tests).
+	 * Content work: processing EPUBs (catalogue Books and Studio uploads), migrating Anchors and
+	 * reading Words. The app runs text-pipeline in a Web Worker; by default each part runs in this
+	 * thread (fine for tests).
 	 */
-	ingest?: IngestFn;
+	pipeline?: Partial<Pipeline>;
 	/**
 	 * The build profile. Tester builds have no store, so their seed starts the Reader with what
 	 * owner builds leave them to get (plan §6 Phase 1.6). Owner by default.
@@ -63,11 +67,6 @@ export interface LocalBackendOptions {
 }
 
 type Profile = 'owner' | 'tester';
-
-async function ingestInThread(bytes: Uint8Array, options: { bookId: string }) {
-	const { ingestEpub } = await import('@book/text-pipeline');
-	return ingestEpub(bytes, options);
-}
 
 /** Owner-only controls for the dev panel. Never part of `Backend`; there is no Phase 2 equal. */
 export interface LocalBackendControls {
@@ -112,8 +111,16 @@ function eventHub(): BackendEvents & { emit(topic: BackendTopic): void } {
 }
 
 async function writeSeed(db: BackendDatabase, seed: Seed, profile: Profile): Promise<void> {
-	const tx = db.transaction([...SEEDED_STORES, 'meta'], 'readwrite');
+	const tx = db.transaction([...SEEDED_STORES, 'meta', 'revisions', 'content'], 'readwrite');
 	for (const name of SEEDED_STORES) await tx.objectStore(name).clear();
+	// Studio uploads go with the Books they belonged to; seeded Books' processed text stays cached.
+	for (const revision of await tx.objectStore('revisions').getAll()) {
+		if (!revision.studio) continue;
+		await tx
+			.objectStore('content')
+			.delete(IDBKeyRange.bound([revision.id, ''], [revision.id, '￿']));
+		await tx.objectStore('revisions').delete(revision.id);
+	}
 	for (const persona of seed.personas) await tx.objectStore('personas').put(persona);
 	for (const creator of seed.creators) await tx.objectStore('creators').put(creator);
 	for (const book of seed.books) await tx.objectStore('books').put(book);
@@ -220,7 +227,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 	// Modules defined below this object (moderation) are added to the Backend separately.
 	const implementation: Omit<
 		Backend,
-		'events' | 'moderation' | 'content' | 'layers' | 'catalogue' | 'checkout' | 'support'
+		'events' | 'moderation' | 'content' | 'layers' | 'catalogue' | 'checkout' | 'support' | 'studio'
 	> = {
 		session: {
 			async current() {
@@ -255,7 +262,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 				const entries = [];
 				for (const [bookId, owned] of byBook) {
 					const book = await db.get('books', bookId);
-					if (!book) continue;
+					// A Creator's unpublished drafts live in the Studio, not their library.
+					if (!book || book.listingState === 'draft') continue;
 					entries.push({
 						book: (await catalogue.summaries([book]))[0]!,
 						entitlements: owned.map(({ id, productId, source, grantedAt, parentId }) => ({
@@ -269,18 +277,6 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 				}
 				entries.sort((a, b) => byTitle(a.book, b.book));
 				return paginate(entries, page);
-			}
-		},
-		studio: {
-			async listBooks(page) {
-				const user = requirePermission('studio');
-				const books = user.creatorId
-					? await db.getAllFromIndex('books', 'creatorId', user.creatorId)
-					: [];
-				const sorted = books.sort(byTitle);
-				const summaries = await catalogue.summaries(sorted);
-				const result = sorted.map((b, i) => ({ ...summaries[i]!, listingState: b.listingState }));
-				return paginate(result, page);
 			}
 		}
 	};
@@ -321,30 +317,51 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		changed: () => events.emit('entitlements'),
 		supportChanged: () => events.emit('support')
 	});
+	const files = createStoredFiles(db);
+	const pipeline: Pipeline = { ...inThreadPipeline, ...options.pipeline };
+	/** Static files from the app, or `studio:` files the backend keeps itself. */
+	async function loadFile(url: string): Promise<Uint8Array> {
+		const stored = parseStudioUrl(url);
+		if (stored) {
+			const bytes = await files.read(stored.layerId, stored.path);
+			if (!bytes) throw new Error(`No Studio file ${url}`);
+			return bytes;
+		}
+		if (!options.loadFile) {
+			throw new Error('backend-local was created without loadFile, so it can’t open books.');
+		}
+		return options.loadFile(url);
+	}
 	const content = createContentApi({
 		db,
 		clock,
 		requireUser,
 		beforeAccess: (userId) => support.refresh(userId),
-		loadFile:
-			options.loadFile ??
-			(async () => {
-				throw new Error('backend-local was created without loadFile, so it can’t open books.');
-			}),
-		ingest: options.ingest ?? ingestInThread
+		loadFile,
+		pipeline,
+		files
 	});
-	const layers = createLayersApi({
+	const layers = createLayersApi({ db, clock, requireUser, loadFile, content, files });
+	const catalogue = createCatalogueApi({
 		db,
 		clock,
-		requireUser,
-		loadFile:
-			options.loadFile ??
-			(async () => {
-				throw new Error('backend-local was created without loadFile, so it can’t open Layers.');
-			}),
-		content
+		currentUser: () => currentUser,
+		layers,
+		files
 	});
-	const catalogue = createCatalogueApi({ db, clock, currentUser: () => currentUser, layers });
+	const studio = createStudioApi({
+		db,
+		clock,
+		requirePermission,
+		pipeline,
+		files,
+		content,
+		catalogue,
+		support,
+		changed: (...topics) => {
+			for (const topic of topics) events.emit(topic);
+		}
+	});
 
 	// ---- simulation and contract validation, applied to every method ----
 
@@ -422,7 +439,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		support: wrapModule('support', support, backendContract.support),
 		content: wrapModule('content', content, backendContract.content),
 		layers: wrapModule('layers', layers, backendContract.layers),
-		studio: wrapModule('studio', implementation.studio, backendContract.studio),
+		studio: wrapModule('studio', studio, backendContract.studio),
 		moderation: wrapModule('moderation', moderation, backendContract.moderation),
 		events: { on: events.on }
 	};

@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { nativeAudio } from './native-audio';
+import { switchingAudio } from './switching-audio';
 import type { FilesAdapter, Platform } from './types';
 import { webAudio, webDeepLinks, webFiles, webHaptics, webShare } from './web';
 
@@ -48,7 +49,8 @@ export function capacitorPlatform(): Platform {
 	const ios = Capacitor.getPlatform() === 'ios';
 	return {
 		kind: ios ? 'ios' : 'android',
-		audio: ios ? webAudio() : nativeAudio(),
+		// Studio uploads are blob: URLs the native player can't open, so they play in the WebView.
+		audio: ios ? webAudio() : switchingAudio(nativeAudio(), webAudio()),
 		files: capacitorFiles,
 		share: webShare,
 		haptics: webHaptics,

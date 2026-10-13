@@ -6,6 +6,9 @@
  * A sample, or a serial with early-access Chapters, comes with Chapters the reader can't open
  * yet (P1-STO-01, P1-STO-04). They're left out of the manifest the engine lays out, so turning
  * pages ends where the readable text does and the reader shows why there.
+ *
+ * A Creator previewing one of their own Revisions (P1-STU-01), or building a pack on it in
+ * Creator mode (P1-LAY-05), opens it through `Backend.studio.previewRevision` instead.
  */
 import {
 	BackendError,
@@ -48,12 +51,15 @@ function withoutLocked(manifest: RevisionManifest, locked: Set<string>): Revisio
 	};
 }
 
-export async function openBook(
-	bookId: string,
-	options: { sample?: boolean } = {}
-): Promise<OpenedBook> {
+export interface OpenOptions {
+	sample?: boolean;
+	/** A Creator's own Revision: this one, or the newest when the ID is omitted. */
+	preview?: { revisionId?: string };
+}
+
+export async function openBook(bookId: string, options: OpenOptions = {}): Promise<OpenedBook> {
 	const stores = await getStores();
-	const imported = await stores.library.getBook(bookId);
+	const imported = options.preview ? undefined : await stores.library.getBook(bookId);
 	if (imported) {
 		const revisionId = imported.currentRevisionId;
 		const loader: ContentLoader = {
@@ -74,7 +80,12 @@ export async function openBook(
 	}
 
 	const backend = await getBackend();
-	let opened = await backend.content.open(bookId, options);
+	const { preview, sample } = options;
+	const openIt = () =>
+		preview
+			? backend.studio.previewRevision(bookId, preview.revisionId)
+			: backend.content.open(bookId, { sample });
+	let opened = await openIt();
 	const loader: ContentLoader = {
 		async read(path) {
 			try {
@@ -82,7 +93,7 @@ export async function openBook(
 			} catch (error) {
 				// Tokens are short-lived (§10.3): open again and retry once.
 				if (!isBackendError(error, 'UNAUTHENTICATED')) throw error;
-				opened = await backend.content.open(bookId, options);
+				opened = await openIt();
 				return backend.content.read(opened.contentToken, path);
 			}
 		}

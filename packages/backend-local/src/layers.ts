@@ -18,17 +18,14 @@ import {
 	type LayersApi,
 	type OpenPackDto,
 	type OpenTrackDto,
-	type SyncMapStatus,
 	type UserDto
 } from '@book/core';
-import { hasEntitlement } from '@book/domain';
+import { hasEntitlement, syncMapStatus } from '@book/domain';
 import type { z } from 'zod';
 import type { ContentModule } from './content';
 import type { BackendDatabase } from './db';
+import { parseStudioUrl, type StoredFiles } from './files';
 import type { AudioTrackRecord, IllustrationPackRecord } from './seed';
-
-/** Below this coverage a Sync Map needs a creator's review (§7.2 step 6). */
-const REVIEW_BELOW = 0.9;
 
 export function createLayersApi(deps: {
 	db: BackendDatabase;
@@ -36,12 +33,18 @@ export function createLayersApi(deps: {
 	requireUser: () => UserDto;
 	loadFile: (url: string) => Promise<Uint8Array>;
 	content: ContentModule;
+	files: StoredFiles;
 }): LayersApi {
 	const { db, clock } = deps;
-	/** Parsed Layer files: static, so loaded once per session. */
+	/** Parsed static Layer files, loaded once per session. Studio files change, so aren't kept. */
 	const files = new Map<string, Promise<unknown>>();
 
 	function layerFile<T>(url: string, schema: z.ZodType<T>): Promise<T> {
+		if (parseStudioUrl(url)) {
+			return deps
+				.loadFile(url)
+				.then((bytes) => schema.parse(JSON.parse(new TextDecoder().decode(bytes))));
+		}
 		let file = files.get(url) as Promise<T> | undefined;
 		if (!file) {
 			file = (async () => {
@@ -83,7 +86,7 @@ export function createLayersApi(deps: {
 			creatorId: pack.creatorId,
 			creatorName: creator?.displayName ?? '',
 			isOfficial: pack.isOfficial,
-			aiUse: pack.aiUse,
+			aiUse: pack.aiUse ?? 'none',
 			credit: pack.credit,
 			illustrationCount: pack.illustrationCount,
 			...(await ownership('illustration_pack', pack.id, userId))
@@ -105,7 +108,7 @@ export function createLayersApi(deps: {
 			creatorId: track.creatorId,
 			creatorName: creator?.displayName ?? '',
 			isOfficial: track.isOfficial,
-			aiUse: track.aiUse,
+			aiUse: track.aiUse ?? 'none',
 			credit: track.credit,
 			chapterCount: track.chapterCount,
 			durationMs: track.durationMs,
@@ -127,6 +130,19 @@ export function createLayersApi(deps: {
 	}
 
 	const directoryOf = (url: string) => url.replace(/\/[^/]*$/, '');
+
+	/** A URL the platform audio player can stream: Studio uploads become object URLs. */
+	async function audioUrl(url: string): Promise<string> {
+		const stored = parseStudioUrl(url);
+		if (!stored) return url;
+		const resolved = await deps.files.url({
+			store: 'layerFiles',
+			id: stored.layerId,
+			path: stored.path
+		});
+		if (!resolved) throw new BackendError('NOT_FOUND', 'This narration’s audio is missing.');
+		return resolved;
+	}
 
 	return {
 		async list(bookId) {
@@ -171,30 +187,30 @@ export function createLayersApi(deps: {
 				bookId: track.bookId
 			});
 			const file: AudioTrackFile = await layerFile(track.trackUrl, audioTrackFileSchema);
-			// Aligned to an older Revision than the one readers open: needs re-aligning (P1-STU-03).
-			const current = await db.getAllFromIndex('revisions', 'bookId', track.bookId);
-			const stale = current.length > 0 && !current.some((r) => r.id === file.revisionId);
+			// Aligned to an older Revision than the one readers open, or a Chapter whose text changed
+			// since: needs re-aligning (P1-STU-03, §7.2).
+			const book = await db.get('books', track.bookId);
+			const current = book ? await deps.content.currentRevisionId(book) : file.revisionId;
+			const stale = new Set(track.staleChapterIds);
 			const { token, expiresAt } = deps.content.grantLayer(trackId, directoryOf(track.trackUrl));
 			return {
 				track: summary,
 				revisionId: file.revisionId,
-				chapters: file.chapters.map((chapter) => {
-					const status: SyncMapStatus = stale
-						? 'stale'
-						: chapter.coverage < REVIEW_BELOW
-							? 'needs_review'
-							: 'ready';
-					return {
+				chapters: await Promise.all(
+					file.chapters.map(async (chapter) => ({
 						chapterId: chapter.chapterId,
 						syncMap: chapter.syncMap,
-						// SIMULATION: a static file, readable by anyone who knows the path. Phase 2 serves
-						// a signed URL that expires with the content token (§10.3, Invariant 16).
-						audioUrl: chapter.audio,
+						// SIMULATION: a static file or an object URL, readable by anyone who has it. Phase 2
+						// serves a signed URL that expires with the content token (§10.3, Invariant 16).
+						audioUrl: await audioUrl(chapter.audio),
 						durationMs: chapter.durationMs,
 						coverage: chapter.coverage,
-						status
-					};
-				}),
+						status: syncMapStatus(
+							chapter.coverage,
+							file.revisionId !== current || stale.has(chapter.chapterId)
+						)
+					}))
+				),
 				contentToken: token,
 				expiresAt: new Date(expiresAt).toISOString()
 			};
@@ -205,7 +221,7 @@ export function createLayersApi(deps: {
 				.filter((p) => p.listingState === 'listed')
 				.sort(byListing);
 			const illustrations: IllustrationPreviewDto[] = [];
-			const files: string[] = [];
+			const readable = new Map<string, string>();
 			for (const pack of packs) {
 				const file: IllustrationPackFile = await layerFile(
 					pack.packUrl,
@@ -214,7 +230,9 @@ export function createLayersApi(deps: {
 				// Invariant 6: a store page shows only what the creator marked spoiler-safe.
 				for (const ill of file.illustrations.filter((i) => i.spoilerSafe)) {
 					const variants = ill.image.variants.map((v) => ({ ...v, path: `${pack.id}/${v.path}` }));
-					files.push(...variants.map((v) => v.path));
+					ill.image.variants.forEach((v, i) =>
+						readable.set(variants[i]!.path, `${directoryOf(pack.packUrl)}/${v.path}`)
+					);
 					illustrations.push({
 						id: ill.id,
 						packId: pack.id,
@@ -226,9 +244,8 @@ export function createLayersApi(deps: {
 					});
 				}
 			}
-			// Packs live side by side, so one token covers every preview image and nothing else.
-			const base = packs[0] ? directoryOf(directoryOf(packs[0].packUrl)) : '';
-			const { token, expiresAt } = deps.content.grantLayer(`previews:${bookId}`, base, files);
+			// One token covers every preview image, from whichever pack, and nothing else.
+			const { token, expiresAt } = deps.content.grantLayerFiles(`previews:${bookId}`, readable);
 			return { illustrations, contentToken: token, expiresAt: new Date(expiresAt).toISOString() };
 		},
 
@@ -245,8 +262,8 @@ export function createLayersApi(deps: {
 				track: await summariseTrack(track, user.id),
 				chapterId: chapter.chapterId,
 				chapterTitle: track.sample.title,
-				// SIMULATION: a static file, as in openTrack.
-				audioUrl: chapter.audio,
+				// SIMULATION: as in openTrack.
+				audioUrl: await audioUrl(chapter.audio),
 				startMs: track.sample.startMs,
 				durationMs: track.sample.durationMs
 			};

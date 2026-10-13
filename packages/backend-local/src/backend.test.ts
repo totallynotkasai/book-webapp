@@ -4,8 +4,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BackendError, backendContract, type Backend, type Clock } from '@book/core';
 import { describeBackendContract, expectBackendError, ManualClock } from '@book/contract-tests';
+import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { createLocalBackend, type LocalBackendOptions } from './backend';
+import { inThreadPipeline, type Pipeline } from './pipeline';
 import { SeedError } from './seed';
 import { testSimulationDefaults } from './simulation';
 import seedFile from '../../../fixtures/seed/seed.json';
@@ -18,15 +20,22 @@ const loadFile = async (url: string) =>
 		readFileSync(join(fileURLToPath(new URL('../../../apps/web/static', import.meta.url)), url))
 	);
 
-/** Processing a Book takes a moment, so tests share the result per Book. */
-const processed = new Map<string, ReturnType<NonNullable<LocalBackendOptions['ingest']>>>();
-const ingest: NonNullable<LocalBackendOptions['ingest']> = (bytes, options) => {
-	let result = processed.get(options.bookId);
-	if (!result) {
-		result = import('@book/text-pipeline').then(({ ingestEpub }) => ingestEpub(bytes, options));
-		processed.set(options.bookId, result);
+/**
+ * Processing a Book takes a moment, so tests share each Book's first Revision. A later one
+ * (a Studio upload carried forward from another) is always processed afresh.
+ */
+const processed = new Map<string, ReturnType<Pipeline['ingest']>>();
+const pipeline: Partial<Pipeline> = {
+	ingest(bytes, options) {
+		if (options.previous) return inThreadPipeline.ingest(bytes, options);
+		const key = `${options.bookId}|${bytes.length}`;
+		let result = processed.get(key);
+		if (!result) {
+			result = inThreadPipeline.ingest(bytes, options);
+			processed.set(key, result);
+		}
+		return result;
 	}
-	return result;
 };
 
 function makeLocal(options: Partial<LocalBackendOptions> & { clock?: Clock } = {}) {
@@ -37,12 +46,36 @@ function makeLocal(options: Partial<LocalBackendOptions> & { clock?: Clock } = {
 		simulationDefaults: testSimulationDefaults,
 		validate: true,
 		loadFile,
-		ingest,
+		pipeline,
 		...options
 	});
 }
 
-describeBackendContract('backend-local', async ({ clock }) => (await makeLocal({ clock })).backend);
+/** The status-window fixture, and a copy with one paragraph of Chapter 1 changed (P1-STU-01). */
+const statusWindow = new Uint8Array(
+	readFileSync(
+		join(fileURLToPath(new URL('../../../fixtures/epub', import.meta.url)), 'status-window.epub')
+	)
+);
+function editedStatusWindow(): Uint8Array {
+	const files = unzipSync(statusWindow);
+	const out: Zippable = { mimetype: [files.mimetype!, { level: 0 }] };
+	for (const [path, data] of Object.entries(files)) {
+		if (path === 'mimetype') continue;
+		out[path] = path.endsWith('chapter-1.xhtml')
+			? strToU8(strFromU8(data).replace('She blinked. The colour stayed.', 'She blinked twice.'))
+			: data;
+	}
+	return zipSync(out);
+}
+
+describeBackendContract(
+	'backend-local',
+	async ({ clock }) => (await makeLocal({ clock })).backend,
+	{
+		studio: { book: statusWindow, edited: editedStatusWindow() }
+	}
+);
 
 /** Calls every method in the contract with plausible arguments. */
 function everyCall(backend: Backend): [string, () => Promise<unknown>][] {

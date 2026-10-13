@@ -84,9 +84,25 @@ export interface DescribedError extends ErrorCopy {
 }
 
 /** Turns anything thrown into copy for the UI. Unknown errors read as a retryable problem. */
+/**
+ * Codes whose backend message says exactly what to fix ("1 picture needs alt text", "This file
+ * is already …"): it replaces the general message under the code's title (DESIGN.md §10.1).
+ */
+const SPECIFIC: ReadonlySet<ErrorCode> = new Set([
+	'VALIDATION_FAILED',
+	'CONFLICT',
+	'UPLOAD_TOO_LARGE'
+]);
+
 export function describeError(error: unknown): DescribedError {
 	if (isBackendError(error)) {
-		return { ...errorCopy[error.code], code: error.code, offline: error.code === 'NETWORK_ERROR' };
+		const copy = errorCopy[error.code];
+		return {
+			...copy,
+			message: SPECIFIC.has(error.code) && error.message ? error.message : copy.message,
+			code: error.code,
+			offline: error.code === 'NETWORK_ERROR'
+		};
 	}
 	if (error instanceof StoreError) {
 		return { ...errorCopy.NOT_FOUND, code: 'NOT_FOUND', offline: false };

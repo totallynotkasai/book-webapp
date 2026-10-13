@@ -14,7 +14,8 @@ import {
 	type IllustrationPackSummaryDto,
 	type LayerSummaryDto,
 	type PointAnchor,
-	type Stores
+	type Stores,
+	type StudioPackDto
 } from '@book/core';
 import { defaultIllustrationPackIds, usableIllustrationPackIds } from '@book/domain';
 import { SvelteMap } from 'svelte/reactivity';
@@ -66,6 +67,38 @@ export class BookIllustrations {
 			? usableIllustrationPackIds(saved.illustrationPackIds, this.packs)
 			: defaultIllustrationPackIds(this.packs);
 		await Promise.all(this.enabled.map((id) => this.#open(id)));
+	}
+
+	/**
+	 * Creator mode (P1-LAY-05): shows one Studio pack as it's being built, in every Illustration
+	 * mode, instead of the Book's listed packs. Pictures whose text changed (orphaned) are left out.
+	 */
+	useDraft(draft: StudioPackDto, creatorName: string) {
+		const pack: IllustrationPackSummaryDto = {
+			id: draft.id,
+			kind: 'illustration_pack',
+			bookId: draft.bookId,
+			productId: `product-${draft.id}`,
+			name: draft.name,
+			description: draft.description,
+			creatorId: '',
+			creatorName,
+			isOfficial: draft.isOfficial,
+			aiUse: draft.aiUse ?? 'none',
+			credit: draft.credit,
+			price: draft.price,
+			entitled: true,
+			illustrationCount: draft.illustrationCount
+		};
+		this.packs = [pack];
+		this.enabled = [draft.id];
+		this.opened.set(draft.id, {
+			pack,
+			illustrations: draft.illustrations.filter(
+				(i) => i.anchorStatus !== 'orphaned' && i.anchor.revisionId === this.#revisionId
+			),
+			token: draft.contentToken
+		});
 	}
 
 	async #open(packId: string): Promise<OpenedPack | undefined> {

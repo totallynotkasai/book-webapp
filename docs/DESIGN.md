@@ -527,7 +527,9 @@ For every Anchor on the previous Revision:
 2. Otherwise search the new Revision for `quote` (exact, then fuzzy; same Chapter first) → if found, rewrite WordIds and Ordinals, status `migrated`.
 3. Otherwise status `orphaned`: keep the old data and tell the owner (the reader for Annotations and Placed Bookmarks; the creator for Illustrations). Reading Progress falls back to the nearest surviving Word before it.
 
-Narration Sync Maps for changed Chapters become `stale` and re-alignment is queued (§7.2).
+Narration Sync Maps for changed Chapters become `stale` and re-alignment is queued (§7.2); unchanged Chapters' Sync Maps move to the new Revision as they are, since their WordIds are the same.
+
+Readers' own Anchors live on their devices until Phase 2 sync, so they move when the reader next opens the Book: `Backend.content.migrateAnchors` runs the same function where the Revisions are (P1-STU-01; from Phase 2 `POST /v1/books/:bookId/migrate-anchors`, which also serves Anchors made offline on an older Revision). The Book's WordId counter covers every Revision processed, published or not, so an abandoned draft never hands out an ID a later Revision reuses.
 
 ### 6.3 Local-first data and sync
 
@@ -603,6 +605,7 @@ export type EntitlementSource = 'free_claim' | 'purchase' | 'bundle' | 'subscrip
 - `price_minor = 0` means free. Free Products are claimed with "Add to library", which creates an Entitlement (`source: 'free_claim'`). Library and access checks stay uniform.
 - Buying a Bundle creates a parent Entitlement and child Entitlements (`source: 'bundle'`). Refunding the Bundle revokes the children.
 - Every user owns one default Bookmark Design from sign-up.
+- A Creator holds a `grant` Entitlement to every Product they create, so previewing their own work goes through the same access check as everyone else (P1-STU-01).
 - `revenue_split` is stored per Product as basis points `{ platformBps, authorBps, creatorBps }` summing to 10 000, and copied onto order items at purchase so later changes don't rewrite history.
 - One access function: `entitlements.check(userId, productId)` plus a batch variant. Content access tokens are only issued after it passes.
 - **Community content can be free or paid.** Its creator sets the price (0 = free), within any limits the Book's author sets (OPEN-08).
@@ -671,7 +674,7 @@ Input: one audio file per Chapter. One file with chapter markers is a later enha
 3. **Normalise** both sides: lowercase, strip punctuation, expand numbers both ways ("42" ↔ "forty-two"), collapse hyphenation and contractions.
 4. **Align** transcript tokens to the Chapter's word index with a global sequence alignment (Needleman–Wunsch on normalised tokens; fuzzy match by edit distance).
 5. **Fill gaps:** unmatched Words get interpolated times between matched neighbours and an `interpolated` flag.
-6. **Score:** `coverage = matched / total`. Below 0.90 (configurable) the status is `needs_review`, and the creator gets a review screen that jumps to low-confidence regions.
+6. **Score:** `coverage = matched / total`. Below 0.90 (configurable) the status is `needs_review`, and the creator gets a review screen that jumps to low-confidence regions (runs of interpolated Words, merged when fewer than three heard Words apart). The creator marks each region checked after listening; once all are, the Chapter counts as reviewed (`ready`). An uploaded Sync Map's coverage is recomputed, never trusted.
 7. **Write** the Sync Map:
 
 ```json
@@ -948,6 +951,7 @@ Chapter content renders in a sandboxed iframe (as both candidate engines do). On
 | `GET /v1/library` | The user's Entitlements, grouped by Book |
 | `POST /v1/books/:bookId/open` | Entitlement check → content token, manifest URL, Layers, progress, preferences |
 | `GET /v1/content/:token/*` | Content delivery (§10.3) |
+| `POST /v1/books/:bookId/migrate-anchors` | Moves a reader's Anchors from an older Revision to the current one (§6.2) |
 | `GET/PUT /v1/books/:bookId/progress` | Reading Progress |
 | `GET/POST/PATCH/DELETE /v1/books/:bookId/annotations[/:id]` | Annotations |
 | `GET/POST/PATCH/DELETE /v1/books/:bookId/placed-bookmarks[/:id]` | Placed Bookmarks |

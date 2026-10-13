@@ -133,11 +133,6 @@ export const libraryEntrySchema = z.object({
 });
 export type LibraryEntryDto = z.infer<typeof libraryEntrySchema>;
 
-export const studioBookSchema = bookSummarySchema.extend({
-	listingState: z.enum(['draft', 'listed', 'delisted'])
-});
-export type StudioBookDto = z.infer<typeof studioBookSchema>;
-
 /** What a Flag points at (§10.6, `moderation_flags.target_type`). */
 export const flagTargetTypeSchema = z.enum(['book', 'illustration_pack', 'audio_track', 'creator']);
 export type FlagTargetType = z.infer<typeof flagTargetTypeSchema>;

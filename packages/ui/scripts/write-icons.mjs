@@ -20,6 +20,7 @@ const source = join(
 /** Each name gets an outlined form; names in FILLED also get `<name>-fill` (selected states). */
 const ICONS = [
 	'add',
+	'add_photo_alternate',
 	'admin_panel_settings',
 	'arrow_back',
 	'arrow_downward',
@@ -42,6 +43,7 @@ const ICONS = [
 	'dark_mode',
 	'delete',
 	'download',
+	'edit',
 	'drag_handle',
 	'edit_note',
 	'error',
@@ -73,6 +75,7 @@ const ICONS = [
 	'lock_open',
 	'menu',
 	'menu_book',
+	'mic',
 	'more_vert',
 	'palette',
 	'pause',
@@ -82,6 +85,7 @@ const ICONS = [
 	'photo_library',
 	'play_arrow',
 	'public',
+	'publish',
 	'refresh',
 	'remove',
 	'reorder',

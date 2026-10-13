@@ -17,6 +17,20 @@ describe('snackbars (P1-APP-02)', () => {
 		expect(bar.current).toBeNull();
 	});
 
+	it('lets an error replace a plain confirmation at once, but never one with an action', () => {
+		const bar = new Snackbars();
+		bar.show('Picture attached.');
+		bar.show('Add alt text first.', { tone: 'error' });
+		expect(bar.current?.message).toBe('Add alt text first.');
+
+		const undoable = new Snackbars();
+		undoable.show('Highlight removed', { action: { label: 'Undo', run: vi.fn() } });
+		undoable.show('Couldn’t save', { tone: 'error' });
+		expect(undoable.current?.message).toBe('Highlight removed');
+		vi.advanceTimersByTime(SNACKBAR_WITH_ACTION_MS);
+		expect(undoable.current?.message).toBe('Couldn’t save');
+	});
+
 	it('stays longer when it has an action, and can be dismissed early', () => {
 		const bar = new Snackbars();
 		const run = vi.fn();

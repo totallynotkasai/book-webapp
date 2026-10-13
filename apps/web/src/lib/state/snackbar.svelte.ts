@@ -1,6 +1,8 @@
 /**
  * Snackbars (P1-APP-02): short confirmations and errors, one at a time, in order. An action keeps
  * its name through the flow: "Add to library" confirms with "Added to library" (DESIGN.md §11.6).
+ * An error doesn't wait behind a plain confirmation: it replaces it at once. Anything with an
+ * action (Undo) is never cut short.
  */
 import { describeError } from '$lib/errors';
 
@@ -42,6 +44,12 @@ export class Snackbars {
 			tone: options.tone ?? 'info',
 			timeoutMs: options.timeoutMs ?? (options.action ? SNACKBAR_WITH_ACTION_MS : SNACKBAR_MS)
 		};
+		const current = this.current;
+		if (snackbar.tone === 'error' && current?.tone === 'info' && !current.action) {
+			this.#queue.unshift(snackbar);
+			this.dismiss(current.id);
+			return snackbar.id;
+		}
 		this.#queue.push(snackbar);
 		if (!this.current) this.#next();
 		return snackbar.id;

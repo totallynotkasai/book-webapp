@@ -8,6 +8,11 @@ const formatters = new Map<string, Intl.NumberFormat>();
 /** "Free", or the price in its currency ("£3.99"). */
 export function formatPrice(price: Money, locale?: string): string {
 	if (price.amountMinor === 0) return 'Free';
+	return formatAmount(price, locale);
+}
+
+/** An amount of money, zero included ("£0.00"): earnings and totals, not prices. */
+export function formatAmount(price: Money, locale?: string): string {
 	const key = `${locale ?? ''}:${price.currency}`;
 	let format = formatters.get(key);
 	if (!format) {

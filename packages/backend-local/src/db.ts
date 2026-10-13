@@ -1,3 +1,4 @@
+import type { AiUse, IngestReport, RevisionChangesDto } from '@book/core';
 import type { EntitlementRecord } from '@book/domain';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type {
@@ -38,6 +39,19 @@ export interface BackendDB extends DBSchema {
 	/** Processed catalogue Revisions (derived from static files, so kept by "Reset demo data"). */
 	revisions: { key: string; value: RevisionRecord; indexes: { bookId: string } };
 	content: { key: [string, string]; value: ContentFile };
+	/**
+	 * Files the Studio keeps (P1-STU-01 to P1-STU-03, P1-LAY-05): packs' images and `pack.json`,
+	 * tracks' audio, Sync Maps and `track.json`, and covers, keyed by Layer (or `cover:<bookId>`).
+	 * Phase 2 keeps them in object storage (§6.7).
+	 */
+	layerFiles: { key: [string, string]; value: LayerFile };
+}
+
+export interface LayerFile {
+	layerId: string;
+	path: string;
+	type: string;
+	bytes: ArrayBuffer;
 }
 
 export interface OrderRecord {
@@ -87,7 +101,21 @@ export interface RevisionRecord {
 	/** SHA-256 of the EPUB (§6.3). */
 	id: string;
 	bookId: string;
+	/** Empty while a Studio upload is still processing. */
 	processedAt: string;
+	/** Absent on a seeded Book's Revision, processed from its `epubUrl` on first open. */
+	studio?: {
+		state: 'processing' | 'ready' | 'failed' | 'published' | 'superseded';
+		uploadedAt: string;
+		/** The Book's uploads in order (0, 1, …): ties on `uploadedAt` keep their order. */
+		seq: number;
+		publishedAt: string | null;
+		aiUse: AiUse | null;
+		failure: string | null;
+		changes: RevisionChangesDto | null;
+	};
+	/** The ingest report (§7.1 step 7); absent until processed. */
+	report?: IngestReport;
 }
 
 /** A processed file, as bytes plus a media type (some WebKit builds can't store Blobs). */
@@ -145,11 +173,12 @@ export const SEEDED_STORES = [
 	'flags',
 	'orders',
 	'subscriptions',
-	'tips'
+	'tips',
+	'layerFiles'
 ] as const;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 6;
+const VERSION = 7;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -198,6 +227,10 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 				db.createObjectStore('orders', { keyPath: 'id' }).createIndex('userId', 'userId');
 				db.createObjectStore('subscriptions', { keyPath: 'id' }).createIndex('userId', 'userId');
 				db.createObjectStore('tips', { keyPath: 'id' }).createIndex('userId', 'userId');
+			}
+			if (oldVersion < 7) {
+				// P1-STU-01 to P1-STU-03, P1-LAY-05: files the Studio keeps.
+				db.createObjectStore('layerFiles', { keyPath: ['layerId', 'path'] });
 			}
 		}
 	});

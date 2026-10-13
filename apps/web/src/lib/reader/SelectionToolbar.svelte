@@ -26,6 +26,8 @@
 		onnote: () => void;
 		oncopy: () => void;
 		onremove: () => void;
+		/** Creator mode (P1-LAY-05): attach an Illustration to the selection. */
+		onattach?: () => void;
 		onclose: () => void;
 	}
 
@@ -41,6 +43,7 @@
 		onnote,
 		oncopy,
 		onremove,
+		onattach,
 		onclose
 	}: Props = $props();
 
@@ -146,6 +149,9 @@
 	<span class="divider" aria-hidden="true"></span>
 	<IconButton icon="edit_note" label={hasNote ? 'Edit note' : 'Add note'} onclick={onnote} />
 	<IconButton icon="content_copy" label="Copy" onclick={oncopy} />
+	{#if onattach}
+		<IconButton icon="add_photo_alternate" label="Attach picture" onclick={onattach} />
+	{/if}
 	{#if canRemove}
 		<IconButton icon="delete" label="Remove highlight" onclick={onremove} />
 	{/if}

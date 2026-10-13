@@ -4,3 +4,6 @@ export * from './roles';
 export * from './layers';
 export * from './sentences';
 export * from './store';
+export * from './narration';
+export * from './revenue';
+export * from './studio';
