@@ -112,12 +112,15 @@ if (webDir) {
 }
 
 const variant = release ? 'release' : 'debug';
-const build = spawnSync(`${gradlew} assemble${release ? 'Release' : 'Debug'} --console=plain`, {
+// The task is an argument, not part of the command: without a shell (Linux, macOS, CI) a single
+// string would be taken as the program's name.
+const build = spawnSync(gradlew, [`assemble${release ? 'Release' : 'Debug'}`, '--console=plain'], {
 	cwd: androidDir,
 	env,
 	stdio: 'inherit',
 	shell: isWindows
 });
+if (build.error) fail(`Couldn't run Gradle: ${build.error.message}`);
 if (build.status !== 0) fail('The Android build failed (see above).');
 
 const apk = join(androidDir, 'app', 'build', 'outputs', 'apk', variant, `app-${variant}.apk`);
