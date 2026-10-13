@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, expectNoViolations, test } from './fixtures';
 
 // Runs against the tester build (P0-09 acceptance): no dev panel, no flagged-off areas.
 
@@ -28,6 +28,7 @@ test.describe('first run (P1-QA-03)', () => {
 		const welcome = page.getByRole('dialog', { name: 'Welcome to Book Reader' });
 		await expect(welcome).toBeVisible();
 		await expect(welcome).not.toContainText('store');
+		await expectNoViolations(page);
 		await welcome.getByRole('button', { name: 'Start reading' }).click();
 		await expect(page.getByTestId('reader')).toHaveAttribute('data-ready', 'true', {
 			timeout: 30_000

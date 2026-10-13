@@ -101,6 +101,19 @@
 		animation: spin calc(var(--duration-slow) * 3) linear infinite;
 	}
 
+	/* Reduced motion zeroes the durations (tokens.css), which would leave the sliding bar at its
+	   last keyframe, out of view: it stays still, in the middle of the track, instead (P1-QA-02). */
+	@media (prefers-reduced-motion: reduce) {
+		.linear.indeterminate .bar {
+			margin-inline: auto;
+			animation: none;
+		}
+
+		.circular.indeterminate svg {
+			animation: none;
+		}
+	}
+
 	@keyframes slide {
 		from {
 			transform: translateX(-100%);

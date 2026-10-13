@@ -163,6 +163,18 @@ export async function showChrome(page: Page) {
 
 /** axe at WCAG 2.2 AA (IMPLEMENTATION-PLAN.md §9): no violations on what's on screen now. */
 export async function expectNoViolations(page: Page) {
+	// Contrast is measured on the settled page: a dialog fading in is half transparent. Endless
+	// animations (progress indicators) don't count.
+	await page.waitForFunction(
+		() =>
+			document
+				.getAnimations()
+				.every(
+					(a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity
+				),
+		undefined,
+		{ timeout: 5_000 }
+	);
 	const results = await new AxeBuilder({ page })
 		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
 		.analyze();

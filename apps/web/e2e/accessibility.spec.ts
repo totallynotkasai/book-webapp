@@ -1,7 +1,20 @@
-import { expect, expectNoViolations, switchPersona, test } from './fixtures';
+import type { Page } from '@playwright/test';
+import { silentNarration } from './audio';
+import {
+	expect,
+	expectNoViolations,
+	openReader,
+	settled,
+	showChrome,
+	switchPersona,
+	test
+} from './fixtures';
 
 // axe on every route at WCAG 2.2 AA (IMPLEMENTATION-PLAN.md §9, from Phase 1.1; P1-QA-02 adds
-// the screen-reader walkthroughs). Each route is checked in its light and dark schemes.
+// the reader with each of its panels, and the screen-reader walkthroughs in
+// docs/device-checklist.md). Each route is checked in its light and dark schemes. Screens only
+// a flow reaches are checked in that flow's spec: the community hub (community.spec.ts), the
+// narration review (studio.spec.ts) and the welcome (tester.spec.ts).
 
 const ROUTES = [
 	{ path: '/library', heading: 'Library' },
@@ -10,6 +23,10 @@ const ROUTES = [
 	{ path: '/creator/wren-ashdown', heading: 'Wren Ashdown' },
 	{ path: '/you', heading: 'You' },
 	{ path: '/you/settings', heading: 'Settings' },
+	{ path: '/you/help', heading: 'Help' },
+	{ path: '/you/bookmarks', heading: 'Bookmark designs' },
+	{ path: '/you/purchases', heading: 'Purchases and subscriptions' },
+	{ path: '/you/data', heading: 'Your data' },
 	{ path: '/dev', heading: 'Developer panel' },
 	{ path: '/dev/components', heading: 'Component gallery' }
 ];
@@ -27,6 +44,66 @@ for (const scheme of ['light', 'dark'] as const) {
 				await expectNoViolations(page);
 			});
 		}
+
+		test('the reader and each of its panels have no axe violations (P1-QA-02)', async ({
+			page
+		}) => {
+			test.slow();
+			// The Author holds Alice's Illustrations and narration, so every panel has content.
+			await switchPersona(page, 'Author');
+			await silentNarration(page);
+			await openReader(page, 'book-alice');
+			const panel = async (open: () => Promise<void>, name: string) => {
+				await showChrome(page);
+				await open();
+				await expect(page.getByRole('dialog', { name })).toBeVisible();
+				await expectNoViolations(page);
+				await page.keyboard.press('Escape');
+				await expect(page.getByRole('dialog', { name })).toBeHidden();
+			};
+
+			await showChrome(page);
+			await page.getByRole('button', { name: 'Contents and notes' }).click();
+			await page.getByRole('button', { name: /Down the Rabbit-Hole/ }).click();
+			await settled(page);
+			await showChrome(page);
+			await expectNoViolations(page);
+
+			await panel(
+				() => page.getByRole('button', { name: 'Contents and notes' }).click(),
+				'Contents and notes'
+			);
+			await showChrome(page);
+			await page.getByRole('button', { name: 'Reading preferences' }).click();
+			for (const tab of ['Text', 'Page', 'Theme']) {
+				await page.getByRole('tab', { name: tab }).click();
+				await expectNoViolations(page);
+			}
+			await page.keyboard.press('Escape');
+			await panel(
+				() => page.getByRole('button', { name: 'Illustrations' }).click(),
+				'Illustrations'
+			);
+			await panel(() => page.keyboard.press('Shift+Slash'), 'Keyboard shortcuts');
+
+			// The selection toolbar, then the pop-up picture, then the narration player.
+			for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowRight');
+			await expect(page.getByRole('toolbar', { name: 'Selection' })).toBeVisible();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			for (let i = 0; i < 2; i++) {
+				await page.keyboard.press('ArrowRight');
+				await settled(page);
+			}
+			await page.getByRole('button', { name: /Show the (new )?picture/ }).click();
+			await expect(page.getByTestId('illustration-card')).toBeVisible();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			await showChrome(page);
+			await page.getByRole('button', { name: 'Listen to the narration' }).click();
+			await expect(page.getByTestId('narration-player')).toHaveAttribute('data-playing', 'true');
+			await expectNoViolations(page);
+		});
 
 		test('/studio and /admin have no axe violations', async ({ page }) => {
 			await switchPersona(page, 'Author');
@@ -78,3 +155,48 @@ for (const scheme of ['light', 'dark'] as const) {
 		});
 	});
 }
+
+test.describe('reduced motion (P1-QA-02)', () => {
+	test.use({ reducedMotion: 'reduce' });
+
+	/** CSS animations and transitions that would take time to play. */
+	const moving = (page: Page) =>
+		page.evaluate(
+			() =>
+				document.getAnimations().filter((a) => {
+					const timing = a.effect?.getComputedTiming();
+					return a.playState === 'running' && Number(timing?.duration ?? 0) > 0;
+				}).length
+		);
+
+	test('nothing moves: screens, dialogs and page turns are instant', async ({ page }) => {
+		// An indeterminate bar stays in view, standing still, instead of sliding.
+		await page.goto('/dev/components');
+		const loading = page.getByRole('progressbar', { name: 'Loading' });
+		const track = (await loading.boundingBox())!;
+		const bar = (await loading.locator('.bar').boundingBox())!;
+		expect(bar.width).toBeGreaterThan(0);
+		expect(bar.x).toBeGreaterThanOrEqual(track.x);
+		expect(bar.x + bar.width).toBeLessThanOrEqual(track.x + track.width + 1);
+		expect(await moving(page)).toBe(0);
+
+		await page.goto('/you/help');
+		await page.getByRole('button', { name: 'Show the welcome again' }).click();
+		await expect(page.getByRole('dialog', { name: 'Welcome to Book Reader' })).toBeVisible();
+		expect(await moving(page)).toBe(0);
+
+		// The reader's default page turn slides; under reduced motion it doesn't.
+		await openReader(page, 'book-alice');
+		await page.keyboard.press('ArrowRight');
+		await settled(page);
+		const animated = await page.evaluate(() => {
+			const search = (root: Document | ShadowRoot): boolean =>
+				[...root.querySelectorAll('*')].some(
+					(el) => el.hasAttribute('animated') || (!!el.shadowRoot && search(el.shadowRoot))
+				);
+			return search(document);
+		});
+		expect(animated).toBe(false);
+		expect(await moving(page)).toBe(0);
+	});
+});
