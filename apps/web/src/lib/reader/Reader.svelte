@@ -14,6 +14,8 @@
 		type PointAnchor,
 		type RangeAnchor,
 		type ReaderPreferencesPatch,
+		type DraftIllustrationDto,
+		type StudioPackDto,
 		type TocEntry
 	} from '@book/core';
 	import { createEngine, type ReaderEngine, type VisibleRange } from '@book/reader-core';
@@ -24,6 +26,7 @@
 	import { copyText } from '$lib/clipboard';
 	import BookmarkRibbon from '$lib/components/BookmarkRibbon.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
+	import { migrateToCurrent } from '$lib/data/migration';
 	import { describeError, type DescribedError } from '$lib/errors';
 	import { formatDate } from '$lib/format';
 	import { getPlatform } from '$lib/platform';
@@ -31,6 +34,8 @@
 	import { preferences } from '$lib/state/preferences.svelte';
 	import { snackbars } from '$lib/state/snackbar.svelte';
 	import SubscribeSheet from '$lib/store/SubscribeSheet.svelte';
+	import AttachIllustration from '$lib/studio/AttachIllustration.svelte';
+	import PackPictures from '$lib/studio/PackPictures.svelte';
 	import { chapterTitleAt } from './chapters';
 	import ContentsSheet, { type ContentsTab } from './ContentsSheet.svelte';
 	import IllustrationCard from './IllustrationCard.svelte';
@@ -59,8 +64,26 @@
 	 * Selecting text (mouse, long-press, or Shift+arrows) brings up the selection toolbar.
 	 * Pictures (§8.2) and narration (§8.3) come from the Book's Layers.
 	 */
-	/** `sample`: "Read sample" for a Book the reader doesn't own (P1-STO-01). */
-	let { bookId, sample = false }: { bookId: string; sample?: boolean } = $props();
+	/**
+	 * `sample`: "Read sample" for a Book the reader doesn't own (P1-STO-01). `preview`: a Creator
+	 * previewing one of their own Revisions (P1-STU-01). `creatorPackId`: Creator mode, building
+	 * that Illustration Pack on the Book (P1-LAY-05). Neither of the last two saves Reading Progress.
+	 */
+	let {
+		bookId,
+		sample = false,
+		preview = null,
+		creatorPackId = null,
+		startChapter = null
+	}: {
+		bookId: string;
+		sample?: boolean;
+		preview?: { revisionId?: string } | null;
+		creatorPackId?: string | null;
+		/** Open at this Chapter (an ingest report's link into a preview). */
+		startChapter?: string | null;
+	} = $props();
+	const studioMode = $derived(!!preview || !!creatorPackId);
 
 	type Phase =
 		| { kind: 'opening' }
@@ -103,6 +126,73 @@
 	/** The picture last looked at, so the button's dot can say when there's a new one. */
 	let lastSeen = $state<string | null>(null);
 	let panelCollapsed = $state(false);
+
+	// ---- Creator mode: building an Illustration Pack (P1-LAY-05) ----
+	let creatorPack = $state.raw<StudioPackDto | null>(null);
+	let attachOpen = $state(false);
+	let attaching = $state.raw<{ anchor: RangeAnchor; passage: string } | null>(null);
+	let editingPicture = $state.raw<DraftIllustrationDto | null>(null);
+	let picturesOpen = $state(false);
+	/** The picture whose passage was last shown: its Anchor range is marked. */
+	let shownPicture = $state<string | null>(null);
+	let publishingPack = $state(false);
+	const creatorCount = $derived.by(() => {
+		if (!creatorPack) return '';
+		const { illustrationCount: n, missingAlt } = creatorPack;
+		const pictures = `${n} ${n === 1 ? 'picture' : 'pictures'}`;
+		return missingAlt ? `${pictures} · ${missingAlt} need alt text` : pictures;
+	});
+
+	function attachFromToolbar() {
+		const current = toolbar;
+		if (current?.kind !== 'selection') return;
+		closeToolbar();
+		attaching = { anchor: current.anchor, passage: current.text };
+		editingPicture = null;
+		attachOpen = true;
+	}
+
+	function packChanged(pack: StudioPackDto) {
+		creatorPack = pack;
+		illustrations?.useDraft(pack, opened?.manifest.creator ?? '');
+	}
+
+	async function showPicture(picture: DraftIllustrationDto) {
+		picturesOpen = false;
+		shownPicture = picture.id;
+		await engine?.goTo(picture.anchor);
+	}
+
+	function editPicture(picture: DraftIllustrationDto) {
+		picturesOpen = false;
+		attaching = null;
+		editingPicture = picture;
+		attachOpen = true;
+	}
+
+	async function removePicture(picture: DraftIllustrationDto) {
+		if (!creatorPack) return;
+		try {
+			const backend = await getBackend();
+			packChanged(await backend.studio.removeIllustration(creatorPack.id, picture.id));
+			snackbars.show('Picture removed.');
+		} catch (error) {
+			snackbars.show(describeError(error).message, { tone: 'error' });
+		}
+	}
+
+	async function publishPack() {
+		if (!creatorPack || publishingPack) return;
+		publishingPack = true;
+		try {
+			packChanged(await (await getBackend()).studio.publishPack(creatorPack.id));
+			snackbars.show('Published. Readers with this pack now see its pictures.');
+		} catch (error) {
+			snackbars.show(describeError(error).message, { tone: 'error' });
+		} finally {
+			publishingPack = false;
+		}
+	}
 
 	// ---- Narration (§8.3) ----
 	let narration = $state.raw<BookNarration>();
@@ -182,6 +272,7 @@
 	const showHint = $derived(
 		phase.kind === 'ready' &&
 			illustrationMode === 'popup' &&
+			!creatorPack &&
 			!prefs.hintsSeen.includes('illustrations')
 	);
 	/** per-page sits beside the book from 600 px; spread (and compact per-page) above it. */
@@ -282,13 +373,31 @@
 		phase = { kind: 'opening' };
 		try {
 			await preferences.openBook(bookId);
-			const book = await openBook(bookId, { sample });
+			const [backend, stores] = await Promise.all([getBackend(), getStores()]);
+			if (creatorPackId) creatorPack = await backend.studio.getPack(creatorPackId);
+			const book = await openBook(bookId, {
+				sample,
+				preview: creatorPack
+					? { revisionId: creatorPack.revisionId ?? undefined }
+					: (preview ?? undefined)
+			});
 			opened = book;
-			const stores = await getStores();
+			// The author published a new version since: move this reader's notes, bookmarks and
+			// place to it (§6.2, P1-STU-01). Previews and Creator mode leave the reader's data alone.
+			if (book.source === 'catalogue' && book.access === 'full' && !studioMode) {
+				const moved = await migrateToCurrent(
+					stores,
+					backend,
+					bookId,
+					book.manifest.revisionId,
+					book.manifest.wordCount
+				);
+				if (moved.moved + moved.orphaned > 0) snackbars.show(newVersionNotice(moved));
+			}
 			notes = new BookNotes(stores, bookId, book.manifest.revisionId);
 			await notes.load();
 			const progress = await stores.progress.get(bookId);
-			saver = new ProgressSaver(stores, bookId, progress);
+			saver = studioMode ? undefined : new ProgressSaver(stores, bookId, progress);
 			const fontFaceCss = await readingFontFaces();
 			engine = await createEngine();
 			listen(engine);
@@ -306,6 +415,7 @@
 				fontFaceCss,
 				start
 			});
+			if (startChapter) await engine.goTo({ chapterId: startChapter });
 			void loadLayers(book);
 			applied = {
 				typography: JSON.stringify(typographyOf(prefs)),
@@ -323,6 +433,13 @@
 			console.error(error);
 			phase = { kind: 'error', error: describeError(error) };
 		}
+	}
+
+	function newVersionNotice({ moved, orphaned }: { moved: number; orphaned: number }): string {
+		const items = (n: number) => `${n} ${n === 1 ? 'note or bookmark' : 'notes and bookmarks'}`;
+		const base = 'This book has a new version.';
+		if (orphaned === 0) return `${base} Your ${items(moved)} moved to it.`;
+		return `${base} ${items(orphaned)} couldn’t be placed because their text changed; find them under “Orphaned” in Notes.`;
 	}
 
 	function listen(e: ReaderEngine) {
@@ -431,6 +548,24 @@
 		if (phase.kind === 'ready' && engine && decorations) {
 			engine.setDecorations('annotations', decorations);
 		}
+	});
+
+	// Creator mode: every placed picture's passage is underlined; the one just shown is marked.
+	$effect(() => {
+		const pack = creatorPack;
+		const shown = shownPicture;
+		if (phase.kind !== 'ready' || !engine || !pack) return;
+		engine.setDecorations(
+			'creator',
+			pack.illustrations
+				.filter((i) => i.anchorStatus !== 'orphaned')
+				.map((i) => ({
+					id: `creator-${i.id}`,
+					anchor: i.anchor,
+					style: i.id === shown ? ('search' as const) : ('underline' as const),
+					color: 'highlight-3'
+				}))
+		);
 	});
 
 	// ---- Narration: the highlight, auto-turn, the hint (§8.3) ----
@@ -601,8 +736,14 @@
 				(all) => (designs = all),
 				() => {}
 			);
-			const layers = await backend.layers.list(bookId);
 			const pictures = new BookIllustrations(backend, stores, bookId, book.manifest.revisionId);
+			if (creatorPack) {
+				// Creator mode: the pack being built, as readers will see it; no narration.
+				pictures.useDraft(creatorPack, book.manifest.creator);
+				illustrations = pictures;
+				return;
+			}
+			const layers = await backend.layers.list(bookId);
 			const voice = new BookNarration({
 				backend,
 				audio: getPlatform().audio,
@@ -1043,9 +1184,36 @@
 <svelte:window bind:innerWidth={windowWidth} bind:innerHeight={windowHeight} onkeydown={onKey} />
 <svelte:head><title>{manifest?.title ?? 'Reading'} · Book Reader</title></svelte:head>
 
+{#if creatorPack}
+	<!-- Creator mode (P1-LAY-05): always visible, so it's clear these pictures aren't public yet. -->
+	<div class="creator-bar" data-testid="creator-bar">
+		<span class="creator-label"><strong>Creator mode</strong> · {creatorPack.name}</span>
+		<span class="creator-count">{creatorCount}</span>
+		<Button variant="text" icon="photo_library" onclick={() => (picturesOpen = true)}
+			>Pictures</Button
+		>
+		{#if creatorPack.listingState === 'listed'}
+			<Badge tone="primary" icon="public">Published</Badge>
+		{:else}
+			<Button
+				variant="tonal"
+				icon="publish"
+				pending={publishingPack}
+				onclick={() => void publishPack()}>Publish pack</Button
+			>
+		{/if}
+		<Button variant="text" href={resolve('/(app)/studio/books/[bookId]', { bookId })}>Done</Button>
+	</div>
+{:else if preview}
+	<div class="creator-bar" data-testid="preview-bar">
+		<span class="creator-label"><strong>Preview</strong> · only you can see this version</span>
+		<Button variant="text" href={resolve('/(app)/studio/books/[bookId]', { bookId })}>Done</Button>
+	</div>
+{/if}
+
 <!-- data-first/last: the visible Words; data-narrated: the narrated one. For tests, never stored. -->
 <div
-	class={['reader', { 'chrome-hidden': !chrome }]}
+	class={['reader', { 'chrome-hidden': !chrome, studio: studioMode }]}
 	style={themeStyle}
 	style:--panel-width={`${panelWidth}px`}
 	style:--panel-height={`${panelHeight}px`}
@@ -1330,7 +1498,30 @@
 		onnote={noteFromToolbar}
 		oncopy={() => void copyFromToolbar()}
 		onremove={() => void removeFromToolbar()}
+		onattach={creatorPack && toolbar.kind === 'selection' ? attachFromToolbar : undefined}
 		onclose={closeToolbar}
+	/>
+{/if}
+
+{#if creatorPack}
+	<AttachIllustration
+		bind:open={attachOpen}
+		packId={creatorPack.id}
+		anchor={attaching?.anchor}
+		passage={attaching?.passage}
+		editing={editingPicture}
+		onsaved={(pack) => {
+			packChanged(pack);
+			snackbars.show(editingPicture ? 'Picture saved.' : 'Picture attached.');
+		}}
+	/>
+	<PackPictures
+		bind:open={picturesOpen}
+		pack={creatorPack}
+		thumbnail={(ill) => illustrations?.url(creatorPack!.id, ill, 56) ?? Promise.resolve(null)}
+		onshow={(ill) => void showPicture(ill)}
+		onedit={editPicture}
+		onremove={(ill) => void removePicture(ill)}
 	/>
 {/if}
 
@@ -1421,6 +1612,50 @@
 		overflow: hidden;
 		background: var(--reader-background);
 		color: var(--reader-text);
+	}
+
+	/* Below the Creator mode or preview bar, which takes the safe area at the top. */
+	.reader.studio {
+		top: calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 48px);
+		--safe-top: 0px;
+	}
+
+	.creator-bar {
+		position: fixed;
+		top: 0;
+		right: 0;
+		left: 0;
+		z-index: 8;
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: var(--space-2);
+		min-height: 48px;
+		padding: var(--safe-top) calc(var(--space-2) + var(--safe-right)) 0
+			calc(var(--space-3) + var(--safe-left));
+		overflow-x: auto;
+		background: var(--md-sys-color-tertiary-container);
+		color: var(--md-sys-color-on-tertiary-container);
+		--md-sys-color-primary: var(--md-sys-color-on-tertiary-container);
+	}
+
+	.creator-label {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.creator-count {
+		flex: none;
+		font-size: var(--md-sys-typescale-body-small-size);
+	}
+
+	@media (max-width: 599.98px) {
+		.creator-count {
+			display: none;
+		}
 	}
 
 	.stage {

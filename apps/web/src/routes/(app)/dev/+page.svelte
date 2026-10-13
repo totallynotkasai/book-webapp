@@ -1,15 +1,18 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import type { OrderDto, PersonaDto } from '@book/core';
+	import { asset, resolve } from '$app/paths';
+	import type { BookSummaryDto, OrderDto, PersonaDto } from '@book/core';
 	import { formatPrice } from '$lib/format';
 	import { featureFlags, flags, profile } from '$lib/flags';
 	import ImportDialog from '$lib/library/ImportDialog.svelte';
-	import { editedAlice } from '$lib/library/test-books';
+	import { editedAlice, editedSerial, editedStatusWindow } from '$lib/library/test-books';
+	import { getPlatform } from '$lib/platform';
+	import { narrationKit } from '$lib/studio/test-kit';
 	import { snackbars } from '$lib/state/snackbar.svelte';
 	// Test books for the Phase 1.2 and 1.3 Try-it lists, bundled as files (never inlined).
 	import statusWindowUrl from '../../../../../../fixtures/epub/status-window.epub?url';
 	import rackhamUrl from '../../../../../../fixtures/epub/alice-rackham-gutenberg.epub?url';
 	import {
+		getBackend,
 		getDevControls,
 		wipeDeviceData,
 		type DevControls,
@@ -104,6 +107,54 @@
 		try {
 			const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
 			await importer?.run(name, edit ? edit(bytes) : bytes);
+		} catch (error) {
+			snackbars.show(error instanceof Error ? error.message : String(error), { tone: 'error' });
+		}
+	}
+
+	// ---- Studio test files (plan §6 Phase 1.7 Try-it) ----
+	let kitBooks = $state<BookSummaryDto[]>([]);
+	let kitBook = $state('');
+	let kitChapter = $state(1);
+
+	$effect(() => {
+		void (async () => {
+			try {
+				const books = await (await getBackend()).studio.listBooks({ limit: 100 });
+				kitBooks = books.items.filter((b) => b.listingState === 'listed');
+				kitBook ||= kitBooks[0]?.id ?? '';
+			} catch {
+				kitBooks = []; // Not a Creator: the Studio refuses, and there is nothing to narrate.
+			}
+		})();
+	});
+
+	async function downloadBook(name: string, url: string, edit?: (b: Uint8Array) => Uint8Array) {
+		try {
+			const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+			const data = edit ? edit(bytes) : bytes;
+			await getPlatform().files.saveFile({
+				name,
+				mimeType: 'application/epub+zip',
+				data: new Blob([data as Uint8Array<ArrayBuffer>], { type: 'application/epub+zip' })
+			});
+		} catch (error) {
+			snackbars.show(error instanceof Error ? error.message : String(error), { tone: 'error' });
+		}
+	}
+
+	async function downloadKit() {
+		try {
+			const kit = await narrationKit(await getBackend(), kitBook, kitChapter);
+			const base = `${kitBooks.find((b) => b.id === kitBook)?.slug ?? 'book'}-chapter-${kitChapter}`;
+			const files = getPlatform().files;
+			await files.saveFile({ name: `${base}.wav`, mimeType: 'audio/wav', data: kit.audio });
+			await files.saveFile({
+				name: `${base}.sync.json`,
+				mimeType: 'application/json',
+				data: JSON.stringify(kit.syncMap)
+			});
+			snackbars.show(`Narration test kit for “${kit.chapterTitle}” saved.`);
 		} catch (error) {
 			snackbars.show(error instanceof Error ? error.message : String(error), { tone: 'error' });
 		}
@@ -316,6 +367,50 @@
 			The edited copy changes one paragraph and deletes another in Chapter I, so it imports as a new
 			version: notes elsewhere stay put, and a note on the deleted text becomes orphaned.
 		</p>
+	</section>
+
+	<section aria-labelledby="studio-files-heading">
+		<h2 id="studio-files-heading">Studio test files</h2>
+		<p class="muted">
+			To upload in the Creator Studio as the Author. They download (on Android, the share sheet
+			opens).
+		</p>
+		<div class="row">
+			<button onclick={() => downloadBook('status-window.epub', statusWindowUrl)}
+				>Download the status-window fixture</button
+			>
+			<button
+				onclick={() =>
+					downloadBook('status-window-edited.epub', statusWindowUrl, editedStatusWindow)}
+				>Download an edited copy of it</button
+			>
+			<button
+				onclick={() =>
+					downloadBook(
+						'the-lamplighters-ledger-edited.epub',
+						asset('/demo/books/the-lamplighters-ledger.epub'),
+						editedSerial
+					)}>Download an edited copy of The Lamplighter’s Ledger</button
+			>
+		</div>
+		<p class="muted">The edited copies change one paragraph, so they upload as a new version.</p>
+		{#if kitBooks.length}
+			<div class="row">
+				<label for="kit-book">Book</label>
+				<select id="kit-book" bind:value={kitBook}>
+					{#each kitBooks as book (book.id)}<option value={book.id}>{book.title}</option>{/each}
+				</select>
+				<label for="kit-chapter">Chapter</label>
+				<input id="kit-chapter" type="number" min="1" bind:value={kitChapter} />
+				<button onclick={downloadKit} disabled={!kitBook}>Download a narration test kit</button>
+			</div>
+			<p class="muted">
+				A silent recording and a Sync Map with made-up timings, some marked as guessed, so the
+				chapter needs review. Real ones come from <code>npm run narration</code> (tools/align).
+			</p>
+		{:else}
+			<p class="muted">Sign in as the Author and publish a book to make a narration test kit.</p>
+		{/if}
 	</section>
 
 	<section aria-labelledby="tools-heading">

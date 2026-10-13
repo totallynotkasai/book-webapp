@@ -107,6 +107,8 @@ export interface RevisionRecord {
 	studio?: {
 		state: 'processing' | 'ready' | 'failed' | 'published' | 'superseded';
 		uploadedAt: string;
+		/** The Book's uploads in order (0, 1, …): ties on `uploadedAt` keep their order. */
+		seq: number;
 		publishedAt: string | null;
 		aiUse: AiUse | null;
 		failure: string | null;

@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test as base, expect, type Page } from '@playwright/test';
 
 // E2E runs backend-local with no latency, no injected failures and a fixed clock (plan §9).
@@ -153,4 +154,15 @@ export async function showChrome(page: Page) {
 	}
 	await expect(reader).not.toHaveClass(/chrome-hidden/);
 	await page.waitForTimeout(300);
+}
+
+/** axe at WCAG 2.2 AA (IMPLEMENTATION-PLAN.md §9): no violations on what's on screen now. */
+export async function expectNoViolations(page: Page) {
+	const results = await new AxeBuilder({ page })
+		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+		.analyze();
+	const summary = results.violations.map(
+		(v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`
+	);
+	expect(summary).toEqual([]);
 }

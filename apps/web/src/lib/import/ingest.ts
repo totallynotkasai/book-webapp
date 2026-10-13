@@ -1,10 +1,11 @@
 /**
  * The main-thread side of the ingest worker. One worker is shared and stays alive while there is
- * work, so imports and catalogue Books don't pay its start-up twice.
+ * work, so imports, catalogue Books and Studio uploads don't pay its start-up twice.
  */
-import type { IngestFailureCode } from '@book/core';
+import type { Anchor, IngestFailureCode, PointAnchor } from '@book/core';
 import type { IngestResult } from '@book/text-pipeline';
 import type {
+	ChapterWordTexts,
 	MigrationResult,
 	PreviousRevisionRequest,
 	WorkerRequest,
@@ -18,7 +19,8 @@ export class ImportFailure extends Error {
 		message: string
 	) {
 		super(message);
-		this.name = 'ImportFailure';
+		// The same name text-pipeline's own error has, so backend-local can tell it apart.
+		this.name = 'IngestError';
 	}
 }
 
@@ -27,7 +29,7 @@ let nextId = 1;
 const pending = new Map<
 	number,
 	{
-		resolve: (r: IngestOutput) => void;
+		resolve: (r: never) => void;
 		reject: (e: Error) => void;
 		onProgress?: (done: number, total: number) => void;
 	}
@@ -42,8 +44,13 @@ function getWorker(): Worker {
 			if (!job) return;
 			if (message.type === 'progress') return job.onProgress?.(message.done, message.total);
 			pending.delete(message.id);
-			if (message.type === 'done') job.resolve({ ...message.result, migration: message.migration });
-			else job.reject(new ImportFailure(message.code, message.message));
+			if (message.type === 'error') {
+				job.reject(new ImportFailure(message.code, message.message));
+			} else if (message.type === 'done') {
+				job.resolve({ ...message.result, migration: message.migration } as never);
+			} else {
+				job.resolve(message.result as never);
+			}
 		};
 		worker.onerror = (event) => {
 			for (const job of pending.values())
@@ -54,6 +61,17 @@ function getWorker(): Worker {
 		};
 	}
 	return worker;
+}
+
+function run<T>(
+	message: WorkerRequest,
+	transfer: Transferable[] = [],
+	onProgress?: (done: number, total: number) => void
+): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		pending.set(message.id, { resolve: resolve as (r: never) => void, reject, onProgress });
+		getWorker().postMessage(message, transfer);
+	});
 }
 
 export interface IngestRequest {
@@ -73,18 +91,33 @@ export function ingestInWorker(
 	bytes: Uint8Array,
 	request: IngestRequest = {}
 ): Promise<IngestOutput> {
-	const id = nextId++;
 	const copy = bytes.slice().buffer;
-	return new Promise((resolve, reject) => {
-		pending.set(id, { resolve, reject, onProgress: request.onProgress });
-		const message: WorkerRequest = {
-			id,
+	return run(
+		{
+			op: 'ingest',
+			id: nextId++,
 			bytes: copy,
 			bookId: request.bookId,
 			firstWordId: request.firstWordId,
 			newBookId: request.newBookId,
 			previous: request.previous
-		};
-		getWorker().postMessage(message, [copy]);
-	});
+		},
+		[copy],
+		request.onProgress
+	);
+}
+
+/** Moves Anchors between two Revisions, given each one's text files (§6.2). */
+export function migrateInWorker(input: {
+	before: Record<string, string>;
+	after: Record<string, string>;
+	anchors: Anchor[];
+	progress: PointAnchor[];
+}): Promise<MigrationResult> {
+	return run({ op: 'migrate', id: nextId++, ...input });
+}
+
+/** Each Chapter's Words, IDs and text, from a Revision's text files. */
+export function wordsInWorker(revision: Record<string, string>): Promise<ChapterWordTexts[]> {
+	return run({ op: 'words', id: nextId++, revision });
 }

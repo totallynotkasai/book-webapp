@@ -17,16 +17,13 @@ import {
 	type PointAnchor,
 	type Stores
 } from '@book/core';
+import { migrationText, writeMigration, type MigrationSummary } from '$lib/data/migration';
 import { requestPersistentStorage } from '$lib/data/persistence';
 import { ImportFailure, ingestInWorker, type IngestOutput } from '$lib/import/ingest';
 import type { PreviousRevisionRequest } from '$lib/import/protocol';
 import { getStores } from '$lib/services';
 
-/** What happened to the reader's notes when a new version of a Book came in. */
-export interface MigrationSummary {
-	moved: number;
-	orphaned: number;
-}
+export { migrationText, type MigrationSummary };
 
 export type ImportOutcome =
 	| {
@@ -100,7 +97,19 @@ export async function importEpub(
 			source: 'import'
 		};
 		const migration =
-			attached && result.migration ? await applyMigration(stores, attached, result) : undefined;
+			attached && result.migration
+				? await writeMigration(
+						stores,
+						{
+							bookId: result.bookId,
+							annotationIds: attached.annotationIds,
+							bookmarkIds: attached.bookmarkIds,
+							progress: attached.progress
+						},
+						result.migration,
+						result.manifest.wordCount
+					)
+				: undefined;
 		await stores.library.putBook(book);
 		void requestPersistentStorage();
 		return {
@@ -169,61 +178,6 @@ async function attachedTo(stores: Stores, bookId: string, revisionId: string) {
 		bookmarkIds: bookmarks.map((b) => b.id),
 		progress: progress.length > 0
 	} satisfies Attached;
-}
-
-/** Writes migrated Anchors back; orphaned records keep their old Anchor (§6.2 step 3). */
-async function applyMigration(
-	stores: Stores,
-	attached: Attached,
-	result: IngestOutput
-): Promise<MigrationSummary> {
-	const { anchors, progress } = result.migration!;
-	let moved = 0;
-	let orphaned = 0;
-	for (const [k, migrated] of anchors.entries()) {
-		const anchorStatus = migrated.status === 'orphaned' ? 'orphaned' : 'migrated';
-		if (anchorStatus === 'orphaned') orphaned++;
-		else moved++;
-		if (k < attached.annotationIds.length) {
-			await stores.annotations.update(attached.annotationIds[k]!, {
-				anchorStatus,
-				...(anchorStatus === 'migrated' && migrated.anchor.kind === 'range'
-					? { anchor: migrated.anchor }
-					: {})
-			});
-		} else {
-			await stores.placedBookmarks.update(
-				attached.bookmarkIds[k - attached.annotationIds.length]!,
-				{
-					anchorStatus,
-					...(anchorStatus === 'migrated' && migrated.anchor.kind === 'point'
-						? { anchor: migrated.anchor }
-						: {})
-				}
-			);
-		}
-	}
-	const [current, furthest] = progress;
-	if (attached.progress && current && furthest) {
-		const total = Math.max(1, result.manifest.wordCount - 1);
-		await stores.progress.save({
-			bookId: result.bookId,
-			current: current.anchor,
-			progression: Math.min(1, current.anchor.ordinal / total),
-			furthest: furthest.anchor,
-			furthestProgression: Math.min(1, furthest.anchor.ordinal / total)
-		});
-	}
-	return { moved, orphaned };
-}
-
-/** What a new version did to the reader's notes, in plain words. */
-export function migrationText(migration: MigrationSummary | undefined): string {
-	const base = 'This is a new version of a book you already had.';
-	if (!migration || migration.moved + migration.orphaned === 0) return base;
-	const items = (n: number) => `${n} ${n === 1 ? 'note or bookmark' : 'notes and bookmarks'}`;
-	if (migration.orphaned === 0) return `${base} Your ${items(migration.moved)} moved to it.`;
-	return `${base} ${items(migration.moved)} moved to it. ${items(migration.orphaned)} couldn’t be placed because their text changed; they’re listed under “Orphaned” in the book’s notes.`;
 }
 
 /** "Imported Title: 23 chapters, 98,000 words." (plan §6, Phase 1.2 UX notes) */

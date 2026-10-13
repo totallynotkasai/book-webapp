@@ -143,6 +143,12 @@ function sniffImage(b: Uint8Array): string | null {
 const extensionOf = (type: string) =>
 	({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' })[type] ?? 'bin';
 
+/** Newest upload first; a seeded Book's own Revision (no upload) is the oldest. */
+function newestFirst(a: RevisionRecord, b: RevisionRecord): number {
+	const time = (r: RevisionRecord) => r.studio?.uploadedAt ?? r.processedAt;
+	return time(b).localeCompare(time(a)) || (b.studio?.seq ?? -1) - (a.studio?.seq ?? -1);
+}
+
 const validation = (message: string, details?: unknown) =>
 	new BackendError('VALIDATION_FAILED', message, details);
 
@@ -274,8 +280,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 	async function revisionsOf(book: BookRecord): Promise<RevisionRecord[]> {
 		if (!book.currentRevisionId && book.epubUrl) await content.currentRevisionId(book);
 		const records = await db.getAllFromIndex('revisions', 'bookId', book.id);
-		const time = (r: RevisionRecord) => r.studio?.uploadedAt ?? r.processedAt;
-		return records.sort((a, b) => time(b).localeCompare(time(a)));
+		return records.sort(newestFirst);
 	}
 
 	/**
@@ -409,7 +414,10 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			}
 		} catch (error) {
 			const message =
-				error instanceof Error && error.name === 'IngestError'
+				// text-pipeline's own failures say what to do; anything else gets a general reason.
+				error instanceof Error &&
+				error.name === 'IngestError' &&
+				(error as { code?: unknown }).code != null
 					? error.message
 					: 'Something went wrong while processing this file. Try again; if it keeps happening, the file may be damaged.';
 			await db.put('revisions', {
@@ -853,7 +861,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			for (const [i, book] of books.entries()) {
 				const pending = (await db.getAllFromIndex('revisions', 'bookId', book.id))
 					.filter((r) => r.studio && ['processing', 'ready', 'failed'].includes(r.studio.state))
-					.sort((a, b) => b.studio!.uploadedAt.localeCompare(a.studio!.uploadedAt))[0];
+					.sort(newestFirst)[0];
 				result.push({
 					...summaries[i]!,
 					listingState: book.listingState,
@@ -932,6 +940,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 					studio: {
 						state: 'processing',
 						uploadedAt: now,
+						seq: (await db.getAllFromIndex('revisions', 'bookId', book.id)).length,
 						publishedAt: null,
 						aiUse: null,
 						failure: null,

@@ -8,7 +8,7 @@ import type { LocalBackend, LocalBackendControls, SimulationSettings } from '@bo
 import type { LocalStores } from '@book/storage-local';
 import { asset } from '$app/paths';
 import { profile } from '$lib/flags';
-import { ingestInWorker } from '$lib/import/ingest';
+import { ingestInWorker, migrateInWorker, wordsInWorker } from '$lib/import/ingest';
 // Fetched at runtime, never bundled, to protect the reader route's JavaScript budget (plan §4.3).
 import seedUrl from '../../../../fixtures/seed/seed.json?url';
 
@@ -32,13 +32,23 @@ function localBackend(): Promise<LocalBackend> {
 			validate: import.meta.env.DEV,
 			// Tester builds have no store, so the seed starts them with Alice's Layers (plan §6 1.6).
 			profile,
-			// Seeded EPUBs are static files; text-pipeline processes them in a Web Worker (§5.4).
+			// Seeded EPUBs are static files; text-pipeline processes them, and Studio uploads, in a Web
+			// Worker (§5.4).
 			loadFile: async (url) => {
 				const response = await fetch(asset(url as `/${string}`));
 				if (!response.ok) throw new Error(`Couldn't load ${url} (${response.status}).`);
 				return new Uint8Array(await response.arrayBuffer());
 			},
-			ingest: (bytes, options) => ingestInWorker(bytes, options)
+			pipeline: {
+				ingest: (bytes, { bookId, firstWordId, previous }) =>
+					ingestInWorker(bytes, {
+						bookId,
+						firstWordId,
+						previous: previous ? { files: previous, anchors: [], progress: [] } : undefined
+					}),
+				migrate: (input) => migrateInWorker(input),
+				words: (revision) => wordsInWorker(revision)
+			}
 		})
 	);
 	return local;
