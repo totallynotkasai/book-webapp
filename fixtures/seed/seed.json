@@ -1,5 +1,5 @@
 {
-	"version": 7,
+	"version": 8,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -33,7 +33,8 @@
 				"displayName": "Ink & Quill",
 				"role": "creator",
 				"creatorId": "creator-ink-and-quill"
-			}
+			},
+			"joinedAt": "2026-10-09T09:00:00.000Z"
 		},
 		{
 			"id": "moderator",
@@ -104,7 +105,9 @@
 			"epubUrl": "/books/alice.epub",
 			"listingState": "listed",
 			"contentRating": "all_ages",
-			"contentWarnings": []
+			"contentWarnings": [],
+			"communityPolicy": "open",
+			"communityAi": "allowed"
 		},
 		{
 			"id": "book-lamplighters-ledger",
@@ -124,7 +127,9 @@
 				"chapters": 2,
 				"freeAt": "2027-06-30T00:00:00.000Z",
 				"productId": "product-early-lamplighters-ledger"
-			}
+			},
+			"communityPolicy": "approval",
+			"communityAi": "allowed"
 		},
 		{
 			"id": "book-wonderful-wizard-of-oz",
@@ -208,7 +213,8 @@
 			"credit": "Illustrations by Arthur Rackham (1907), public domain, from Project Gutenberg #28885. Curated by Ink & Quill.",
 			"packUrl": "/demo/layers/pack-alice-rackham/pack.json",
 			"illustrationCount": 27,
-			"listingState": "listed"
+			"listingState": "listed",
+			"authorApproved": true
 		}
 	],
 	"audioTracks": [
@@ -591,16 +597,6 @@
 			"priority": 2,
 			"details": "Two readers reported it. Reason given: “Chapter 4 needs a content warning for violence.” (Seeded demo report.)",
 			"createdAt": "2026-10-01T10:30:00.000Z"
-		},
-		{
-			"id": "flag-volume-wren",
-			"targetType": "creator",
-			"targetId": "creator-wren-ashdown",
-			"rule": "upload_volume",
-			"state": "open",
-			"priority": 1,
-			"details": "Published 11 new Revisions of different Books in 30 days (threshold 10). The content is labelled AI-generated, so it stays listed. (Seeded demo Flag.)",
-			"createdAt": "2026-10-05T08:00:00.000Z"
 		}
 	],
 	"bookmarkDesigns": [
@@ -706,6 +702,301 @@
 				"book-princess-and-the-goblin",
 				"book-wonderful-wizard-of-oz"
 			]
+		}
+	],
+	"ratings": [
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-1",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-2",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-3",
+			"stars": 4
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-4",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-5",
+			"stars": 4
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-6",
+			"stars": 4
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-7",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-8",
+			"stars": 3
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-9",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-10",
+			"stars": 4
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-11",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-rackham",
+			"userId": "seed-reader-12",
+			"stars": 4
+		},
+		{
+			"layerId": "pack-alice-tenniel",
+			"userId": "seed-reader-1",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-tenniel",
+			"userId": "seed-reader-2",
+			"stars": 4
+		},
+		{
+			"layerId": "pack-alice-tenniel",
+			"userId": "seed-reader-3",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-tenniel",
+			"userId": "seed-reader-4",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-tenniel",
+			"userId": "seed-reader-5",
+			"stars": 4
+		},
+		{
+			"layerId": "pack-alice-tenniel",
+			"userId": "seed-reader-6",
+			"stars": 5
+		},
+		{
+			"layerId": "pack-alice-tenniel",
+			"userId": "seed-reader-7",
+			"stars": 5
+		}
+	],
+	"follows": [
+		{
+			"userId": "seed-reader-1",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-2",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-3",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-4",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-5",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-6",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-7",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-8",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-9",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-10",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-11",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-12",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-13",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-14",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-15",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-16",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-17",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-18",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-19",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-20",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-21",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-22",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-23",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-24",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-25",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-26",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-27",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-28",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-29",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-30",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-31",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-32",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-33",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-34",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-35",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-36",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-37",
+			"creatorId": "creator-wren-ashdown"
+		},
+		{
+			"userId": "seed-reader-1",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-2",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-3",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-4",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-5",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-6",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-7",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-8",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-9",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-10",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-11",
+			"creatorId": "creator-ink-and-quill"
+		},
+		{
+			"userId": "seed-reader-12",
+			"creatorId": "creator-ink-and-quill"
 		}
 	]
 }

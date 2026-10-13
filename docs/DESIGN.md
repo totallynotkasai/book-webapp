@@ -447,7 +447,7 @@ The SPA build stays the only build the apps use. For search engines, public Book
 
 The app reaches server-authoritative operations only through the `Backend` interface (Invariant 7), so the Store, Creator Studio, community and moderation areas can be built and tried in the PoC and later pointed at the real API without rewriting them. `docs/IMPLEMENTATION-PLAN.md` §4 has the detail.
 
-- **Interface.** `packages/core/src/backend/` defines modules that mirror the planned API modules (§10.1): `session`, `catalogue`, `library`, `content`, `checkout`, `support` (Tips and Creator Subscriptions), `layers`, `studio`, `community`, `moderation`, and `events` for change notifications. Every input and output has a Zod schema. Failures are a `BackendError` carrying a §10.1 error code. Lists are paged as `{ items, nextCursor }`, and mutations that move money or create Entitlements take an idempotency key, even locally.
+- **Interface.** `packages/core/src/backend/` defines modules that mirror the planned API modules (§10.1): `session`, `catalogue`, `library`, `content`, `checkout`, `support` (Tips and Creator Subscriptions), `layers`, `studio`, `community`, `moderation`, `inbox` (in-app messages: moderation outcomes, submissions and decisions), and `events` for change notifications. Every input and output has a Zod schema. Failures are a `BackendError` carrying a §10.1 error code. Lists are paged as `{ items, nextCursor }`, and mutations that move money or create Entitlements take an idempotency key, even locally.
 - **Content.** `content.open(bookId)` checks Entitlements, then returns the Revision, Chapter access, available Layers and a loader for the Book's files. Locally the loader reads from `backend-local`'s database; from Phase 2 it fetches under the content-token prefix (§10.3). `reader-core` only sees the loader.
 - **`backend-local`** (Phase 0 to the PoC review) runs in the browser with its own IndexedDB database, separate from `Stores`. It loads versioned seed data from `fixtures/seed/` (validated with Zod), replaces sign-in with Personas, enforces roles and ownership itself (rejecting with `FORBIDDEN`, not just hiding UI), and offers simulation controls through the dev panel: latency, failure rate, offline, payment outcome, AI-detector verdict, and a clock that can be moved forward. It is lazy-loaded, and its seed is fetched as JSON rather than bundled.
 - **Rules live in `packages/domain`**: Entitlement checks, Bundle expansion, subscription windows, price arithmetic, revenue splits, community policy checks, default Layer selection and Flag rules. `backend-local` uses them now and `apps/api` reuses them in Phase 2.
@@ -625,7 +625,9 @@ export type EntitlementSource = 'free_claim' | 'purchase' | 'bundle' | 'subscrip
 
 `books.community_ai` (`allowed` / `refused`, default `allowed`): whether AI-generated community Layers may be submitted for the Book (§10.6).
 
-`is_official = true` can be set only by the Book's author, or on a community Product the author has endorsed.
+`is_official = true` can be set only by the Book's author, or on a community Product the author has endorsed. *The PoC keeps endorsement separate: an endorsed community Layer gets an "Author-endorsed" badge and sorts first in the hub, but isn't switched on by default the way official Layers are (§8.1); proposed in the Phase 1.8 PR.*
+
+States for Books and Layers (P1-COM-01, P1-ADM-02): `draft`, `pending` (waiting for the author's approval), `listed`, `held` (for a moderator; private), `declined`, `delisted` (hidden from the store; owners keep it) and `removed`.
 
 ### 6.7 Object storage layout (Phase 2 onwards)
 
@@ -1009,7 +1011,7 @@ At first the Node API streams from object storage with `Cache-Control: private`.
 
 Detection scores are evidence for a human, never an automatic verdict, because AI detectors make mistakes.
 
-**Admin review queue** (Phase 2, basic): a list of open Flags with filters by rule and priority; a detail view showing the content, the creator's history, the rule that fired and any detector scores; actions to approve, require relabelling, hide, remove, warn or suspend, each with a reason. Every action is written to the append-only `moderation_actions` log, and the creator is told what happened and how to appeal.
+**Admin review queue** (Phase 2, basic): a list of open Flags with filters by rule and priority; a detail view showing the content, the creator's history, the rule that fired and any detector scores; actions to approve, require relabelling, hide, remove, warn or suspend, each with a reason. Every action is written to the append-only `moderation_actions` log, and the creator is told what happened and how to appeal. Requiring relabelling holds the content and keeps its Flag open until the creator answers the AI question again and a moderator approves.
 
 **Author curation tools** (Phase 2 for their own uploads, Phase 5 for community content): authors see Flags and reports on their own Books, choose `community_policy` and `community_ai`, approve or decline community submissions, hide or delist community Layers on their Books, and endorse the ones they like.
 

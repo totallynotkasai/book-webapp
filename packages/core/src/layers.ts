@@ -84,6 +84,14 @@ export const illustrationPackFileSchema = z.object({
 });
 export type IllustrationPackFile = z.infer<typeof illustrationPackFileSchema>;
 
+/** Readers' ratings of a Layer (P1-COM-02): one per reader, 1–5 stars. */
+export const ratingSummarySchema = z.object({
+	/** 1–5, to one decimal place. */
+	average: z.number().min(1).max(5),
+	count: z.number().int().positive()
+});
+export type RatingSummaryDto = z.infer<typeof ratingSummarySchema>;
+
 const layerBase = {
 	id,
 	bookId: id,
@@ -93,12 +101,19 @@ const layerBase = {
 	description: z.string(),
 	creatorId: id,
 	creatorName: z.string(),
+	/** For a link to their profile. */
+	creatorHandle: z.string().default(''),
 	isOfficial: z.boolean(),
 	aiUse: aiUseSchema,
 	credit: z.string(),
 	price: moneySchema,
 	/** Whether the signed-in user holds an Entitlement to it (§8.1). */
-	entitled: z.boolean()
+	entitled: z.boolean(),
+	/** A community Layer the Book's author endorsed ("Author-endorsed", §4.8). */
+	endorsed: z.boolean().default(false),
+	rating: ratingSummarySchema.nullable().default(null),
+	/** The signed-in user's own rating, if they gave one. */
+	myRating: z.number().int().min(1).max(5).nullable().default(null)
 };
 
 /** An Illustration Pack as `Backend.layers.list` shows it: enough for the Layers menu (P1-LAY-07). */

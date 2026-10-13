@@ -11,6 +11,7 @@ import {
 	communityPolicySchema,
 	contentRatingSchema,
 	entitlementSourceSchema,
+	listingStateSchema,
 	flagRuleSchema,
 	flagStateSchema,
 	flagTargetTypeSchema,
@@ -42,14 +43,18 @@ const personaRecord = z.object({
 		displayName: z.string().min(1),
 		role: roleSchema,
 		creatorId: id.nullable()
-	})
+	}),
+	/** When the account was made (`rapid_new_account`, §10.6). */
+	joinedAt: z.iso.datetime().default('2026-01-01T00:00:00.000Z')
 });
 
 const creatorRecord = z.object({
 	id,
 	handle: z.string().regex(/^[a-z0-9-]+$/, 'lowercase letters, digits and hyphens'),
 	displayName: z.string().min(1),
-	bio: z.string()
+	bio: z.string(),
+	/** Suspended by a moderator (§10.6): the Studio refuses them. */
+	suspended: z.boolean().default(false)
 });
 
 const bookRecord = z.object({
@@ -75,7 +80,13 @@ const bookRecord = z.object({
 	communityAi: communityAiSchema.default('allowed'),
 	/** Static path of the Book's EPUB, processed by text-pipeline on first open (plan §4.3). */
 	epubUrl: z.string().nullable().default(null),
-	listingState: z.enum(['draft', 'listed', 'delisted']),
+	listingState: listingStateSchema,
+	/** A moderator asked the creator to correct the AI label (§10.6). */
+	relabelRequired: z.boolean().default(false),
+	/** A community Layer its Book's author endorsed (§4.8). */
+	endorsed: z.boolean().default(false),
+	/** A community Layer its Book's author approved (`approval` policy, §6.6). */
+	authorApproved: z.boolean().default(false),
 	contentRating: contentRatingSchema.default('all_ages'),
 	contentWarnings: z.array(z.string()).default([]),
 	/** Its Chapters come out over time. */
@@ -107,7 +118,13 @@ const illustrationPackRecord = z.object({
 	 */
 	packUrl: z.string().min(1),
 	illustrationCount: z.number().int().nonnegative(),
-	listingState: z.enum(['draft', 'listed', 'delisted']),
+	listingState: listingStateSchema,
+	/** A moderator asked the creator to correct the AI label (§10.6). */
+	relabelRequired: z.boolean().default(false),
+	/** A community Layer its Book's author endorsed (§4.8). */
+	endorsed: z.boolean().default(false),
+	/** A community Layer its Book's author approved (`approval` policy, §6.6). */
+	authorApproved: z.boolean().default(false),
 	contentRating: contentRatingSchema.default('all_ages')
 });
 
@@ -134,7 +151,13 @@ const audioTrackRecord = z.object({
 	reviewed: z.record(z.string(), z.array(z.number().int().nonnegative())).default({}),
 	chapterCount: z.number().int().nonnegative(),
 	durationMs: z.number().int().nonnegative(),
-	listingState: z.enum(['draft', 'listed', 'delisted']),
+	listingState: listingStateSchema,
+	/** A moderator asked the creator to correct the AI label (§10.6). */
+	relabelRequired: z.boolean().default(false),
+	/** A community Layer its Book's author endorsed (§4.8). */
+	endorsed: z.boolean().default(false),
+	/** A community Layer its Book's author approved (`approval` policy, §6.6). */
+	authorApproved: z.boolean().default(false),
 	/** The store page's sample: a stretch of one of its Chapters (index into `track.json`). */
 	sample: z
 		.object({
@@ -227,8 +250,14 @@ const flagRecord = z.object({
 	state: flagStateSchema,
 	priority: z.number().int().nonnegative(),
 	details: z.string(),
-	createdAt: z.iso.datetime()
+	createdAt: z.iso.datetime(),
+	/** The stub AI detector's score, when it fired the Flag (§10.6). */
+	detectorScore: z.number().min(0).max(1).nullable().default(null)
 });
+
+/** Seeded ratings and follows by readers who aren't Personas (plan §4.7, "Other people"). */
+const ratingRecord = z.object({ layerId: id, userId: id, stars: z.number().int().min(1).max(5) });
+const followRecord = z.object({ userId: id, creatorId: id });
 
 export const seedSchema = z.object({
 	/** Bump when the seed changes; a different version re-seeds the simulated backend. */
@@ -245,7 +274,9 @@ export const seedSchema = z.object({
 	products: z.array(productRecord),
 	entitlements: z.array(entitlementRecord),
 	/** Open items for the admin review queue (P1-APP-01); P1-ADM-01 adds the rules that raise them. */
-	flags: z.array(flagRecord).default([])
+	flags: z.array(flagRecord).default([]),
+	ratings: z.array(ratingRecord).default([]),
+	follows: z.array(followRecord).default([])
 });
 
 export type Seed = z.infer<typeof seedSchema>;
@@ -261,6 +292,8 @@ export type ShelfRecord = z.infer<typeof shelfRecord>;
 export type SeedEntitlementRecord = z.infer<typeof entitlementRecord>;
 export type FlagRecord = z.infer<typeof flagRecord>;
 export type StoredFileRef = z.infer<typeof storedFileRef>;
+export type RatingRecord = z.infer<typeof ratingRecord> & { id: string; createdAt: string };
+export type FollowRecord = z.infer<typeof followRecord> & { id: string; createdAt: string };
 
 export class SeedError extends Error {
 	constructor(readonly problems: string[]) {

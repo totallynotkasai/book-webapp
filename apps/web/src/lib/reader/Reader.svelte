@@ -35,7 +35,9 @@
 	import { snackbars } from '$lib/state/snackbar.svelte';
 	import SubscribeSheet from '$lib/store/SubscribeSheet.svelte';
 	import AttachIllustration from '$lib/studio/AttachIllustration.svelte';
+	import LayerDetailsDialog from '$lib/studio/LayerDetailsDialog.svelte';
 	import PackPictures from '$lib/studio/PackPictures.svelte';
+	import { listingStateLabels, listingStateTones } from '$lib/studio/summaries';
 	import { chapterTitleAt } from './chapters';
 	import ContentsSheet, { type ContentsTab } from './ContentsSheet.svelte';
 	import IllustrationCard from './IllustrationCard.svelte';
@@ -136,6 +138,18 @@
 	/** The picture whose passage was last shown: its Anchor range is marked. */
 	let shownPicture = $state<string | null>(null);
 	let publishingPack = $state(false);
+	let packDetailsOpen = $state(false);
+	/** Back to the Book in the Studio, or (community work) to the Studio's dashboard. */
+	const doneHref = $derived(
+		creatorPack && !creatorPack.isOfficial
+			? resolve('/(app)/studio')
+			: resolve('/(app)/studio/books/[bookId]', { bookId })
+	);
+
+	async function reloadPack() {
+		if (!creatorPack) return;
+		packChanged(await (await getBackend()).studio.getPack(creatorPack.id));
+	}
 	const creatorCount = $derived.by(() => {
 		if (!creatorPack) return '';
 		const { illustrationCount: n, missingAlt } = creatorPack;
@@ -185,8 +199,15 @@
 		if (!creatorPack || publishingPack) return;
 		publishingPack = true;
 		try {
-			packChanged(await (await getBackend()).studio.publishPack(creatorPack.id));
-			snackbars.show('Published. Readers with this pack now see its pictures.');
+			const pack = await (await getBackend()).studio.publishPack(creatorPack.id);
+			packChanged(pack);
+			snackbars.show(
+				pack.listingState === 'pending'
+					? 'Sent to the author. You’ll hear in your inbox when they decide.'
+					: pack.listingState === 'held'
+						? 'Held for review: a moderator will look at it first. See your inbox.'
+						: 'Published. Readers with this pack now see its pictures.'
+			);
 		} catch (error) {
 			snackbars.show(describeError(error).message, { tone: 'error' });
 		} finally {
@@ -1192,18 +1213,31 @@
 		<Button variant="text" icon="photo_library" onclick={() => (picturesOpen = true)}
 			>Pictures</Button
 		>
+		<Button variant="text" icon="edit" onclick={() => (packDetailsOpen = true)}>Details</Button>
 		{#if creatorPack.listingState === 'listed'}
 			<Badge tone="primary" icon="public">Published</Badge>
+		{:else if ['pending', 'held', 'removed'].includes(creatorPack.listingState)}
+			<Badge tone={listingStateTones[creatorPack.listingState]}
+				>{listingStateLabels[creatorPack.listingState]}</Badge
+			>
 		{:else}
 			<Button
 				variant="tonal"
 				icon="publish"
 				pending={publishingPack}
-				onclick={() => void publishPack()}>Publish pack</Button
+				onclick={() => void publishPack()}
+				>{creatorPack.isOfficial ? 'Publish pack' : 'Submit pack'}</Button
 			>
 		{/if}
-		<Button variant="text" href={resolve('/(app)/studio/books/[bookId]', { bookId })}>Done</Button>
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- doneHref resolves -->
+		<Button variant="text" href={doneHref}>Done</Button>
 	</div>
+	{#if creatorPack.relabelRequired}
+		<p class="relabel" role="status">
+			A moderator asked you to correct this pack’s AI label. Answer the AI question again in
+			Details, and they’ll review it.
+		</p>
+	{/if}
 {:else if preview}
 	<div class="creator-bar" data-testid="preview-bar">
 		<span class="creator-label"><strong>Preview</strong> · only you can see this version</span>
@@ -1515,6 +1549,23 @@
 			snackbars.show(editingPicture ? 'Picture saved.' : 'Picture attached.');
 		}}
 	/>
+	<LayerDetailsDialog
+		bind:open={packDetailsOpen}
+		kind="pack"
+		{bookId}
+		existing={{
+			id: creatorPack.id,
+			name: creatorPack.name,
+			description: creatorPack.description,
+			credit: creatorPack.credit,
+			price: creatorPack.price,
+			aiUse: creatorPack.aiUse
+		}}
+		onsaved={() => {
+			void reloadPack();
+			snackbars.show('Saved.');
+		}}
+	/>
 	<PackPictures
 		bind:open={picturesOpen}
 		pack={creatorPack}
@@ -1637,6 +1688,18 @@
 		background: var(--md-sys-color-tertiary-container);
 		color: var(--md-sys-color-on-tertiary-container);
 		--md-sys-color-primary: var(--md-sys-color-on-tertiary-container);
+	}
+
+	.relabel {
+		position: fixed;
+		top: calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 48px);
+		right: 0;
+		left: 0;
+		z-index: 8;
+		margin: 0;
+		padding: var(--space-2) var(--space-4);
+		background: var(--md-sys-color-error-container);
+		color: var(--md-sys-color-on-error-container);
 	}
 
 	.creator-label {

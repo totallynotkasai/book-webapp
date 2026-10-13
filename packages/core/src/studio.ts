@@ -23,7 +23,21 @@ const timestamp = z.iso.datetime();
 /** Uploaded files. Phase 2 sends them to a presigned upload URL instead (§10.1). */
 const file = z.instanceof(Blob);
 
-export const listingStateSchema = z.enum(['draft', 'listed', 'delisted']);
+/**
+ * Where a Book or Layer stands (§6.6, §10.6): `draft` until submitted; `pending` while a community
+ * Layer waits for the author's approval; `listed` publicly; `held` for a moderator's review
+ * (private, the creator can still preview it); `declined` by the author; `delisted` (hidden from the
+ * store; owners keep it); `removed` by a moderator.
+ */
+export const listingStateSchema = z.enum([
+	'draft',
+	'pending',
+	'listed',
+	'held',
+	'declined',
+	'delisted',
+	'removed'
+]);
 export type ListingState = z.infer<typeof listingStateSchema>;
 
 /** `books.community_policy` (§6.6). `closed` is the default (D-010). */
@@ -89,6 +103,8 @@ export const bookSettingsSchema = z.object({
 export type BookSettingsDto = z.infer<typeof bookSettingsSchema>;
 
 export const bookSettingsInputSchema = bookSettingsSchema.partial().extend({
+	/** Corrects the current version's AI answer (a moderator asked to relabel it, §10.6). */
+	aiUse: aiUseSchema.optional(),
 	/** A new cover image (re-encoded on the device), or null to remove it. */
 	cover: file.nullable().optional()
 });
@@ -106,7 +122,9 @@ export const studioPackSummarySchema = z.object({
 	/** Illustrations whose text changed in a new Revision and couldn't be placed again (§6.2). */
 	orphaned: int.nonnegative(),
 	aiUse: aiUseSchema.nullable(),
-	price: moneySchema
+	price: moneySchema,
+	/** A moderator asked for its AI label to be corrected (§10.6). */
+	relabelRequired: z.boolean().default(false)
 });
 export type StudioPackSummaryDto = z.infer<typeof studioPackSummarySchema>;
 
@@ -123,7 +141,9 @@ export const studioTrackSummarySchema = z.object({
 	/** Chapters by Sync Map status, for the dashboard's next steps. */
 	ready: int.nonnegative(),
 	needsReview: int.nonnegative(),
-	stale: int.nonnegative()
+	stale: int.nonnegative(),
+	/** A moderator asked for its AI label to be corrected (§10.6). */
+	relabelRequired: z.boolean().default(false)
 });
 export type StudioTrackSummaryDto = z.infer<typeof studioTrackSummarySchema>;
 

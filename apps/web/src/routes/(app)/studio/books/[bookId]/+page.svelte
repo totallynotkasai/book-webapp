@@ -23,7 +23,13 @@
 	import LayerDetailsDialog from '$lib/studio/LayerDetailsDialog.svelte';
 	import { parsePrice, priceText } from '$lib/studio/price';
 	import PublishDialog from '$lib/studio/PublishDialog.svelte';
-	import { changeSummary, reportLine, revisionStateLabels } from '$lib/studio/summaries';
+	import CurationPanel from '$lib/studio/CurationPanel.svelte';
+	import {
+		changeSummary,
+		listingStateLabels,
+		reportLine,
+		revisionStateLabels
+	} from '$lib/studio/summaries';
 	import UploadDialog from '$lib/studio/UploadDialog.svelte';
 
 	// A Book in the Studio (P1-STU-01, P1-STU-02, P1-LAY-05, P1-STU-03): its versions with their
@@ -33,7 +39,7 @@
 		topics: ['studio']
 	});
 
-	type Tab = 'versions' | 'details' | 'illustrations' | 'narration';
+	type Tab = 'versions' | 'details' | 'illustrations' | 'narration' | 'community';
 	let tab = $state<Tab>('versions');
 	let uploadOpen = $state(false);
 	let publishOpen = $state(false);
@@ -156,7 +162,7 @@
 		}
 	}
 
-	const listingLabels = { draft: 'Draft', listed: 'Published', delisted: 'Delisted' } as const;
+	const listingLabels = listingStateLabels;
 </script>
 
 <svelte:head
@@ -200,7 +206,8 @@
 					{ value: 'versions', label: 'Versions' },
 					{ value: 'details', label: 'Details' },
 					{ value: 'illustrations', label: 'Illustrations' },
-					{ value: 'narration', label: 'Narration' }
+					{ value: 'narration', label: 'Narration' },
+					{ value: 'community', label: 'Community' }
 				]}
 			>
 				{#snippet panel(value)}
@@ -424,7 +431,7 @@
 								{/each}
 							</ul>
 						</div>
-					{:else}
+					{:else if value === 'narration'}
 						<div class="section">
 							{#if detail.revisions.some((r) => r.state === 'published' || r.state === 'ready')}
 								<Button icon="mic" onclick={() => newLayer('track')}>New narration</Button>
@@ -461,6 +468,8 @@
 								{/each}
 							</ul>
 						</div>
+					{:else}
+						<CurationPanel bookId={detail.id} />
 					{/if}
 				{/snippet}
 			</Tabs>

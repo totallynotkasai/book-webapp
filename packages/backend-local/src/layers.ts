@@ -15,17 +15,23 @@ import {
 	type IllustrationPackFile,
 	type IllustrationPackSummaryDto,
 	type IllustrationPreviewDto,
+	type LayerSummaryDto,
 	type LayersApi,
 	type OpenPackDto,
 	type OpenTrackDto,
 	type UserDto
 } from '@book/core';
-import { hasEntitlement, syncMapStatus } from '@book/domain';
+import { hasEntitlement, hubOrder, ratingSummary, syncMapStatus } from '@book/domain';
 import type { z } from 'zod';
 import type { ContentModule } from './content';
 import type { BackendDatabase } from './db';
 import { parseStudioUrl, type StoredFiles } from './files';
 import type { AudioTrackRecord, IllustrationPackRecord } from './seed';
+
+export interface LayersModule extends LayersApi {
+	/** One pack or narration as the signed-in user sees it, whatever its state; null if unknown. */
+	summarise(layerId: string): Promise<LayerSummaryDto | null>;
+}
 
 export function createLayersApi(deps: {
 	db: BackendDatabase;
@@ -34,7 +40,7 @@ export function createLayersApi(deps: {
 	loadFile: (url: string) => Promise<Uint8Array>;
 	content: ContentModule;
 	files: StoredFiles;
-}): LayersApi {
+}): LayersModule {
 	const { db, clock } = deps;
 	/** Parsed static Layer files, loaded once per session. Studio files change, so aren't kept. */
 	const files = new Map<string, Promise<unknown>>();
@@ -72,6 +78,19 @@ export function createLayersApi(deps: {
 		};
 	}
 
+	/** Endorsement and readers' ratings (P1-COM-02), with this reader's own. */
+	async function community(
+		layer: IllustrationPackRecord | AudioTrackRecord,
+		userId: string
+	): Promise<Pick<IllustrationPackSummaryDto, 'endorsed' | 'rating' | 'myRating'>> {
+		const ratings = await db.getAllFromIndex('ratings', 'layerId', layer.id);
+		return {
+			endorsed: layer.endorsed,
+			rating: ratingSummary(ratings),
+			myRating: ratings.find((r) => r.userId === userId)?.stars ?? null
+		};
+	}
+
 	async function summarisePack(
 		pack: IllustrationPackRecord,
 		userId: string
@@ -85,11 +104,13 @@ export function createLayersApi(deps: {
 			description: pack.description,
 			creatorId: pack.creatorId,
 			creatorName: creator?.displayName ?? '',
+			creatorHandle: creator?.handle ?? '',
 			isOfficial: pack.isOfficial,
 			aiUse: pack.aiUse ?? 'none',
 			credit: pack.credit,
 			illustrationCount: pack.illustrationCount,
-			...(await ownership('illustration_pack', pack.id, userId))
+			...(await ownership('illustration_pack', pack.id, userId)),
+			...(await community(pack, userId))
 		};
 	}
 
@@ -107,18 +128,39 @@ export function createLayersApi(deps: {
 			narrator: track.narrator,
 			creatorId: track.creatorId,
 			creatorName: creator?.displayName ?? '',
+			creatorHandle: creator?.handle ?? '',
 			isOfficial: track.isOfficial,
 			aiUse: track.aiUse ?? 'none',
 			credit: track.credit,
 			chapterCount: track.chapterCount,
 			durationMs: track.durationMs,
-			...(await ownership('audio_track', track.id, userId))
+			...(await ownership('audio_track', track.id, userId)),
+			...(await community(track, userId))
 		};
 	}
 
-	/** Official first, then by name: a stable order for the Layers menu. */
-	function byListing<T extends { isOfficial: boolean; name: string }>(a: T, b: T): number {
-		return Number(b.isOfficial) - Number(a.isOfficial) || a.name.localeCompare(b.name);
+	/** Official first, then endorsed, then by name: for records, before ratings are looked up. */
+	function byRecord<T extends { isOfficial: boolean; endorsed: boolean; name: string }>(
+		a: T,
+		b: T
+	): number {
+		return (
+			Number(b.isOfficial) - Number(a.isOfficial) ||
+			Number(b.endorsed) - Number(a.endorsed) ||
+			a.name.localeCompare(b.name)
+		);
+	}
+
+	/** Official first, then community Layers as the hub orders them (endorsed, top-rated). */
+	function byListing<
+		T extends {
+			isOfficial: boolean;
+			name: string;
+			endorsed: boolean;
+			rating: { average: number; count: number } | null;
+		}
+	>(a: T, b: T): number {
+		return Number(b.isOfficial) - Number(a.isOfficial) || hubOrder(a, b);
 	}
 
 	function requireEntitled(
@@ -145,6 +187,14 @@ export function createLayersApi(deps: {
 	}
 
 	return {
+		async summarise(layerId) {
+			const user = deps.requireUser();
+			const pack = await db.get('illustrationPacks', layerId);
+			if (pack) return summarisePack(pack, user.id);
+			const track = await db.get('audioTracks', layerId);
+			return track ? summariseTrack(track, user.id) : null;
+		},
+
 		async list(bookId) {
 			const user = deps.requireUser();
 			const listed = <T extends { listingState: string }>(records: T[]) =>
@@ -152,15 +202,18 @@ export function createLayersApi(deps: {
 			const packs = listed(await db.getAllFromIndex('illustrationPacks', 'bookId', bookId));
 			const tracks = listed(await db.getAllFromIndex('audioTracks', 'bookId', bookId));
 			return [
-				...(await Promise.all(packs.sort(byListing).map((p) => summarisePack(p, user.id)))),
-				...(await Promise.all(tracks.sort(byListing).map((t) => summariseTrack(t, user.id))))
+				...(await Promise.all(packs.map((p) => summarisePack(p, user.id)))).sort(byListing),
+				...(await Promise.all(tracks.map((t) => summariseTrack(t, user.id)))).sort(byListing)
 			];
 		},
 
 		async openPack(packId): Promise<OpenPackDto> {
 			const user = deps.requireUser();
 			const pack = await db.get('illustrationPacks', packId);
-			if (!pack) throw new BackendError('NOT_FOUND', 'That illustration pack isn’t available.');
+			// Removed by a moderator (§10.6): gone for readers, still there for its creator.
+			if (!pack || (pack.listingState === 'removed' && pack.creatorId !== user.creatorId)) {
+				throw new BackendError('NOT_FOUND', 'That illustration pack isn’t available.');
+			}
 			const summary = await summarisePack(pack, user.id);
 			requireEntitled(summary, 'You don’t have this illustration pack yet.', {
 				packId,
@@ -180,7 +233,9 @@ export function createLayersApi(deps: {
 		async openTrack(trackId): Promise<OpenTrackDto> {
 			const user = deps.requireUser();
 			const track = await db.get('audioTracks', trackId);
-			if (!track) throw new BackendError('NOT_FOUND', 'That narration isn’t available.');
+			if (!track || (track.listingState === 'removed' && track.creatorId !== user.creatorId)) {
+				throw new BackendError('NOT_FOUND', 'That narration isn’t available.');
+			}
 			const summary = await summariseTrack(track, user.id);
 			requireEntitled(summary, 'You don’t have the narration for this book yet.', {
 				trackId,
@@ -219,7 +274,7 @@ export function createLayersApi(deps: {
 			deps.requireUser();
 			const packs = (await db.getAllFromIndex('illustrationPacks', 'bookId', bookId))
 				.filter((p) => p.listingState === 'listed')
-				.sort(byListing);
+				.sort(byRecord);
 			const illustrations: IllustrationPreviewDto[] = [];
 			const readable = new Map<string, string>();
 			for (const pack of packs) {
@@ -253,7 +308,7 @@ export function createLayersApi(deps: {
 			const user = deps.requireUser();
 			const track = (await db.getAllFromIndex('audioTracks', 'bookId', bookId))
 				.filter((t) => t.listingState === 'listed' && t.sample)
-				.sort(byListing)[0];
+				.sort(byRecord)[0];
 			if (!track?.sample) return null;
 			const file: AudioTrackFile = await layerFile(track.trackUrl, audioTrackFileSchema);
 			const chapter = file.chapters[track.sample.chapter];

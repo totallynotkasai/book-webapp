@@ -1,4 +1,11 @@
-import type { AiUse, IngestReport, RevisionChangesDto } from '@book/core';
+import type {
+	AiUse,
+	FlagTargetType,
+	IngestReport,
+	ModerationAction,
+	ReportReason,
+	RevisionChangesDto
+} from '@book/core';
 import type { EntitlementRecord } from '@book/domain';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type {
@@ -9,8 +16,10 @@ import type {
 	FlagRecord,
 	IllustrationPackRecord,
 	PersonaRecord,
+	FollowRecord,
 	PlanRecord,
 	ProductRecord,
+	RatingRecord,
 	ShelfRecord
 } from './seed';
 import type { SimulationSettings } from './simulation';
@@ -45,6 +54,63 @@ export interface BackendDB extends DBSchema {
 	 * Phase 2 keeps them in object storage (§6.7).
 	 */
 	layerFiles: { key: [string, string]; value: LayerFile };
+	/** Community (P1-COM-02): one rating per user per Layer, keyed `<layerId>|<userId>`. */
+	ratings: { key: string; value: RatingRecord; indexes: { layerId: string } };
+	/** Keyed `<userId>|<creatorId>`. */
+	follows: { key: string; value: FollowRecord; indexes: { creatorId: string } };
+	/** Moderation (P1-ADM-01, P1-ADM-02). */
+	reports: { key: string; value: ReportRecord; indexes: { targetId: string } };
+	/** Append-only: nothing ever updates or deletes a record here. */
+	moderationActions: { key: string; value: ModerationActionRecord };
+	inbox: { key: string; value: InboxRecord; indexes: { userId: string } };
+	/** What each Creator published when, for `upload_volume`. */
+	publishes: { key: string; value: PublishRecord; indexes: { creatorId: string } };
+}
+
+export interface ReportRecord {
+	id: string;
+	userId: string;
+	targetType: Exclude<FlagTargetType, 'creator'>;
+	targetId: string;
+	reason: ReportReason;
+	details: string;
+	createdAt: string;
+}
+
+export interface ModerationActionRecord {
+	id: string;
+	flagId: string | null;
+	moderatorId: string;
+	action: ModerationAction;
+	reason: string;
+	targetType: FlagTargetType;
+	targetId: string;
+	targetTitle: string;
+	creatorId: string | null;
+	createdAt: string;
+	/** Order of writing, for actions in the same instant. */
+	seq: number;
+}
+
+export interface InboxRecord {
+	id: string;
+	userId: string;
+	title: string;
+	body: string;
+	createdAt: string;
+	read: boolean;
+	about: { type: FlagTargetType; id: string } | null;
+	/** Order of writing, for messages in the same instant. */
+	seq: number;
+}
+
+export interface PublishRecord {
+	id: string;
+	creatorId: string;
+	kind: 'book' | 'layer';
+	/** The Book (several Revisions of one Book count once) or the Layer. */
+	targetId: string;
+	at: string;
 }
 
 export interface LayerFile {
@@ -174,11 +240,17 @@ export const SEEDED_STORES = [
 	'orders',
 	'subscriptions',
 	'tips',
-	'layerFiles'
+	'layerFiles',
+	'ratings',
+	'follows',
+	'reports',
+	'moderationActions',
+	'inbox',
+	'publishes'
 ] as const;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 7;
+const VERSION = 8;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -231,6 +303,15 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 			if (oldVersion < 7) {
 				// P1-STU-01 to P1-STU-03, P1-LAY-05: files the Studio keeps.
 				db.createObjectStore('layerFiles', { keyPath: ['layerId', 'path'] });
+			}
+			if (oldVersion < 8) {
+				// P1-COM-01 to P1-ADM-02: community and moderation.
+				db.createObjectStore('ratings', { keyPath: 'id' }).createIndex('layerId', 'layerId');
+				db.createObjectStore('follows', { keyPath: 'id' }).createIndex('creatorId', 'creatorId');
+				db.createObjectStore('reports', { keyPath: 'id' }).createIndex('targetId', 'targetId');
+				db.createObjectStore('moderationActions', { keyPath: 'id' });
+				db.createObjectStore('inbox', { keyPath: 'id' }).createIndex('userId', 'userId');
+				db.createObjectStore('publishes', { keyPath: 'id' }).createIndex('creatorId', 'creatorId');
 			}
 		}
 	});

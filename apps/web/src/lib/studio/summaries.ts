@@ -4,6 +4,7 @@
  */
 import type {
 	IngestReport,
+	ListingState,
 	StudioBookDetailDto,
 	StudioBookDto,
 	StudioRevisionDto
@@ -61,9 +62,27 @@ export function bookStateLabel(book: StudioBookDto): string {
 	if (book.pendingRevision === 'ready') {
 		return book.listingState === 'draft' ? 'Ready to publish' : 'New version ready';
 	}
-	return book.listingState === 'listed'
-		? 'Published'
-		: book.listingState === 'delisted'
-			? 'Delisted'
-			: 'Draft';
+	return listingStateLabels[book.listingState];
 }
+
+/** Where a Book or Layer stands, for its creator (§6.6, §10.6). */
+export const listingStateLabels: Record<ListingState, string> = {
+	draft: 'Draft',
+	pending: 'Waiting for the author',
+	listed: 'Published',
+	held: 'Held for review',
+	declined: 'Declined by the author',
+	delisted: 'Hidden',
+	removed: 'Removed by a moderator'
+};
+
+export const listingStateTones: Record<ListingState, 'primary' | 'neutral' | 'tertiary' | 'error'> =
+	{
+		draft: 'neutral',
+		pending: 'tertiary',
+		listed: 'primary',
+		held: 'error',
+		declined: 'neutral',
+		delisted: 'neutral',
+		removed: 'error'
+	};

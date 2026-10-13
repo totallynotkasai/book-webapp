@@ -3,35 +3,38 @@
 	import { page } from '$app/state';
 	import type { PlanDto } from '@book/core';
 	import { Badge, Button, Card, Icon, Skeleton } from '@book/ui';
+	import StarRating from '$lib/community/StarRating.svelte';
 	import BookCard from '$lib/components/BookCard.svelte';
 	import BookGrid from '$lib/components/BookGrid.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import StatusView from '$lib/components/StatusView.svelte';
+	import { describeError } from '$lib/errors';
 	import { formatPrice } from '$lib/format';
 	import { getBackend } from '$lib/services';
 	import { preferences } from '$lib/state/preferences.svelte';
 	import { resource } from '$lib/state/resource.svelte';
+	import { snackbars } from '$lib/state/snackbar.svelte';
 	import SubscribeSheet from '$lib/store/SubscribeSheet.svelte';
 	import TipSheet from '$lib/store/TipSheet.svelte';
 
-	// A Creator profile (P1-APP-01, P1-STO-04): their Books, Tip, and their Creator Subscription
-	// plans with what each gives. Following comes with P1-COM-02.
+	// A Creator profile (P1-APP-01, P1-STO-04, P1-COM-02): follow them, Tip, their Creator
+	// Subscription plans, their Books, and their portfolio of illustrations and narration.
 	const profile = resource(
 		async () => {
 			const handle = page.params.handle ?? '';
 			const backend = await getBackend();
-			const [creator, plans, subscriptions] = await Promise.all([
-				backend.catalogue.getCreator(handle),
+			const [about, plans, subscriptions] = await Promise.all([
+				backend.community.profile(handle),
 				backend.support.listPlans(handle),
 				backend.support.listSubscriptions()
 			]);
 			const subscribed = new Set(
 				subscriptions.filter((s) => s.status !== 'ended').map((s) => s.plan.id)
 			);
-			return { creator, plans, subscribed };
+			return { creator: about.creator, about, plans, subscribed };
 		},
-		{ topics: ['catalogue', 'entitlements'] }
+		{ topics: ['catalogue', 'entitlements', 'community'] }
 	);
 	const books = resource(
 		() => {
@@ -45,6 +48,20 @@
 	let subscribeOpen = $state(false);
 	let plan = $state.raw<PlanDto | null>(null);
 	const hideAi = $derived(preferences.current.hideAiGenerated);
+
+	let following = $state(false);
+	async function follow(handle: string, on: boolean) {
+		if (following) return;
+		following = true;
+		try {
+			await (await getBackend()).community.follow(handle, on);
+			snackbars.show(on ? 'Following.' : 'Unfollowed.');
+		} catch (error) {
+			snackbars.show(describeError(error).message, { tone: 'error' });
+		} finally {
+			following = false;
+		}
+	}
 </script>
 
 <svelte:head
@@ -57,18 +74,50 @@
 			<Skeleton width="50%" height="2rem" />
 			<Skeleton width="80%" />
 		{/snippet}
-		{#snippet children({ creator, plans, subscribed })}
+		{#snippet children({ creator, about, plans, subscribed })}
 			<PageHeader
 				title={creator.displayName}
 				subtitle={creator.bio}
 				back={{ href: resolve('/store'), label: 'Back to the store' }}
 			>
+				<p class="followers" data-testid="followers">
+					{about.followers}
+					{about.followers === 1 ? 'follower' : 'followers'}
+				</p>
 				{#snippet actions()}
+					<Button
+						variant={about.following ? 'outlined' : 'filled'}
+						icon={about.following ? 'check' : 'person_add'}
+						pending={following}
+						aria-pressed={about.following}
+						onclick={() => void follow(creator.handle, !about.following)}
+						>{about.following ? 'Following' : 'Follow'}</Button
+					>
 					<Button variant="tonal" icon="volunteer_activism" onclick={() => (tipOpen = true)}
 						>Tip</Button
 					>
 				{/snippet}
 			</PageHeader>
+			{#if about.layers.filter((l) => !(hideAi && l.aiUse === 'generated')).length}
+				<h2>Illustrations and narration</h2>
+				<ul class="portfolio" data-testid="portfolio">
+					{#each about.layers.filter((l) => !(hideAi && l.aiUse === 'generated')) as layer (layer.id)}
+						<li>
+							<Icon name={layer.kind === 'audio_track' ? 'headphones' : 'photo_library'} />
+							<div class="layer-text">
+								<span class="layer-name">{layer.name}</span>
+								<span class="layer-meta">
+									for <a href={resolve('/(app)/book/[slug]', { slug: layer.bookSlug })}
+										>{layer.bookTitle}</a
+									>
+									{#if layer.endorsed}· Author-endorsed{/if}
+								</span>
+								<StarRating name={layer.name} rating={layer.rating} />
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 			{#if plans.length}
 				<h2>Support {creator.displayName}</h2>
 				<div class="plans">
@@ -128,6 +177,43 @@
 		font-family: var(--font-display);
 		font-size: var(--md-sys-typescale-title-large-size);
 		font-weight: var(--md-sys-typescale-weight-regular);
+	}
+
+	.followers {
+		margin: var(--space-1) 0 0;
+		color: var(--md-sys-color-on-surface-variant);
+	}
+
+	.portfolio {
+		display: grid;
+		gap: var(--space-2);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.portfolio li {
+		display: flex;
+		gap: var(--space-3);
+		align-items: flex-start;
+		padding: var(--space-3) var(--space-4);
+		border-radius: var(--md-sys-shape-corner-medium);
+		background: var(--md-sys-color-surface-container-low);
+	}
+
+	.layer-text {
+		display: grid;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.layer-name {
+		font-weight: var(--md-sys-typescale-weight-medium);
+	}
+
+	.layer-meta {
+		color: var(--md-sys-color-on-surface-variant);
+		font-size: var(--md-sys-typescale-body-small-size);
 	}
 
 	.plans {

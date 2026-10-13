@@ -328,4 +328,83 @@ describe('store simulation (P1-STO-02, P1-STO-04)', () => {
 			'track-alice-librivox-shallenberg'
 		]);
 	});
+
+	describe('moderation in backend-local (P1-ADM-01)', () => {
+		const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+
+		/** As the Illustrator: a published community pack for Alice (policy `open`). */
+		async function packForAlice(backend: Backend, aiUse: 'none' | 'generated') {
+			const opened = await backend.content.open('book-alice');
+			const manifest = JSON.parse(
+				await (await backend.content.read(opened.contentToken, 'manifest.json')).text()
+			) as { chapters: { chapterId: string; wordCount: number }[] };
+			const chapter = manifest.chapters.find((c) => c.wordCount > 0)!;
+			const index = JSON.parse(
+				await (
+					await backend.content.read(opened.contentToken, `index/${chapter.chapterId}.words.json`)
+				).text()
+			) as { firstOrdinal: number; words: [number, number, number, number][] };
+			const pack = await backend.studio.createPack('book-alice', { aiUse });
+			await backend.studio.addIllustration(pack.id, {
+				anchor: {
+					kind: 'range',
+					bookId: 'book-alice',
+					revisionId: opened.revisionId,
+					startWordId: index.words[0]![0],
+					endWordId: index.words[1]![0],
+					startOrdinal: index.firstOrdinal,
+					endOrdinal: index.firstOrdinal + 1,
+					quote: { exact: 'x', prefix: '', suffix: '' }
+				},
+				placement: 'inline',
+				span: 'single',
+				alt: 'A picture',
+				spoilerSafe: false,
+				image: {
+					width: 1,
+					height: 1,
+					dominant: '#808080',
+					variants: [{ width: 1, file: new Blob([PNG]) }]
+				}
+			});
+			return backend.studio.publishPack(pack.id);
+		}
+
+		it('holds unlabelled work the stub detector suspects, and a suspension stops the creator', async () => {
+			const { backend, controls } = await makeLocal();
+			await controls.setSimulation({ aiDetectorVerdict: 'suspect' });
+			await backend.session.signInAs('illustrator');
+			const held = await packForAlice(backend, 'none');
+			expect(held.listingState).toBe('held');
+			expect((await backend.layers.list('book-alice')).map((l) => l.id)).not.toContain(held.id);
+			// Labelled AI is never suspected of being unlabelled.
+			expect((await packForAlice(backend, 'generated')).listingState).toBe('listed');
+
+			await backend.session.signInAs('moderator');
+			const flag = (await backend.moderation.listQueue()).items.find(
+				(f) => f.targetId === held.id && f.rule === 'ai_untagged_suspected'
+			)!;
+			const detail = await backend.moderation.getFlag(flag.id);
+			expect(detail.detectorScore).toBeGreaterThanOrEqual(0.8);
+			await backend.moderation.act(flag.id, {
+				action: 'suspend',
+				reason: 'Repeated mislabelling.'
+			});
+			await backend.session.signInAs('illustrator');
+			await expectBackendError(backend.studio.createPack('book-alice', {}), 'FORBIDDEN');
+		});
+
+		it('ten packs in thirty days raise upload_volume; labelled AI stays listed', async () => {
+			const { backend } = await makeLocal();
+			await backend.session.signInAs('illustrator');
+			for (let i = 0; i < 10; i++) {
+				expect((await packForAlice(backend, 'generated')).listingState).toBe('listed');
+			}
+			await backend.session.signInAs('moderator');
+			const queue = (await backend.moderation.listQueue()).items;
+			expect(
+				queue.filter((f) => f.rule === 'upload_volume' && f.targetId === 'creator-ink-and-quill')
+			).toHaveLength(1);
+		});
+	});
 });

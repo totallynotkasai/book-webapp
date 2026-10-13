@@ -4,6 +4,8 @@
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import { flags } from '$lib/flags';
 	import { roleLabels } from '$lib/format';
+	import { getBackend } from '$lib/services';
+	import { resource } from '$lib/state/resource.svelte';
 	import { session } from '$lib/state/session.svelte';
 
 	// P1-APP-01: profile and the way into everything personal (IMPLEMENTATION-PLAN.md §5.1).
@@ -17,7 +19,22 @@
 		show: boolean;
 	}
 
+	// Moderation outcomes, submissions and decisions (P1-ADM-02): how many are new.
+	const inbox = resource(async () => (await getBackend()).inbox.list(), {
+		topics: ['inbox', 'session']
+	});
+	const unread = $derived(inbox.data?.filter((m) => !m.read).length ?? 0);
+
 	const entries = $derived<Entry[]>([
+		{
+			label: 'Inbox',
+			description: unread
+				? `${unread} new ${unread === 1 ? 'message' : 'messages'}`
+				: 'News about your books, illustrations and narration',
+			icon: 'inbox',
+			href: resolve('/you/inbox'),
+			show: flags.studio || flags.community || flags.admin
+		},
 		{
 			label: 'Settings',
 			description: 'Appearance, reading defaults and accessibility',
@@ -51,6 +68,13 @@
 			description: 'Flags and reports to review',
 			icon: 'admin_panel_settings',
 			href: resolve('/admin'),
+			show: flags.admin && session.canModerate
+		},
+		{
+			label: 'Moderation log',
+			description: 'Every action moderators have taken, with its reason',
+			icon: 'gavel',
+			href: resolve('/admin/log'),
 			show: flags.admin && session.canModerate
 		},
 		{

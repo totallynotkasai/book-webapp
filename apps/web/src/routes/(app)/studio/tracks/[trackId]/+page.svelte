@@ -13,6 +13,7 @@
 	import { snackbars } from '$lib/state/snackbar.svelte';
 	import ChapterNarrationDialog from '$lib/studio/ChapterNarrationDialog.svelte';
 	import LayerDetailsDialog from '$lib/studio/LayerDetailsDialog.svelte';
+	import { listingStateLabels, listingStateTones } from '$lib/studio/summaries';
 
 	// The narration manager (P1-STU-03, DESIGN.md §7.2): per Chapter, audio and a Sync Map from
 	// tools/align; coverage and status (ready, needs review, out of date); a review screen for
@@ -46,8 +47,14 @@
 		if (publishing) return;
 		publishing = true;
 		try {
-			await (await getBackend()).studio.publishTrack(trackId);
-			snackbars.show('Published. Readers with this narration can listen now.');
+			const track = await (await getBackend()).studio.publishTrack(trackId);
+			snackbars.show(
+				track.listingState === 'pending'
+					? 'Sent to the author. You’ll hear in your inbox when they decide.'
+					: track.listingState === 'held'
+						? 'Held for review: a moderator will look at it first. See your inbox.'
+						: 'Published. Readers with this narration can listen now.'
+			);
 		} catch (error) {
 			snackbars.show(describeError(error).message, { tone: 'error' });
 		} finally {
@@ -68,27 +75,35 @@
 			<PageHeader
 				title={detail.name}
 				subtitle={`Read by ${detail.narrator}`}
-				back={{
-					href: resolve('/(app)/studio/books/[bookId]', { bookId: detail.bookId }),
-					label: 'Back to the book'
-				}}
+				back={detail.isOfficial
+					? {
+							href: resolve('/(app)/studio/books/[bookId]', { bookId: detail.bookId }),
+							label: 'Back to the book'
+						}
+					: { href: resolve('/(app)/studio'), label: 'Back to the Studio' }}
 			>
 				<div class="badges">
-					<Badge tone={detail.listingState === 'listed' ? 'primary' : 'neutral'}>
-						{detail.listingState === 'listed' ? 'Published' : 'Draft'}
+					<Badge tone={listingStateTones[detail.listingState]}>
+						{listingStateLabels[detail.listingState]}
 					</Badge>
 					{#if detail.aiUse}<AiLabel aiUse={detail.aiUse} />{/if}
 					<span class="meta">{formatPrice(detail.price)} · simulated</span>
 				</div>
 				{#snippet actions()}
 					<Button variant="text" icon="edit" onclick={() => (detailsOpen = true)}>Details</Button>
-					{#if detail.listingState !== 'listed'}
+					{#if ['draft', 'declined', 'delisted'].includes(detail.listingState)}
 						<Button icon="publish" pending={publishing} onclick={() => void publish()}
-							>Publish narration</Button
+							>{detail.isOfficial ? 'Publish narration' : 'Submit narration'}</Button
 						>
 					{/if}
 				{/snippet}
 			</PageHeader>
+			{#if detail.relabelRequired}
+				<p class="relabel" role="status">
+					A moderator asked you to correct this narration’s AI label. Answer the AI question again
+					in Details, and they’ll review it.
+				</p>
+			{/if}
 
 			<p class="intro">
 				For each chapter, add its audio and the Sync Map <code>tools/align</code> made from it (<code
@@ -186,6 +201,14 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-2);
+	}
+
+	.relabel {
+		margin: 0;
+		padding: var(--space-3) var(--space-4);
+		border-radius: var(--md-sys-shape-corner-medium);
+		background: var(--md-sys-color-error-container);
+		color: var(--md-sys-color-on-error-container);
 	}
 
 	.intro {

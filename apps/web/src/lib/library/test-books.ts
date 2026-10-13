@@ -70,3 +70,14 @@ export function editedSerial(bytes: Uint8Array): Uint8Array {
 		}
 	]);
 }
+
+/** The status-window fixture under another title: a different file, so a different Book. */
+export function retitledStatusWindow(bytes: Uint8Array, title: string): Uint8Array {
+	return editEpub(bytes, [
+		{
+			file: /.opf$/,
+			from: '<dc:title>Status Window Test Fixture</dc:title>',
+			to: `<dc:title>${title}</dc:title>`
+		}
+	]);
+}

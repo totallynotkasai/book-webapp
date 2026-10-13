@@ -42,6 +42,9 @@ import {
 	type StudioTrackChapterDto,
 	type StudioTrackDto,
 	type StudioTrackSummaryDto,
+	type CurationDto,
+	type ListingState,
+	type StudioLayerDto,
 	type SyncMap,
 	type UserDto
 } from '@book/core';
@@ -50,6 +53,9 @@ import {
 	coverageOf,
 	earlyAccessFreeAt,
 	layerPublishProblems,
+	mayMakeFor,
+	ratingSummary,
+	submission,
 	lowConfidenceRegions,
 	money,
 	PLACEHOLDER_SPLITS,
@@ -78,6 +84,8 @@ import type {
 	PlanRecord,
 	ProductRecord
 } from './seed';
+import type { InboxModule } from './inbox';
+import type { ModerationModule } from './moderation';
 import type { SupportModule } from './support';
 
 /** §10.2 upload limits. */
@@ -111,6 +119,8 @@ export interface StudioDeps {
 		coverUrl(book: BookRecord): Promise<string | null>;
 	};
 	support: Pick<SupportModule, 'planDto' | 'refresh'>;
+	moderation: ModerationModule;
+	inbox: InboxModule;
 	changed: (...topics: BackendTopic[]) => void;
 }
 
@@ -167,6 +177,35 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			throw new BackendError('FORBIDDEN', 'Your account has no creator profile yet.');
 		}
 		return user as Creator;
+	}
+
+	/** A suspended Creator can't publish or start anything new (§10.6). */
+	async function requireActive(): Promise<Creator> {
+		const user = requireCreator();
+		if ((await db.get('creators', user.creatorId))?.suspended) {
+			throw new BackendError(
+				'FORBIDDEN',
+				'Your account is suspended. Check your inbox for the reason and how to appeal.'
+			);
+		}
+		return user;
+	}
+
+	/**
+	 * A Book a Creator may make a Layer for: their own, or another author's listed Book whose
+	 * policy allows community work (Invariant 19, P1-COM-01).
+	 */
+	async function bookForLayer(bookId: string) {
+		const user = await requireActive();
+		const book = await db.get('books', bookId);
+		if (!book) throw new BackendError('NOT_FOUND', 'That book isn’t in the store.');
+		if (book.creatorId === user.creatorId) return { user, book, community: false };
+		if (book.listingState !== 'listed') {
+			throw new BackendError('NOT_FOUND', 'That book isn’t in the store.');
+		}
+		const may = mayMakeFor(book, user.creatorId);
+		if (!may.allowed) throw new BackendError('FORBIDDEN', may.reason);
+		return { user, book, community: true };
 	}
 
 	async function ownBook(bookId: string): Promise<{ user: Creator; book: BookRecord }> {
@@ -612,7 +651,8 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			missingAlt: live.filter((i) => !i.alt.trim()).length,
 			orphaned: draft.illustrations.length - live.length,
 			aiUse: pack.aiUse,
-			price: product?.price ?? money(0, CURRENCY)
+			price: product?.price ?? money(0, CURRENCY),
+			relabelRequired: pack.relabelRequired
 		};
 	}
 
@@ -673,7 +713,8 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			...(details.name !== undefined ? { name: details.name } : {}),
 			...(details.description !== undefined ? { description: details.description } : {}),
 			...(details.credit !== undefined ? { credit: details.credit } : {}),
-			...(details.aiUse !== undefined ? { aiUse: details.aiUse } : {}),
+			// Answering the AI question again settles a moderator's request to relabel (§10.6).
+			...(details.aiUse !== undefined ? { aiUse: details.aiUse, relabelRequired: false } : {}),
 			...(details.narrator !== undefined && 'narrator' in record
 				? { narrator: details.narrator }
 				: {})
@@ -754,7 +795,8 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			chapterCount: file.chapters.length,
 			ready: count('ready'),
 			needsReview: count('needs_review'),
-			stale: count('stale')
+			stale: count('stale'),
+			relabelRequired: track.relabelRequired
 		};
 	}
 
@@ -842,6 +884,138 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 		return id;
 	}
 
+	// ---- community and moderation (P1-COM-01, P1-ADM-01, P1-ADM-02) ----
+
+	type LayerRecord = IllustrationPackRecord | AudioTrackRecord;
+	const layerKind = (layer: LayerRecord) =>
+		'packUrl' in layer ? ('illustration_pack' as const) : ('audio_track' as const);
+	const kindName = (kind: 'illustration_pack' | 'audio_track') =>
+		kind === 'illustration_pack' ? 'illustration pack' : 'narration';
+
+	async function heldNotice(
+		creatorId: string,
+		type: 'book' | 'illustration_pack' | 'audio_track',
+		id: string,
+		title: string
+	) {
+		await deps.inbox.notify(
+			{ creatorId },
+			{
+				title: `“${title}” is held for review`,
+				body: 'It may have been made with AI but isn’t labelled as such. A moderator will look at it soon; until then only you can see it. If AI was used, correct the AI answer in its details.',
+				about: { type, id }
+			}
+		);
+	}
+
+	/**
+	 * Where a published pack or narration goes (§6.6, §10.6): the author's own is listed; a
+	 * community one follows the Book's policy (Invariant 19); either is held when the automatic
+	 * Flags say so. One already listed, waiting or held stays as it is.
+	 */
+	async function submit(
+		kind: 'illustration_pack' | 'audio_track',
+		layer: LayerRecord,
+		items: number
+	): Promise<ListingState> {
+		if (['listed', 'pending', 'held'].includes(layer.listingState)) return layer.listingState;
+		if (layer.listingState === 'removed') {
+			throw new BackendError('FORBIDDEN', 'A moderator removed this, so it can’t be published.');
+		}
+		await requireActive();
+		const book = (await db.get('books', layer.bookId))!;
+		const decision = submission(book, { creatorId: layer.creatorId, aiUse: layer.aiUse });
+		if (!decision.allowed) throw new BackendError('FORBIDDEN', decision.reason);
+		let state: ListingState =
+			decision.state === 'pending' && layer.authorApproved ? 'listed' : decision.state;
+		const check = await deps.moderation.checkPublish({
+			type: kind,
+			id: layer.id,
+			volumeTargetId: layer.id,
+			creatorId: layer.creatorId,
+			aiUse: layer.aiUse,
+			priceMinor: (await productOf(kind, layer.id))?.price.amountMinor ?? 0
+		});
+		if (check.hold) {
+			state = 'held';
+			await heldNotice(layer.creatorId, kind, layer.id, layer.name);
+		} else if (state === 'pending') {
+			const creator = await db.get('creators', layer.creatorId);
+			await deps.inbox.notify(
+				{ creatorId: book.creatorId },
+				{
+					title: `A community ${kindName(kind)} for “${book.title}”`,
+					body: `${creator?.displayName ?? 'A creator'} made “${layer.name}” (${items} ${kind === 'illustration_pack' ? (items === 1 ? 'picture' : 'pictures') : items === 1 ? 'chapter' : 'chapters'}) for your book. Approve or decline it in your Studio.`,
+					about: { type: kind, id: layer.id }
+				}
+			);
+		}
+		return state;
+	}
+
+	/** A community Layer on one of the signed-in author's own Books. */
+	async function communityLayer(layerId: string) {
+		const layer =
+			(await db.get('illustrationPacks', layerId)) ?? (await db.get('audioTracks', layerId));
+		if (!layer) throw new BackendError('NOT_FOUND', 'That isn’t on one of your books.');
+		const { book } = await ownBook(layer.bookId);
+		if (layer.creatorId === book.creatorId) {
+			throw new BackendError(
+				'VALIDATION_FAILED',
+				'That’s your own; curation is for community work.'
+			);
+		}
+		return { layer, book };
+	}
+
+	/** Saves a Layer's new state; a pack's `pack.json` is written once it's listed. */
+	async function saveLayer(layer: LayerRecord) {
+		if ('packUrl' in layer) {
+			await saveDraft(layer, await draftOf(layer.id), { force: true });
+		} else {
+			await db.put('audioTracks', layer);
+		}
+	}
+
+	async function curated(layer: LayerRecord) {
+		const creator = await db.get('creators', layer.creatorId);
+		return {
+			id: layer.id,
+			kind: layerKind(layer),
+			name: layer.name,
+			creatorName: creator?.displayName ?? '',
+			creatorHandle: creator?.handle ?? '',
+			state: layer.listingState,
+			aiUse: layer.aiUse,
+			endorsed: layer.endorsed,
+			rating: ratingSummary(await db.getAllFromIndex('ratings', 'layerId', layer.id)),
+			items: 'packUrl' in layer ? layer.illustrationCount : layer.chapterCount
+		};
+	}
+
+	async function curationOf(book: BookRecord): Promise<CurationDto> {
+		const layers = [
+			...(await db.getAllFromIndex('illustrationPacks', 'bookId', book.id)),
+			...(await db.getAllFromIndex('audioTracks', 'bookId', book.id))
+		].filter((l) => l.creatorId !== book.creatorId && l.listingState !== 'draft');
+		const all = await Promise.all(layers.map(curated));
+		return {
+			bookId: book.id,
+			policy: book.communityPolicy,
+			communityAi: book.communityAi,
+			pending: all.filter((l) => l.state === 'pending'),
+			layers: all
+				.filter((l) => ['listed', 'delisted', 'held'].includes(l.state))
+				.sort((a, b) => Number(b.endorsed) - Number(a.endorsed) || a.name.localeCompare(b.name)),
+			flags: (await deps.moderation.flagsAbout(book.id)).map((f) => ({
+				rule: f.rule,
+				targetTitle: f.targetTitle,
+				details: f.details,
+				createdAt: f.createdAt
+			}))
+		};
+	}
+
 	async function latestPublish(book: BookRecord): Promise<string> {
 		const times = (await db.getAllFromIndex('revisions', 'bookId', book.id))
 			.map((r) => r.studio?.publishedAt)
@@ -877,7 +1051,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 		},
 
 		async upload(file, options) {
-			const user = requireCreator();
+			const user = await requireActive();
 			if (file.size > MAX_EPUB_BYTES) {
 				throw new BackendError('UPLOAD_TOO_LARGE', 'EPUB files can be up to 100 MB.');
 			}
@@ -920,7 +1094,10 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 						currentRevisionId: null,
 						nextWordId: 1,
 						communityPolicy: 'closed',
-						communityAi: 'allowed'
+						communityAi: 'allowed',
+						relabelRequired: false,
+						endorsed: false,
+						authorApproved: false
 					};
 					await db.put('books', book);
 					await createProduct(user, {
@@ -964,6 +1141,20 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			if (changes.communityPolicy !== undefined) next.communityPolicy = changes.communityPolicy;
 			if (changes.communityAi !== undefined) next.communityAi = changes.communityAi;
 			if (changes.isSerial !== undefined) next.isSerial = changes.isSerial;
+			if (changes.aiUse !== undefined) {
+				// A corrected AI answer for the version readers have (§10.6 relabelling).
+				next.aiUse = changes.aiUse;
+				next.relabelRequired = false;
+				const current = book.currentRevisionId
+					? await db.get('revisions', book.currentRevisionId)
+					: undefined;
+				if (current?.studio) {
+					await db.put('revisions', {
+						...current,
+						studio: { ...current.studio, aiUse: changes.aiUse }
+					});
+				}
+			}
 			if (changes.earlyAccessChapters !== undefined) {
 				// SIMULATION (OPEN-10): the newest Chapters, for 30 days after the latest publish.
 				next.earlyAccess =
@@ -999,6 +1190,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 
 		async publishRevision(bookId, input) {
 			const { book } = await ownBook(bookId);
+			await requireActive();
 			const record = await db.get('revisions', input.revisionId);
 			if (!record || record.bookId !== bookId) {
 				throw new BackendError('NOT_FOUND', 'That version of the book isn’t here.');
@@ -1031,24 +1223,56 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				studio: { ...record.studio!, state: 'published', publishedAt: now, aiUse: input.aiUse }
 			});
 			const manifest = await content.manifestOf(record.id);
+			// Automatic Flags (§10.6): an upload burst or a detector score on unlabelled content holds it.
+			const check = await deps.moderation.checkPublish({
+				type: 'book',
+				id: bookId,
+				volumeTargetId: bookId,
+				creatorId: book.creatorId,
+				aiUse: input.aiUse,
+				priceMinor: (await productOf('book', bookId))?.price.amountMinor ?? 0
+			});
 			const next: BookRecord = {
 				...book,
 				currentRevisionId: record.id,
 				aiUse: input.aiUse,
+				relabelRequired: false,
 				lang: manifest.lang,
-				listingState: book.listingState === 'draft' ? 'listed' : book.listingState,
+				listingState: check.hold
+					? 'held'
+					: book.listingState === 'draft'
+						? 'listed'
+						: book.listingState,
 				earlyAccess: book.earlyAccess
 					? { ...book.earlyAccess, freeAt: earlyAccessFreeAt(now) }
 					: null
 			};
 			await db.put('books', next);
 			await moveLayers(next, record.id);
+			if (check.hold) await heldNotice(book.creatorId, 'book', bookId, book.title);
 			deps.changed('studio', 'catalogue');
 			return detail(next);
 		},
 
 		async previewRevision(bookId, revisionId): Promise<OpenBookDto> {
-			const { book } = await ownBook(bookId);
+			const user = requireCreator();
+			const book = await db.get('books', bookId);
+			if (!book) throw new BackendError('NOT_FOUND', 'That book isn’t in your Studio.');
+			if (book.creatorId !== user.creatorId) {
+				// A community Creator building a Layer for this Book sees the version readers see.
+				const layers = [
+					...(await db.getAllFromIndex('illustrationPacks', 'bookId', bookId)),
+					...(await db.getAllFromIndex('audioTracks', 'bookId', bookId))
+				];
+				const current = await content.currentRevisionId(book);
+				if (
+					!layers.some((l) => l.creatorId === user.creatorId) ||
+					(revisionId && revisionId !== current)
+				) {
+					throw new BackendError('FORBIDDEN', 'That isn’t one of your books.');
+				}
+				revisionId = current;
+			}
 			const records = await revisionsOf(book);
 			const record = revisionId
 				? records.find((r) => r.id === revisionId)
@@ -1076,8 +1300,10 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 		// ---- packs ----
 
 		async createPack(bookId, details) {
-			const { user, book } = await ownBook(bookId);
-			const revisionId = await workingRevisionId(book);
+			const { user, book, community } = await bookForLayer(bookId);
+			const revisionId = community
+				? await content.currentRevisionId(book)
+				: await workingRevisionId(book);
 			const id = newId('pack');
 			const pack: IllustrationPackRecord = {
 				id,
@@ -1085,12 +1311,15 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				creatorId: user.creatorId,
 				name: details.name ?? 'Illustrations',
 				description: details.description ?? '',
-				isOfficial: true,
+				isOfficial: !community,
 				aiUse: details.aiUse ?? null,
 				credit: details.credit ?? user.displayName,
 				packUrl: studioUrl(id, 'pack.json'),
 				illustrationCount: 0,
 				listingState: 'draft',
+				relabelRequired: false,
+				endorsed: false,
+				authorApproved: false,
 				contentRating: book.contentRating
 			};
 			await putJson(id, 'draft.json', { revisionId, illustrations: [] } satisfies DraftPack);
@@ -1101,7 +1330,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				refId: id,
 				bookId,
 				creatorId: user.creatorId,
-				isOfficial: true,
+				isOfficial: !community,
 				price: details.price ?? money(0, CURRENCY)
 			});
 			deps.changed('studio');
@@ -1194,16 +1423,19 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			const draft = await draftOf(packId);
 			const problems = packProblems(pack, draft);
 			if (problems.length) throw validation(problems.join(' '), { problems });
-			const saved = await saveDraft({ ...pack, listingState: 'listed' }, draft);
-			deps.changed('studio', 'catalogue');
+			const state = await submit('illustration_pack', pack, draft.illustrations.length);
+			const saved = await saveDraft({ ...pack, listingState: state }, draft);
+			deps.changed('studio', 'catalogue', 'community');
 			return packDto(saved);
 		},
 
 		// ---- narration ----
 
 		async createTrack(bookId, details) {
-			const { user, book } = await ownBook(bookId);
-			const revisionId = await workingRevisionId(book);
+			const { user, book, community } = await bookForLayer(bookId);
+			const revisionId = community
+				? await content.currentRevisionId(book)
+				: await workingRevisionId(book);
 			const id = newId('track');
 			const track: AudioTrackRecord = {
 				id,
@@ -1212,13 +1444,16 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				name: details.name ?? 'Narration',
 				description: details.description ?? '',
 				narrator: details.narrator ?? user.displayName,
-				isOfficial: true,
+				isOfficial: !community,
 				aiUse: details.aiUse ?? null,
 				credit: details.credit ?? '',
 				trackUrl: studioUrl(id, 'track.json'),
 				chapterCount: 0,
 				durationMs: 0,
 				listingState: 'draft',
+				relabelRequired: false,
+				endorsed: false,
+				authorApproved: false,
 				sample: null,
 				staleChapterIds: [],
 				reviewed: {}
@@ -1237,7 +1472,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				refId: id,
 				bookId,
 				creatorId: user.creatorId,
-				isOfficial: true,
+				isOfficial: !community,
 				price: details.price ?? money(0, CURRENCY)
 			});
 			deps.changed('studio');
@@ -1362,9 +1597,10 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				itemName: { one: 'chapter', many: 'chapters' }
 			});
 			if (problems.length) throw validation(problems.join(' '), { problems });
-			const next: AudioTrackRecord = { ...track, listingState: 'listed' };
+			const state = await submit('audio_track', track, file.chapters.length);
+			const next: AudioTrackRecord = { ...track, listingState: state };
 			await db.put('audioTracks', next);
-			deps.changed('studio', 'catalogue');
+			deps.changed('studio', 'catalogue', 'community');
 			return trackDto(next);
 		},
 
@@ -1505,6 +1741,106 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 					.sort((a, b) => b.split.gross.amountMinor - a.split.gross.amountMinor),
 				activeSubscribers: active
 			};
+		},
+
+		// ---- community work and curation ----
+
+		async listLayers() {
+			const user = requireCreator();
+			const mine = [
+				...(await db.getAll('illustrationPacks')),
+				...(await db.getAll('audioTracks'))
+			].filter(
+				(l) =>
+					l.creatorId === user.creatorId && parseStudioUrl('packUrl' in l ? l.packUrl : l.trackUrl)
+			);
+			const out: StudioLayerDto[] = [];
+			for (const layer of mine) {
+				const book = await db.get('books', layer.bookId);
+				out.push({
+					id: layer.id,
+					kind: layerKind(layer),
+					name: layer.name,
+					bookId: layer.bookId,
+					bookTitle: book?.title ?? '',
+					community: book?.creatorId !== user.creatorId,
+					state: layer.listingState,
+					relabelRequired: layer.relabelRequired
+				});
+			}
+			return out.sort(
+				(a, b) => a.bookTitle.localeCompare(b.bookTitle) || a.name.localeCompare(b.name)
+			);
+		},
+
+		async curation(bookId) {
+			const { book } = await ownBook(bookId);
+			return curationOf(book);
+		},
+
+		async decide(layerId, decision, reason) {
+			const { layer, book } = await communityLayer(layerId);
+			if (layer.listingState !== 'pending') {
+				throw new BackendError('CONFLICT', 'It isn’t waiting for your approval.');
+			}
+			const approve = decision === 'approve';
+			await saveLayer({
+				...layer,
+				authorApproved: approve,
+				listingState: approve ? 'listed' : 'declined'
+			});
+			await deps.inbox.notify(
+				{ creatorId: layer.creatorId },
+				{
+					title: approve ? `“${layer.name}” is listed` : `“${layer.name}” wasn’t accepted`,
+					body: approve
+						? `The author of “${book.title}” approved it. ${reason}`.trim()
+						: `The author of “${book.title}” declined it. ${reason || 'They didn’t give a reason.'}`,
+					about: { type: layerKind(layer), id: layer.id }
+				}
+			);
+			deps.changed('studio', 'catalogue', 'community');
+			return curationOf(book);
+		},
+
+		async endorse(layerId, endorsed) {
+			const { layer, book } = await communityLayer(layerId);
+			await saveLayer({ ...layer, endorsed });
+			if (endorsed && !layer.endorsed) {
+				await deps.inbox.notify(
+					{ creatorId: layer.creatorId },
+					{
+						title: `The author endorsed “${layer.name}”`,
+						body: `It now shows as Author-endorsed on “${book.title}”, first in its community hub.`,
+						about: { type: layerKind(layer), id: layer.id }
+					}
+				);
+			}
+			deps.changed('studio', 'catalogue', 'community');
+			return curationOf(book);
+		},
+
+		async setCommunityListing(layerId, listed) {
+			const { layer, book } = await communityLayer(layerId);
+			const from = listed ? 'delisted' : 'listed';
+			if (layer.listingState !== from) {
+				throw new BackendError('CONFLICT', listed ? 'It isn’t hidden.' : 'It isn’t listed.');
+			}
+			await saveLayer({ ...layer, listingState: listed ? 'listed' : 'delisted' });
+			await deps.inbox.notify(
+				{ creatorId: layer.creatorId },
+				{
+					title: listed
+						? `“${layer.name}” is listed again`
+						: `The author of “${book.title}” hid “${layer.name}”`,
+					body: listed
+						? `Readers can find it in the community hub for “${book.title}” again.`
+						: 'Readers who have it keep it, but it’s no longer in the store.',
+					about: { type: layerKind(layer), id: layer.id }
+				}
+			);
+			deps.changed('studio', 'catalogue', 'community');
+			return curationOf(book);
 		}
 	};
 }

@@ -21,6 +21,7 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ManualClock } from './clock';
 import { describeStoreContract } from './store';
+import { describeCommunityContract } from './community';
 import { describeStudioContract, type StudioFixtures } from './studio';
 
 /** Must return a freshly seeded, independent backend on every call, signed in as the default. */
@@ -394,6 +395,12 @@ export function describeBackendContract(
 
 		if (options.studio) {
 			describeStudioContract({
+				backend: () => backend,
+				personas: () => personas,
+				conforms: (module, method, value) => conforms(module as never, method as never, value),
+				fixtures: options.studio
+			});
+			describeCommunityContract({
 				backend: () => backend,
 				personas: () => personas,
 				conforms: (module, method, value) => conforms(module as never, method as never, value),

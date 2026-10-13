@@ -4,7 +4,12 @@
 	import { formatPrice } from '$lib/format';
 	import { featureFlags, flags, profile } from '$lib/flags';
 	import ImportDialog from '$lib/library/ImportDialog.svelte';
-	import { editedAlice, editedSerial, editedStatusWindow } from '$lib/library/test-books';
+	import {
+		editedAlice,
+		editedSerial,
+		editedStatusWindow,
+		retitledStatusWindow
+	} from '$lib/library/test-books';
 	import { getPlatform } from '$lib/platform';
 	import { narrationKit } from '$lib/studio/test-kit';
 	import { snackbars } from '$lib/state/snackbar.svelte';
@@ -157,6 +162,35 @@
 			snackbars.show(`Narration test kit for “${kit.chapterTitle}” saved.`);
 		} catch (error) {
 			snackbars.show(error instanceof Error ? error.message : String(error), { tone: 'error' });
+		}
+	}
+
+	// ---- Bulk upload (plan §6 Phase 1.8 Try-it): ten Books in a row fire `upload_volume` ----
+	let bulk = $state<string | null>(null);
+
+	async function bulkUpload() {
+		const studio = (await getBackend()).studio;
+		const bytes = new Uint8Array(await (await fetch(statusWindowUrl)).arrayBuffer());
+		const stamp = Date.now().toString(36);
+		try {
+			for (let i = 1; i <= 10; i++) {
+				bulk = `Publishing ${i} of 10…`;
+				const file = retitledStatusWindow(bytes, `Bulk test ${stamp}-${i}`);
+				const upload = await studio.upload(
+					new Blob([file as Uint8Array<ArrayBuffer>], { type: 'application/epub+zip' })
+				);
+				for (let wait = 0; wait < 600; wait++) {
+					const book = await studio.getBook(upload.bookId);
+					const state = book.revisions.find((r) => r.id === upload.id)?.state;
+					if (state === 'failed') throw new Error('A bulk test book couldn’t be processed.');
+					if (state !== 'processing') break;
+					await new Promise((r) => setTimeout(r, 100));
+				}
+				await studio.publishRevision(upload.bookId, { revisionId: upload.id, aiUse: 'none' });
+			}
+			bulk = 'Published 10 books. The Moderator’s queue now has an upload-volume Flag.';
+		} catch (error) {
+			bulk = error instanceof Error ? error.message : String(error);
 		}
 	}
 
@@ -410,6 +444,17 @@
 			</p>
 		{:else}
 			<p class="muted">Sign in as the Author and publish a book to make a narration test kit.</p>
+		{/if}
+		{#if currentUserId === 'user-author'}
+			<div class="row">
+				<button onclick={bulkUpload} disabled={bulk?.startsWith('Publishing')}
+					>Bulk upload: publish 10 test books</button
+				>
+			</div>
+			<p class="muted" role="status">
+				{bulk ??
+					'Publishes the status-window fixture ten times under new titles, without an AI label, to fire upload_volume (§10.6). The tenth is held for review.'}
+			</p>
 		{/if}
 	</section>
 

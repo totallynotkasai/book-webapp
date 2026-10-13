@@ -7,7 +7,6 @@ import {
 	type BackendEvents,
 	type BackendTopic,
 	type Clock,
-	type FlagDto,
 	type MethodContract,
 	type OrderDto,
 	type PersonaDto,
@@ -30,6 +29,9 @@ import { createLayersApi } from './layers';
 import { paginate } from './paging';
 import { inThreadPipeline, type Pipeline } from './pipeline';
 import { parseSeed, type Seed } from './seed';
+import { createCommunityApi } from './community';
+import { createInboxApi } from './inbox';
+import { createModerationApi } from './moderation';
 import { createStudioApi } from './studio';
 import { createSupportApi } from './support';
 import {
@@ -139,6 +141,21 @@ async function writeSeed(db: BackendDatabase, seed: Seed, profile: Profile): Pro
 		}
 	}
 	for (const flag of seed.flags) await tx.objectStore('flags').put(flag);
+	// Other readers' ratings and follows (plan §4.7: "other people" come from seed data).
+	for (const rating of seed.ratings) {
+		await tx.objectStore('ratings').put({
+			...rating,
+			id: `${rating.layerId}|${rating.userId}`,
+			createdAt: '2026-01-01T00:00:00.000Z'
+		});
+	}
+	for (const follow of seed.follows) {
+		await tx.objectStore('follows').put({
+			...follow,
+			id: `${follow.userId}|${follow.creatorId}`,
+			createdAt: '2026-01-01T00:00:00.000Z'
+		});
+	}
 	await tx.objectStore('meta').put({ key: 'seedVersion', value: seed.version });
 	await tx.objectStore('meta').put({ key: 'seedProfile', value: profile });
 	await tx.objectStore('meta').put({ key: 'currentPersonaId', value: seed.defaultPersonaId });
@@ -224,10 +241,19 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 
 	// ---- module implementations (no simulation; that's applied below) ----
 
-	// Modules defined below this object (moderation) are added to the Backend separately.
+	// Modules defined below this object are added to the Backend separately.
 	const implementation: Omit<
 		Backend,
-		'events' | 'moderation' | 'content' | 'layers' | 'catalogue' | 'checkout' | 'support' | 'studio'
+		| 'events'
+		| 'moderation'
+		| 'content'
+		| 'layers'
+		| 'catalogue'
+		| 'checkout'
+		| 'support'
+		| 'studio'
+		| 'community'
+		| 'inbox'
 	> = {
 		session: {
 			async current() {
@@ -281,26 +307,6 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		}
 	};
 
-	/** The name a Flag's target goes by in the queue. */
-	async function targetTitle(type: FlagDto['targetType'], id: string): Promise<string> {
-		if (type === 'book') return (await db.get('books', id))?.title ?? id;
-		if (type === 'creator') return (await db.get('creators', id))?.displayName ?? id;
-		return id;
-	}
-
-	const moderation: Backend['moderation'] = {
-		async listQueue(page) {
-			requirePermission('moderation');
-			const open = (await db.getAll('flags'))
-				.filter((f) => f.state === 'open')
-				.sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt));
-			const items = await Promise.all(
-				open.map(async (f) => ({ ...f, targetTitle: await targetTitle(f.targetType, f.targetId) }))
-			);
-			return paginate(items, page);
-		}
-	};
-
 	const paymentOutcome = () => simulation.paymentOutcome;
 	const checkout = createCheckoutApi({
 		db,
@@ -342,6 +348,33 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		files
 	});
 	const layers = createLayersApi({ db, clock, requireUser, loadFile, content, files });
+	const inbox = createInboxApi({
+		db,
+		clock,
+		requireUser,
+		changed: () => events.emit('inbox')
+	});
+	const moderation = createModerationApi({
+		db,
+		clock,
+		requirePermission,
+		simulation: () => simulation,
+		inbox,
+		changed: () => {
+			events.emit('moderation');
+			events.emit('catalogue');
+			events.emit('studio');
+			events.emit('community');
+		}
+	});
+	const community = createCommunityApi({
+		db,
+		clock,
+		requireUser,
+		layers,
+		moderation,
+		changed: () => events.emit('community')
+	});
 	const catalogue = createCatalogueApi({
 		db,
 		clock,
@@ -358,6 +391,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		content,
 		catalogue,
 		support,
+		moderation,
+		inbox,
 		changed: (...topics) => {
 			for (const topic of topics) events.emit(topic);
 		}
@@ -441,6 +476,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		layers: wrapModule('layers', layers, backendContract.layers),
 		studio: wrapModule('studio', studio, backendContract.studio),
 		moderation: wrapModule('moderation', moderation, backendContract.moderation),
+		community: wrapModule('community', community, backendContract.community),
+		inbox: wrapModule('inbox', inbox, backendContract.inbox),
 		events: { on: events.on }
 	};
 
