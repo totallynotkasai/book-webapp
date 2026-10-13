@@ -173,7 +173,10 @@ export class BookNotes {
 			bookId: bookmark.bookId,
 			anchor: bookmark.anchor,
 			anchorStatus: bookmark.anchorStatus,
-			...(bookmark.label ? { label: bookmark.label } : {})
+			...(bookmark.label ? { label: bookmark.label } : {}),
+			...(bookmark.bookmarkDesignProductId
+				? { bookmarkDesignProductId: bookmark.bookmarkDesignProductId }
+				: {})
 		});
 		this.bookmarks = [...this.bookmarks, created];
 	}

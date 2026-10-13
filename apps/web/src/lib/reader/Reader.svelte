@@ -546,9 +546,14 @@
 	async function playNarration() {
 		if (!narration) return;
 		if (!narration.track?.entitled) {
-			const href = storeHref;
+			const slug = opened?.slug;
 			snackbars.show('You don’t have the narration for this book yet.', {
-				action: href ? { label: 'See it in the store', run: () => void goto(href) } : undefined
+				action: slug
+					? {
+							label: 'See it in the store',
+							run: () => void goto(resolve('/(app)/book/[slug]', { slug }))
+						}
+					: undefined
 			});
 			return;
 		}

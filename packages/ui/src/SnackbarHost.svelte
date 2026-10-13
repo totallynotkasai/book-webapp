@@ -24,7 +24,7 @@
 	The live regions stay in the page so screen readers announce each new message: confirmations
 	politely, errors assertively (§11.7).
 -->
-<div class="host">
+<div class="host" data-snackbar-host>
 	<div aria-live="polite" aria-atomic="true" class="region">
 		{#if snackbar && snackbar.tone === 'info'}{@render bar(snackbar)}{/if}
 	</div>

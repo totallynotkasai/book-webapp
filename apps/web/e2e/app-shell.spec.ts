@@ -54,7 +54,11 @@ for (const [sizeName, size] of Object.entries(SIZES)) {
 				await nav(page).getByRole('link', { name: 'Store' }).click();
 				await expect(page.getByRole('heading', { name: 'Store', level: 1 })).toBeVisible();
 				await expect(page.getByText('Simulated: no real money')).toBeVisible();
-				await page.getByRole('link', { name: /The Time Machine/ }).click();
+				// On a shelf and under "All books".
+				await page
+					.getByRole('link', { name: /The Time Machine/ })
+					.first()
+					.click();
 				await expect(page.getByRole('heading', { name: 'The Time Machine' })).toBeVisible();
 				await expect(page.getByText('£0.99').first()).toBeVisible();
 				await expectNoHorizontalScroll(page);
@@ -194,7 +198,7 @@ test.describe('every screen copes with slow, failing, empty and offline backends
 		await page.goto('/store');
 		await expect(page.getByTestId('skeleton').first()).toBeVisible();
 		await expect(page.getByRole('status').filter({ hasText: 'Loading…' })).toBeAttached();
-		await expect(page.getByRole('link', { name: /Treasure Island/ })).toBeVisible({
+		await expect(page.getByRole('link', { name: /Treasure Island/ }).first()).toBeVisible({
 			timeout: 10_000
 		});
 	});
@@ -248,6 +252,6 @@ test.describe('every screen copes with slow, failing, empty and offline backends
 		await page.getByRole('slider', { name: /Failure rate/ }).fill('0');
 		await expectSaved(page);
 		await page.goto('/store');
-		await expect(page.getByRole('link', { name: /Treasure Island/ })).toBeVisible();
+		await expect(page.getByRole('link', { name: /Treasure Island/ }).first()).toBeVisible();
 	});
 });

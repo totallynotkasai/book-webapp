@@ -49,7 +49,8 @@
 	}
 
 	.large {
-		width: min(220px, 60vw);
+		/* Small enough on a phone that the Book page's actions show without scrolling. */
+		width: min(220px, 40vw);
 	}
 
 	img {

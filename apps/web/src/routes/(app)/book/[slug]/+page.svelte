@@ -89,7 +89,7 @@
 	<StatusView resource={book} what="This book">
 		{#snippet loading()}
 			<div class="layout">
-				<Skeleton shape="block" width="min(220px, 60vw)" height="auto" class="cover-skeleton" />
+				<Skeleton shape="block" width="min(220px, 40vw)" height="auto" class="cover-skeleton" />
 				<div class="details">
 					<Skeleton width="70%" height="2rem" />
 					<Skeleton width="40%" />

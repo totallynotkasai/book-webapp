@@ -593,7 +593,8 @@ Reading Progress keeps two positions on purpose: the **furthest Anchor** gates s
 ```ts
 export type ProductKind =
   | 'book' | 'illustration_pack' | 'audio_track'
-  | 'cover' | 'bookmark_design' | 'bundle';
+  | 'cover' | 'bookmark_design' | 'bundle'
+  | 'early_access'; // PoC placeholder for OPEN-10: a serial's early-access Chapters, granted only by Creator Subscriptions
 
 export type EntitlementSource = 'free_claim' | 'purchase' | 'bundle' | 'subscription' | 'grant';
 ```
@@ -925,7 +926,7 @@ Chapter content renders in a sandboxed iframe (as both candidate engines do). On
 
 - REST over JSON under `/v1`. One Hono router per module in `apps/api/src/modules/` (books, revisions, entitlements, annotations, progress, uploads, content, packs, tracks).
 - Every request body, query and response is validated with a Zod schema exported from `@book/core`. `storage-remote` uses the same schemas.
-- Errors: `{ "error": { "code": "ENTITLEMENT_REQUIRED", "message": "…", "details": { … } } }`. Codes are a string enum in `core` (`VALIDATION_FAILED`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `ENTITLEMENT_REQUIRED`, `RATE_LIMITED`, `UPLOAD_TOO_LARGE`, `INGEST_FAILED`, …). Messages say what happened and what to do.
+- Errors: `{ "error": { "code": "ENTITLEMENT_REQUIRED", "message": "…", "details": { … } } }`. Codes are a string enum in `core` (`VALIDATION_FAILED`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `ENTITLEMENT_REQUIRED`, `PAYMENT_DECLINED`, `RATE_LIMITED`, `UPLOAD_TOO_LARGE`, `INGEST_FAILED`, …). Messages say what happened and what to do.
 - Pagination: cursor-based, `?cursor=&limit=` → `{ items, nextCursor }`. Sync pulls use `?since=`.
 - Auth: `Authorization: Bearer <JWT>`. Only public catalogue reads are unauthenticated.
 - Mutations that move money or create Entitlements accept an `Idempotency-Key` header.
@@ -1535,9 +1536,9 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | OPEN-07 | Product name and brand seed colour. Until then, P1-UI-01 uses a placeholder seed (recommended: a deep teal; not M3 purple) | Before public launch |
 | OPEN-08 | Revenue splits: platform fee on sales, Tips and Creator Subscriptions; split between author and community creator on community Layers; can authors set price limits for community Layers on their Books? | Before Phase 4 |
 | OPEN-09 | *Resolved by D-019.* Remaining detail: which AI-detection services to use for text and images, and their thresholds | Before P2-MOD-01 |
-| OPEN-10 | Chapter-range Products for early-access serial chapters | Before Phase 4 |
+| OPEN-10 | Chapter-range Products for early-access serial chapters. *The PoC simulates one `early_access` Product per serial, granted only by a Creator Subscription, covering its newest Chapters until a `freeAt` date (P1-STO-04); a proposal is in the Phase 1.6 PR* | Before Phase 4 |
 | OPEN-11 | *Resolved by D-008* (no platform-wide subscription; Creator Subscriptions instead). Remaining detail: Creator Subscription rules: plan limits, refunds, what happens to early-access benefits when a serial finishes | Before Phase 4 |
-| OPEN-12 | Age policy and content-rating scheme | Before Phase 5 |
+| OPEN-12 | Age policy and content-rating scheme. *The PoC uses placeholder ratings `all_ages`, `teen` and `mature` with free-text warnings (P1-STO-01)* | Before Phase 5 |
 | OPEN-13 | *Resolved by D-016 (ADR-002): Block indexes plus an offset word index.* | P0-05 |
 | OPEN-14 | *Resolved by D-026.* Deterministic tokenisation: `Intl.Segmenter` takes its word boundaries from each runtime's ICU data, and the P0-05/P0-06 spikes found WebKit and Chromium gave the same EPUB different WordIds, which would break Sync Maps and cross-device Annotations. `text-pipeline` now uses its own versioned tokeniser | P1-ING-01 |
 

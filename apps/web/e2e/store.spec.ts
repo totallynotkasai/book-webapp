@@ -21,9 +21,12 @@ const ALICE = '/book/alices-adventures-in-wonderland';
 const SERIAL = '/book/the-lamplighters-ledger';
 
 const checkout = (page: Page) => page.getByTestId('checkout');
+// The sheet is modal, but role queries still see the page behind it, which can offer the same
+// button ("Add to library", "Read now"), so actions in the sheet are scoped to the dialog.
+const sheet = (page: Page) => page.getByRole('dialog');
 
 async function pay(page: Page) {
-	await page
+	await sheet(page)
 		.getByRole('button', { name: /^(Pay .* \(simulated\)|Add to library|Try again)$/ })
 		.click();
 }
@@ -92,7 +95,7 @@ test('the Complete edition: pictures and narration are on when you open it', asy
 	await expect(page.getByTestId('checkout-total')).toHaveText('£2.49');
 	await pay(page);
 	await expect(checkout(page)).toContainText('is in your library');
-	await page.getByRole('link', { name: 'Read now' }).click();
+	await sheet(page).getByRole('link', { name: 'Read now' }).click();
 	await expect(page.getByTestId('reader')).toHaveAttribute('data-ready', 'true', {
 		timeout: 30_000
 	});
@@ -174,7 +177,7 @@ test('tip, subscribe for early access, cancel, and the clock ends it; purchases 
 
 	await page.getByRole('button', { name: 'Buy · £3.99' }).click();
 	await pay(page);
-	await page.getByRole('link', { name: 'Read now' }).click();
+	await sheet(page).getByRole('link', { name: 'Read now' }).click();
 	await expect(page.getByTestId('reader')).toHaveAttribute('data-ready', 'true', {
 		timeout: 30_000
 	});
@@ -208,6 +211,8 @@ test('tip, subscribe for early access, cancel, and the clock ends it; purchases 
 	await openDevPanel(page);
 	await page.getByRole('button', { name: '+30 days' }).click();
 	await page.getByRole('button', { name: '+1 week' }).click();
+	// The offset is saved asynchronously; leaving before it shows could lose it.
+	await expect(page.getByText('(37 days ahead)')).toBeVisible();
 	await page.goto('/you/purchases');
 	await expect(page.getByTestId('subscription')).toContainText('ended');
 	await openReader(page, 'book-lamplighters-ledger');
@@ -217,7 +222,8 @@ test('tip, subscribe for early access, cancel, and the clock ends it; purchases 
 		page.getByRole('button', { name: /5\. The Lamp That Remembers.*Early access/ })
 	).toBeVisible();
 	await page.goto('/library');
-	await expect(page.getByRole('link', { name: /The Lamplighter's Ledger/ })).toBeVisible();
+	// Under "Continue reading" and in the list.
+	await expect(page.getByRole('link', { name: /The Lamplighter's Ledger/ }).first()).toBeVisible();
 });
 
 test('“Hide AI-generated content” takes AI-generated Books out of the store', async ({ page }) => {

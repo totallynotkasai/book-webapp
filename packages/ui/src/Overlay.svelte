@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
+	import { keepOpenForSnackbar } from './outside';
 	import type { Snippet } from 'svelte';
 
 	/**
@@ -39,7 +40,7 @@
 				<div {...props} class={['scrim', variant]}></div>
 			{/snippet}
 		</Dialog.Overlay>
-		<Dialog.Content aria-label={label}>
+		<Dialog.Content aria-label={label} onInteractOutside={keepOpenForSnackbar}>
 			{#snippet child({ props })}
 				<div {...props} class={['overlay', variant, className]}>
 					{@render children()}
