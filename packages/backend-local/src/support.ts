@@ -24,6 +24,8 @@ import type { SimulationSettings } from './simulation';
 export interface SupportModule extends SupportApi {
 	/** Renews or ends the user's subscriptions as of now; call before checking early access. */
 	refresh(userId: string): Promise<void>;
+	/** A plan as readers see it, for the Studio's plan list (P1-STU-04). */
+	planDto(plan: PlanRecord): Promise<PlanDto>;
 }
 
 export function createSupportApi(deps: {
@@ -118,6 +120,7 @@ export function createSupportApi(deps: {
 
 	return {
 		refresh,
+		planDto,
 
 		async listPlans(creatorHandle) {
 			const creator = await db.getFromIndex('creators', 'handle', creatorHandle);

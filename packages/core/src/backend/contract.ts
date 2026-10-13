@@ -13,8 +13,7 @@ import {
 	libraryEntrySchema,
 	openBookSchema,
 	personaSchema,
-	sessionSchema,
-	studioBookSchema
+	sessionSchema
 } from './dto';
 import { layerSummarySchema, openPackSchema, openTrackSchema } from '../layers';
 import {
@@ -29,12 +28,32 @@ import {
 	tipInputSchema,
 	tipSchema
 } from '../store';
+import {
+	bookSettingsInputSchema,
+	chapterNarrationInputSchema,
+	chapterReviewSchema,
+	earningsSchema,
+	illustrationChangesSchema,
+	illustrationInputSchema,
+	layerDetailsInputSchema,
+	migrateAnchorsInputSchema,
+	migrateAnchorsResultSchema,
+	planInputSchema,
+	publishRevisionInputSchema,
+	studioBookDetailSchema,
+	studioBookSchema,
+	studioPackSchema,
+	studioRevisionSchema,
+	studioTrackSchema,
+	trackDetailsInputSchema
+} from '../studio';
 import { pageRequestSchema, pageSchema } from './paging';
 
 const optionalPage = z.tuple([pageRequestSchema.optional()]);
 const none = z.tuple([]);
 const slug = z.tuple([z.string().min(1)]);
 const idempotent = z.tuple([z.string().min(1), z.string().min(8)]);
+const id = z.string().min(1);
 
 export interface MethodContract {
 	input: z.ZodTuple;
@@ -88,6 +107,10 @@ export const backendContract = {
 		read: {
 			input: z.tuple([z.string().min(1), z.string().min(1)]),
 			output: z.instanceof(Blob)
+		},
+		migrateAnchors: {
+			input: z.tuple([id, migrateAnchorsInputSchema]),
+			output: migrateAnchorsResultSchema
 		}
 	},
 	layers: {
@@ -98,7 +121,44 @@ export const backendContract = {
 		narrationSample: { input: slug, output: narrationSampleSchema.nullable() }
 	},
 	studio: {
-		listBooks: { input: optionalPage, output: pageSchema(studioBookSchema) }
+		listBooks: { input: optionalPage, output: pageSchema(studioBookSchema) },
+		getBook: { input: slug, output: studioBookDetailSchema },
+		upload: {
+			input: z.tuple([z.instanceof(Blob), z.object({ bookId: id.optional() }).optional()]),
+			output: studioRevisionSchema
+		},
+		updateBook: { input: z.tuple([id, bookSettingsInputSchema]), output: studioBookDetailSchema },
+		publishRevision: {
+			input: z.tuple([id, publishRevisionInputSchema]),
+			output: studioBookDetailSchema
+		},
+		previewRevision: { input: z.tuple([id, id.optional()]), output: openBookSchema },
+		createPack: { input: z.tuple([id, layerDetailsInputSchema]), output: studioPackSchema },
+		getPack: { input: slug, output: studioPackSchema },
+		updatePack: { input: z.tuple([id, layerDetailsInputSchema]), output: studioPackSchema },
+		addIllustration: { input: z.tuple([id, illustrationInputSchema]), output: studioPackSchema },
+		updateIllustration: {
+			input: z.tuple([id, id, illustrationChangesSchema]),
+			output: studioPackSchema
+		},
+		removeIllustration: { input: z.tuple([id, id]), output: studioPackSchema },
+		publishPack: { input: slug, output: studioPackSchema },
+		createTrack: { input: z.tuple([id, trackDetailsInputSchema]), output: studioTrackSchema },
+		getTrack: { input: slug, output: studioTrackSchema },
+		updateTrack: { input: z.tuple([id, trackDetailsInputSchema]), output: studioTrackSchema },
+		setChapterNarration: {
+			input: z.tuple([id, chapterNarrationInputSchema]),
+			output: studioTrackSchema
+		},
+		reviewChapter: { input: z.tuple([id, id]), output: chapterReviewSchema },
+		markReviewed: {
+			input: z.tuple([id, id, z.number().int().nonnegative(), z.boolean()]),
+			output: chapterReviewSchema
+		},
+		publishTrack: { input: slug, output: studioTrackSchema },
+		listPlans: { input: none, output: z.array(planSchema) },
+		savePlan: { input: z.tuple([id.nullable(), planInputSchema]), output: planSchema },
+		earnings: { input: none, output: earningsSchema }
 	},
 	moderation: {
 		listQueue: { input: optionalPage, output: pageSchema(flagSchema) }

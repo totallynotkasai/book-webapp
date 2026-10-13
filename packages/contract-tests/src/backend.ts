@@ -21,6 +21,7 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ManualClock } from './clock';
 import { describeStoreContract } from './store';
+import { describeStudioContract, type StudioFixtures } from './studio';
 
 /** Must return a freshly seeded, independent backend on every call, signed in as the default. */
 export type MakeBackend = (context: { clock: ManualClock }) => Promise<Backend>;
@@ -49,7 +50,15 @@ function conforms<M extends keyof typeof backendContract>(
 	).toBe(true);
 }
 
-export function describeBackendContract(name: string, makeBackend: MakeBackend): void {
+/**
+ * `studio`: an EPUB and an edited copy for the Creator Studio cases (P1-STU-01); without them
+ * those cases are skipped.
+ */
+export function describeBackendContract(
+	name: string,
+	makeBackend: MakeBackend,
+	options: { studio?: StudioFixtures } = {}
+): void {
 	describe(`Backend contract: ${name}`, () => {
 		let backend: Backend;
 		let personas: PersonaDto[];
@@ -382,5 +391,14 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 			personas: () => personas,
 			conforms: (module, method, value) => conforms(module as never, method as never, value)
 		});
+
+		if (options.studio) {
+			describeStudioContract({
+				backend: () => backend,
+				personas: () => personas,
+				conforms: (module, method, value) => conforms(module as never, method as never, value),
+				fixtures: options.studio
+			});
+		}
 	});
 }

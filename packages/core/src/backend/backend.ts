@@ -19,9 +19,27 @@ import type {
 	LibraryEntryDto,
 	OpenBookDto,
 	PersonaDto,
-	SessionDto,
-	StudioBookDto
+	SessionDto
 } from './dto';
+import type {
+	BookSettingsInput,
+	ChapterNarrationInput,
+	ChapterReviewDto,
+	EarningsDto,
+	IllustrationChanges,
+	IllustrationInput,
+	LayerDetailsInput,
+	MigrateAnchorsInput,
+	MigrateAnchorsResult,
+	PlanInput,
+	PublishRevisionInput,
+	StudioBookDetailDto,
+	StudioBookDto,
+	StudioPackDto,
+	StudioRevisionDto,
+	StudioTrackDto,
+	TrackDetailsInput
+} from '../studio';
 import type { LayerSummaryDto, OpenPackDto, OpenTrackDto } from '../layers';
 import type {
 	BookmarkDesignDto,
@@ -143,11 +161,83 @@ export interface ContentApi {
 	 * with `UNAUTHENTICATED` when the token is unknown or expired, `NOT_FOUND` for a missing file.
 	 */
 	read(contentToken: string, path: string): Promise<Blob>;
+	/**
+	 * Moves Anchors on an older Revision of a Book to its current one (§6.2, P1-STU-01): readers'
+	 * Annotations, Placed Bookmarks and Reading Progress, when they next open it. Needs the Book
+	 * (`ENTITLEMENT_REQUIRED`). Phase 2 runs the same `migrateAnchors` on the server.
+	 */
+	migrateAnchors(bookId: string, input: MigrateAnchorsInput): Promise<MigrateAnchorsResult>;
 }
 
+/**
+ * Creator Studio (DESIGN.md §4.7, P1-STU-01 to P1-STU-04, P1-LAY-05). Every method rejects with
+ * `FORBIDDEN` for non-Creators and for another Creator's Books and Layers, inside the backend
+ * (§10.6), and with `NOT_FOUND` for unknown IDs. Each change emits `studio`.
+ */
 export interface StudioApi {
-	/** The signed-in Creator's own Books. Rejects with `FORBIDDEN` for non-Creators (§10.6). */
+	/** The signed-in Creator's own Books. */
 	listBooks(page?: PageRequest): Promise<Page<StudioBookDto>>;
+	getBook(bookId: string): Promise<StudioBookDetailDto>;
+	/**
+	 * Starts processing an EPUB: a new Book (a draft), or with `bookId` a new Revision of one,
+	 * carried forward from its current Revision (§6.2). Returns the Revision while it is
+	 * `processing`; it becomes `ready` or `failed` (with a reason) and `studio` is emitted. The
+	 * same file again returns the Revision it made before. Rejects with `UPLOAD_TOO_LARGE`.
+	 */
+	upload(file: Blob, options?: { bookId?: string }): Promise<StudioRevisionDto>;
+	updateBook(bookId: string, changes: BookSettingsInput): Promise<StudioBookDetailDto>;
+	/**
+	 * Makes a `ready` Revision current and lists the Book. The AI answer is required (§10.6).
+	 * Illustrations move to it (or are marked orphaned) and changed Chapters' Sync Maps become
+	 * `stale`; readers' own Anchors move when they next open it (`content.migrateAnchors`).
+	 * Rejects with `CONFLICT` if the Revision isn't ready.
+	 */
+	publishRevision(bookId: string, input: PublishRevisionInput): Promise<StudioBookDetailDto>;
+	/** Opens one of the Creator's own Revisions (the newest when omitted) to preview or build in. */
+	previewRevision(bookId: string, revisionId?: string): Promise<OpenBookDto>;
+
+	createPack(bookId: string, details: LayerDetailsInput): Promise<StudioPackDto>;
+	getPack(packId: string): Promise<StudioPackDto>;
+	updatePack(packId: string, details: LayerDetailsInput): Promise<StudioPackDto>;
+	/** Attaches an Illustration to a passage of the Revision the pack is built on. */
+	addIllustration(packId: string, input: IllustrationInput): Promise<StudioPackDto>;
+	updateIllustration(
+		packId: string,
+		illustrationId: string,
+		changes: IllustrationChanges
+	): Promise<StudioPackDto>;
+	removeIllustration(packId: string, illustrationId: string): Promise<StudioPackDto>;
+	/**
+	 * Lists the pack. Rejects with `VALIDATION_FAILED` while any Illustration lacks alt text
+	 * (P1-LAY-05) or the AI question is unanswered.
+	 */
+	publishPack(packId: string): Promise<StudioPackDto>;
+
+	createTrack(bookId: string, details: TrackDetailsInput): Promise<StudioTrackDto>;
+	getTrack(trackId: string): Promise<StudioTrackDto>;
+	updateTrack(trackId: string, details: TrackDetailsInput): Promise<StudioTrackDto>;
+	/**
+	 * A Chapter's audio and Sync Map (§7.2). Rejects with `VALIDATION_FAILED` when the Sync Map
+	 * isn't one, or is for another Revision or Chapter, or names Words the Chapter doesn't have.
+	 */
+	setChapterNarration(trackId: string, input: ChapterNarrationInput): Promise<StudioTrackDto>;
+	/** The review screen: every low-confidence region, each one tap away (P1-STU-03). */
+	reviewChapter(trackId: string, chapterId: string): Promise<ChapterReviewDto>;
+	markReviewed(
+		trackId: string,
+		chapterId: string,
+		regionIndex: number,
+		reviewed: boolean
+	): Promise<ChapterReviewDto>;
+	/** Lists the track. Rejects with `VALIDATION_FAILED` without a Chapter or an AI answer. */
+	publishTrack(trackId: string): Promise<StudioTrackDto>;
+
+	/** The Creator's Creator Subscription plans (P1-STU-04). */
+	listPlans(): Promise<PlanDto[]>;
+	/** Creates a plan (`planId` null) or changes one. */
+	savePlan(planId: string | null, input: PlanInput): Promise<PlanDto>;
+	/** Simulated earnings with placeholder revenue splits (OPEN-08 stays open). */
+	earnings(): Promise<EarningsDto>;
 }
 
 export interface ModerationApi {

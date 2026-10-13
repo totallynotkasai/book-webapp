@@ -18,6 +18,7 @@ import {
 import { bundlePriceFor, ownedProductIds } from '@book/domain';
 import type { BackendDatabase } from './db';
 import { paginate } from './paging';
+import type { StoredFiles } from './files';
 import type { BookRecord, ProductRecord } from './seed';
 
 export function createCatalogueApi(deps: {
@@ -26,20 +27,31 @@ export function createCatalogueApi(deps: {
 	/** The signed-in user, or null (the catalogue is public). */
 	currentUser: () => UserDto | null;
 	layers: Pick<LayersApi, 'list'>;
-}): CatalogueApi & { summaries(books: BookRecord[]): Promise<BookSummaryDto[]> } {
+	files: StoredFiles;
+}): CatalogueApi & {
+	summaries(books: BookRecord[]): Promise<BookSummaryDto[]>;
+	coverUrl(book: BookRecord): Promise<string | null>;
+} {
 	const { db, clock } = deps;
 
+	/** A cover the backend keeps (Studio, or the EPUB's own) wins over a static one. */
+	async function coverUrl(book: BookRecord): Promise<string | null> {
+		return (book.coverFile && (await deps.files.url(book.coverFile))) || book.coverUrl;
+	}
+
 	/** What every summary needs, read once per call. */
-	async function lookups() {
+	async function lookups(books: BookRecord[] = []) {
 		const user = deps.currentUser();
-		const [products, creators, packs, tracks, entitlements] = await Promise.all([
+		const [products, creators, packs, tracks, entitlements, covers] = await Promise.all([
 			db.getAll('products'),
 			db.getAll('creators'),
 			db.getAll('illustrationPacks'),
 			db.getAll('audioTracks'),
-			user ? db.getAllFromIndex('entitlements', 'userId', user.id) : Promise.resolve([])
+			user ? db.getAllFromIndex('entitlements', 'userId', user.id) : Promise.resolve([]),
+			Promise.all(books.map(async (b) => [b.id, await coverUrl(b)] as const))
 		]);
 		return {
+			covers: new Map(covers),
 			products,
 			creators: new Map(creators.map((c) => [c.id, c])),
 			illustrated: new Set(packs.filter((p) => p.listingState === 'listed').map((p) => p.bookId)),
@@ -59,8 +71,9 @@ export function createCatalogueApi(deps: {
 			creatorId: book.creatorId,
 			creatorName: l.creators.get(book.creatorId)?.displayName ?? '',
 			lang: book.lang,
-			aiUse: book.aiUse,
-			coverUrl: book.coverUrl,
+			// Only a draft lacks the answer, and drafts appear only in the Studio.
+			aiUse: book.aiUse ?? 'none',
+			coverUrl: l.covers.get(book.id) ?? book.coverUrl,
 			price: product.price,
 			contentRating: book.contentRating,
 			hasIllustrations: l.illustrated.has(book.id),
@@ -70,7 +83,7 @@ export function createCatalogueApi(deps: {
 	}
 
 	async function summaries(books: BookRecord[]): Promise<BookSummaryDto[]> {
-		const l = await lookups();
+		const l = await lookups(books);
 		return books.map((b) => summary(b, l));
 	}
 
@@ -125,6 +138,7 @@ export function createCatalogueApi(deps: {
 
 	return {
 		summaries,
+		coverUrl,
 
 		async listBooks(page) {
 			return paginate(await summaries(await listed()), page);
@@ -160,7 +174,7 @@ export function createCatalogueApi(deps: {
 				throw new BackendError('NOT_FOUND', 'That book isn’t in the store.');
 			}
 			const [l, layers, plans] = await Promise.all([
-				lookups(),
+				lookups([book]),
 				deps.currentUser() ? deps.layers.list(book.id) : Promise.resolve([]),
 				db.getAllFromIndex('plans', 'creatorId', book.creatorId)
 			]);
@@ -184,7 +198,7 @@ export function createCatalogueApi(deps: {
 				contentWarnings: book.contentWarnings,
 				layers,
 				offers: offers(book, l),
-				hasSample: !!book.epubUrl && !base.inLibrary,
+				hasSample: !!(book.epubUrl || book.currentRevisionId) && !base.inLibrary,
 				planIds: plans.map((p) => p.id),
 				isSerial: book.isSerial
 			};

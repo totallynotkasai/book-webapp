@@ -9,3 +9,4 @@ export * from './sync-map';
 export * from './content';
 export * from './layers';
 export * from './store';
+export * from './studio';
