@@ -6,7 +6,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
 	appId: 'io.github.totallynotkasai.bookpoc',
 	appName: 'Book Reader (PoC)',
-	webDir: 'build',
+	// `npm run apk:tester` sets CAP_WEB_DIR=build-tester to wrap the tester profile (P1-QA-03).
+	webDir: process.env.CAP_WEB_DIR ?? 'build',
 	android: {
 		// Debug builds can be inspected from chrome://inspect on the PC.
 		webContentsDebuggingEnabled: true

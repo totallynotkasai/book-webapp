@@ -11,8 +11,9 @@ android {
         applicationId "io.github.totallynotkasai.bookpoc"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // CI numbers each tester APK so a newer one installs over an older one (P1-QA-03).
+        versionCode = (System.getenv('ANDROID_VERSION_CODE') ?: '1').toInteger()
+        versionName = System.getenv('ANDROID_VERSION_NAME') ?: '0.1-poc'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -20,10 +21,26 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        // PoC only (D-030): a committed key with a published password, so CI and any checkout build
+        // the same installable tester APK without secrets. It signs this PoC app ID and nothing
+        // else; the named product (OPEN-07) gets its own app ID and a private key (Play App Signing).
+        poc {
+            storeFile file('poc-release.jks')
+            storePassword 'bookpoc-not-secret'
+            keyAlias 'bookpoc'
+            keyPassword 'bookpoc-not-secret'
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.poc
+        }
+        debug {
+            // The owner's dev build installs beside the tester APK instead of clashing with it.
+            applicationIdSuffix '.dev'
         }
     }
 }

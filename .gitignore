@@ -31,6 +31,7 @@ test-results
 playwright-report
 blob-report
 build-tester
+build-apk
 
 # Agent worktrees
 .claude/worktrees

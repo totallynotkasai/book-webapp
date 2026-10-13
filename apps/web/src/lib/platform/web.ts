@@ -3,7 +3,8 @@ import type {
 	FilesAdapter,
 	HapticsAdapter,
 	Platform,
-	ShareAdapter
+	ShareAdapter,
+	SystemBarsAdapter
 } from './types';
 import { webAudio } from './web-audio';
 
@@ -66,6 +67,19 @@ export const webDeepLinks: DeepLinksAdapter = {
 	onOpen: () => () => {}
 };
 
+/** Browsers that tint their toolbar (Chrome on Android, Safari) follow `theme-color`. */
+export const webSystemBars: SystemBarsAdapter = {
+	setColors({ top }) {
+		let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+		if (!meta) {
+			meta = document.createElement('meta');
+			meta.name = 'theme-color';
+			document.head.append(meta);
+		}
+		meta.content = top;
+	}
+};
+
 export function webPlatform(): Platform {
 	return {
 		kind: 'web',
@@ -73,6 +87,7 @@ export function webPlatform(): Platform {
 		files: webFiles,
 		share: webShare,
 		haptics: webHaptics,
-		deepLinks: webDeepLinks
+		deepLinks: webDeepLinks,
+		systemBars: webSystemBars
 	};
 }

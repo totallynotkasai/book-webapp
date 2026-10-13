@@ -21,7 +21,7 @@
 	import { createEngine, type ReaderEngine, type VisibleRange } from '@book/reader-core';
 	import { highlightLabels } from '@book/tokens';
 	import { Badge, Button, Dialog, IconButton, Progress, prefersReducedMotion } from '@book/ui';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { copyText } from '$lib/clipboard';
 	import BookmarkRibbon from '$lib/components/BookmarkRibbon.svelte';
@@ -82,10 +82,12 @@
 		sample?: boolean;
 		preview?: { revisionId?: string } | null;
 		creatorPackId?: string | null;
-		/** Open at this Chapter (an ingest report's link into a preview). */
+		/** Open at this Chapter (an ingest report's link into a preview; the welcome's Chapter I). */
 		startChapter?: string | null;
 	} = $props();
 	const studioMode = $derived(!!preview || !!creatorPackId);
+	// Read once: the reader route takes ?chapter= out of the address as soon as it's open.
+	const openAtChapter = untrack(() => startChapter);
 
 	type Phase =
 		| { kind: 'opening' }
@@ -436,7 +438,7 @@
 				fontFaceCss,
 				start
 			});
-			if (startChapter) await engine.goTo({ chapterId: startChapter });
+			if (openAtChapter) await engine.goTo({ chapterId: openAtChapter });
 			void loadLayers(book);
 			applied = {
 				typography: JSON.stringify(typographyOf(prefs)),

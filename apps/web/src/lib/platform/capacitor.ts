@@ -1,10 +1,11 @@
-import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { nativeAudio } from './native-audio';
 import { switchingAudio } from './switching-audio';
-import type { FilesAdapter, Platform } from './types';
-import { webAudio, webDeepLinks, webFiles, webHaptics, webShare } from './web';
+import type { DeepLinksAdapter, FilesAdapter, Platform, SystemBarsAdapter } from './types';
+import { webAudio, webFiles, webHaptics, webShare, webSystemBars } from './web';
 
 /**
  * Saving a file inside the WebView: a download link does nothing there, so the file is written to
@@ -30,6 +31,41 @@ const capacitorFiles: FilesAdapter = {
 	}
 };
 
+/**
+ * Links that open the app (`bookpoc://…`, D-031), through the official App plugin (MIT): the
+ * link that launched it, then any that arrive while it runs.
+ */
+const capacitorDeepLinks: DeepLinksAdapter = {
+	onOpen(callback) {
+		const open = (url: string | undefined) => {
+			try {
+				if (url) callback(new URL(url));
+			} catch {
+				// Not a URL this app understands.
+			}
+		};
+		void App.getLaunchUrl().then((launch) => open(launch?.url));
+		const listener = App.addListener('appUrlOpen', (event) => open(event.url));
+		return () => void listener.then((handle) => handle.remove());
+	}
+};
+
+/**
+ * Android's strips behind the status and navigation bars, painted by our `AppWindow` plugin
+ * (`android/app/src/main/java/.../window/`; P1-MOB-01, ADR-004 check 1).
+ */
+const AppWindow = registerPlugin<{
+	setColors(colors: { top: string; bottom: string }): Promise<void>;
+}>('AppWindow');
+
+const androidSystemBars: SystemBarsAdapter = {
+	setColors(colors) {
+		void AppWindow.setColors(colors).catch(() => {
+			// An older app build without the plugin keeps the window's own colours.
+		});
+	}
+};
+
 async function blobToBase64(blob: Blob): Promise<string> {
 	const bytes = new Uint8Array(await blob.arrayBuffer());
 	let binary = '';
@@ -42,8 +78,8 @@ async function blobToBase64(blob: Blob): Promise<string> {
 /**
  * Capacitor (Android now, iOS from the backlog). File import uses the web file input (ADR-004
  * check 3); saving goes through the share sheet; narration plays natively (ADR-004 check 4,
- * P1-LAY-04). iOS keeps web audio until backlog item IOS-04; deep links use the web
- * implementation until they're needed.
+ * P1-LAY-04). iOS keeps web audio until backlog item IOS-04, and the web's theme-colour bars
+ * until IOS-09.
  */
 export function capacitorPlatform(): Platform {
 	const ios = Capacitor.getPlatform() === 'ios';
@@ -54,6 +90,7 @@ export function capacitorPlatform(): Platform {
 		files: capacitorFiles,
 		share: webShare,
 		haptics: webHaptics,
-		deepLinks: webDeepLinks
+		deepLinks: capacitorDeepLinks,
+		systemBars: ios ? webSystemBars : androidSystemBars
 	};
 }

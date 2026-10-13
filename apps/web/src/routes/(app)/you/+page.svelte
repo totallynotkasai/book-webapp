@@ -64,6 +64,13 @@
 			show: true
 		},
 		{
+			label: 'Help',
+			description: 'How to read, keyboard shortcuts and about this version',
+			icon: 'help',
+			href: resolve('/you/help'),
+			show: true
+		},
+		{
 			label: 'Review queue',
 			description: 'Flags and reports to review',
 			icon: 'admin_panel_settings',

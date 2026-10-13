@@ -22,6 +22,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Facilitator links (D-031): bookpoc://open?areas=store,community opens the tester
+                 app with those simulated areas on this device. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="bookpoc" />
+            </intent-filter>
+
         </activity>
 
         <!-- Narration (P1-LAY-04, ADR-004): Media3 plays it in the background with a media session. -->

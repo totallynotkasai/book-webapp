@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- Debug builds (the owner's, from npm run cap:android) install beside the tester APK
+         under their own app ID, so they get their own name on the home screen. -->
+    <string name="app_name">Book Reader (dev)</string>
+    <string name="title_activity_main">Book Reader (dev)</string>
+</resources>

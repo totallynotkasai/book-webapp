@@ -102,6 +102,19 @@ export interface DeepLinksAdapter {
 	onOpen(callback: (url: URL) => void): () => void;
 }
 
+/** The colours behind the system bars, from the page's own (P1-MOB-01). */
+export interface SystemBarsColors {
+	/** Behind the status bar, as a CSS hex colour. */
+	top: string;
+	/** Behind the navigation or gesture bar. */
+	bottom: string;
+}
+
+export interface SystemBarsAdapter {
+	/** Matches the system bars (and the browser's own toolbar, where it has one) to the page. */
+	setColors(colors: SystemBarsColors): void;
+}
+
 export interface Platform {
 	kind: 'web' | 'android' | 'ios';
 	audio: AudioAdapter;
@@ -109,4 +122,5 @@ export interface Platform {
 	share: ShareAdapter;
 	haptics: HapticsAdapter;
 	deepLinks: DeepLinksAdapter;
+	systemBars: SystemBarsAdapter;
 }

@@ -28,6 +28,20 @@
 		size = 'small',
 		class: className
 	}: Props = $props();
+
+	// On a short screen the body scrolls between the title and the actions, so the actions stay
+	// in view. A body that scrolls takes focus, so keyboard users can scroll it too (WCAG 2.1.1).
+	let body = $state<HTMLElement>();
+	let scrollable = $state(false);
+	$effect(() => {
+		const element = body;
+		if (!element) return;
+		const measure = () => (scrollable = element.scrollHeight > element.clientHeight + 1);
+		const observer = new ResizeObserver(measure);
+		observer.observe(element);
+		if (element.firstElementChild) observer.observe(element.firstElementChild);
+		return () => observer.disconnect();
+	});
 </script>
 
 <Dialog.Root
@@ -58,7 +72,12 @@
 							{/snippet}
 						</Dialog.Description>
 					{/if}
-					{#if children}<div class="body">{@render children()}</div>{/if}
+					{#if children}
+						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+						<div class="body" bind:this={body} tabindex={scrollable ? 0 : undefined}>
+							<div>{@render children()}</div>
+						</div>
+					{/if}
 					{#if actions}<div class="actions">{@render actions()}</div>{/if}
 				</div>
 			{/snippet}
@@ -80,11 +99,12 @@
 		top: 50%;
 		left: 50%;
 		z-index: 41;
-		display: grid;
+		display: flex;
+		flex-direction: column;
 		gap: var(--space-4);
 		width: min(calc(100vw - 2 * var(--space-5)), 560px);
-		max-height: calc(100dvh - 2 * var(--space-6));
-		overflow: auto;
+		max-height: calc(100dvh - 2 * var(--space-5) - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+		overflow: hidden;
 		padding: var(--space-5);
 		border-radius: var(--md-sys-shape-corner-extra-large);
 		background: var(--md-sys-color-surface-container-high);
@@ -117,7 +137,20 @@
 		line-height: var(--md-sys-typescale-body-medium-line-height);
 	}
 
+	.body {
+		flex: 0 1 auto;
+		min-height: 0;
+		overflow: auto;
+		overscroll-behavior: contain;
+	}
+
+	.body:focus-visible {
+		outline: 3px solid var(--md-sys-color-secondary);
+		outline-offset: 2px;
+	}
+
 	.actions {
+		flex: none;
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: flex-end;

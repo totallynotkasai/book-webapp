@@ -1,7 +1,11 @@
 /**
  * Build profiles and feature flags (DESIGN.md P0-09, D-021). The profile is fixed at build time
- * by `VITE_PROFILE` (see .env.example), so a tester build never contains a way into the areas it
- * hides: the routes themselves answer 404.
+ * by `VITE_PROFILE` (see .env.example). Owner builds have every area; tester builds show only the
+ * reading experience, and the routes of the areas they hide answer 404.
+ *
+ * A PoC review session can add simulated areas to a tester build in two ways: `VITE_FLAGS` at
+ * build time, or a facilitator link (`?areas=store,community`) that this device then remembers
+ * (D-031). Neither can turn on the dev panel.
  */
 export const featureFlags = ['store', 'studio', 'community', 'admin', 'devPanel'] as const;
 export type FeatureFlag = (typeof featureFlags)[number];
@@ -9,8 +13,13 @@ export type Flags = Record<FeatureFlag, boolean>;
 
 export type Profile = 'owner' | 'tester';
 
-/** Flags a tester session may turn on with `VITE_FLAGS`. The dev panel is never one of them. */
-const TESTER_OPTIONAL: readonly FeatureFlag[] = ['store', 'studio', 'community', 'admin'];
+/** Flags a tester session may turn on. The dev panel is never one of them. */
+export const TESTER_AREAS: readonly FeatureFlag[] = ['store', 'studio', 'community', 'admin'];
+
+/** Where a tester device keeps the areas its last facilitator link chose. */
+export const AREAS_KEY = 'book-areas';
+/** The facilitator link's query parameter: `?areas=store,community`, or `?areas=none`. */
+export const AREAS_PARAM = 'areas';
 
 export function resolveProfile(value: string | undefined): Profile {
 	return value === 'tester' ? 'tester' : 'owner';
@@ -26,8 +35,53 @@ export function resolveFlags(profile: Profile, extra = ''): Flags {
 	}
 	const enabled = new Set(extra.split(',').map((f) => f.trim()));
 	return Object.fromEntries(
-		featureFlags.map((flag) => [flag, TESTER_OPTIONAL.includes(flag) && enabled.has(flag)])
+		featureFlags.map((flag) => [flag, TESTER_AREAS.includes(flag) && enabled.has(flag)])
 	) as Flags;
+}
+
+/**
+ * The areas a facilitator link asks for, as a clean comma-separated list in a fixed order, or
+ * `undefined` when the URL has no `areas` parameter. `none` (or an empty value) means reading only;
+ * unknown names, and the dev panel, are dropped.
+ */
+export function areasFromLink(url: URL): string | undefined {
+	const value = url.searchParams.get(AREAS_PARAM);
+	if (value === null) return undefined;
+	const asked = new Set(value.split(',').map((a) => a.trim()));
+	return TESTER_AREAS.filter((area) => asked.has(area)).join(',');
+}
+
+/**
+ * Saves the areas from a facilitator link on this device. Returns true when that changed what
+ * the device shows, so the caller can reload (flags are read once, when the app starts).
+ */
+export function rememberAreas(url: URL, storage: Storage | undefined = safeStorage()): boolean {
+	const areas = areasFromLink(url);
+	if (areas === undefined || !storage) return false;
+	const before = storage.getItem(AREAS_KEY) ?? '';
+	try {
+		storage.setItem(AREAS_KEY, areas);
+	} catch {
+		return false;
+	}
+	return before !== areas;
+}
+
+/** The areas this device remembers, after applying a facilitator link in the current address. */
+function deviceAreas(): string {
+	const storage = safeStorage();
+	if (!storage) return '';
+	if (typeof location !== 'undefined') rememberAreas(new URL(location.href), storage);
+	return storage.getItem(AREAS_KEY) ?? '';
+}
+
+function safeStorage(): Storage | undefined {
+	try {
+		return typeof localStorage === 'undefined' ? undefined : localStorage;
+	} catch {
+		// Storage can be blocked (private modes, site settings): the build's own areas still apply.
+		return undefined;
+	}
 }
 
 /** Which flag guards each route (IMPLEMENTATION-PLAN.md §5.2). The most specific prefix wins. */
@@ -53,4 +107,7 @@ export function isRouteEnabled(routeId: string, current: Flags): boolean {
 }
 
 export const profile: Profile = resolveProfile(import.meta.env.VITE_PROFILE);
-export const flags: Flags = resolveFlags(profile, import.meta.env.VITE_FLAGS);
+export const flags: Flags = resolveFlags(
+	profile,
+	profile === 'tester' ? `${import.meta.env.VITE_FLAGS ?? ''},${deviceAreas()}` : ''
+);

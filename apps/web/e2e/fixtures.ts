@@ -5,9 +5,12 @@ import { test as base, expect, type Page } from '@playwright/test';
 // Specs that need failures switch them on through the dev panel.
 export const E2E_NOW = new Date('2026-10-11T09:00:00.000Z');
 
-export const test = base.extend({
-	page: async ({ page }, use) => {
-		await page.addInitScript(() => {
+export const test = base.extend<{ welcomed: boolean }>({
+	/** False shows the first-run welcome (P1-QA-03); every other spec starts past it. */
+	welcomed: [true, { option: true }],
+	page: async ({ page, welcomed }, use) => {
+		await page.addInitScript((seen) => {
+			if (seen) localStorage.setItem('book-welcome', 'seen');
 			globalThis.__BOOK_E2E_SIMULATION__ = {
 				latencyMs: { min: 0, max: 0 },
 				failureRate: 0,
@@ -17,7 +20,7 @@ export const test = base.extend({
 				aiDetectorVerdict: 'clean',
 				clockOffsetMs: 0
 			};
-		});
+		}, welcomed);
 		await page.clock.setFixedTime(E2E_NOW);
 		await use(page);
 	}
