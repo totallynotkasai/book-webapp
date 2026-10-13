@@ -4,8 +4,14 @@ import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { nativeAudio } from './native-audio';
 import { switchingAudio } from './switching-audio';
-import type { DeepLinksAdapter, FilesAdapter, Platform, SystemBarsAdapter } from './types';
-import { webAudio, webFiles, webHaptics, webShare, webSystemBars } from './web';
+import type {
+	DeepLinksAdapter,
+	FilesAdapter,
+	LifecycleAdapter,
+	Platform,
+	SystemBarsAdapter
+} from './types';
+import { webAudio, webFiles, webHaptics, webLifecycle, webShare, webSystemBars } from './web';
 
 /**
  * Saving a file inside the WebView: a download link does nothing there, so the file is written to
@@ -66,6 +72,22 @@ const androidSystemBars: SystemBarsAdapter = {
 	}
 };
 
+/**
+ * The app leaving the screen. Capacitor keeps its WebView running in the background, so the page
+ * gets no visibilitychange or pagehide when the user goes home or switches app (seen on the
+ * emulator, P1-MOB-01); the App plugin's `pause` is the activity pausing.
+ */
+const capacitorLifecycle: LifecycleAdapter = {
+	onHide(callback) {
+		const offWeb = webLifecycle.onHide(callback);
+		const listener = App.addListener('pause', callback);
+		return () => {
+			offWeb();
+			void listener.then((handle) => handle.remove());
+		};
+	}
+};
+
 async function blobToBase64(blob: Blob): Promise<string> {
 	const bytes = new Uint8Array(await blob.arrayBuffer());
 	let binary = '';
@@ -91,6 +113,7 @@ export function capacitorPlatform(): Platform {
 		share: webShare,
 		haptics: webHaptics,
 		deepLinks: capacitorDeepLinks,
-		systemBars: ios ? webSystemBars : androidSystemBars
+		systemBars: ios ? webSystemBars : androidSystemBars,
+		lifecycle: capacitorLifecycle
 	};
 }

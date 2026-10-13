@@ -2,6 +2,7 @@ import type {
 	DeepLinksAdapter,
 	FilesAdapter,
 	HapticsAdapter,
+	LifecycleAdapter,
 	Platform,
 	ShareAdapter,
 	SystemBarsAdapter
@@ -80,6 +81,21 @@ export const webSystemBars: SystemBarsAdapter = {
 	}
 };
 
+/** A tab hidden or closed: the page's own visibility and pagehide events. */
+export const webLifecycle: LifecycleAdapter = {
+	onHide(callback) {
+		const onVisibility = () => {
+			if (document.visibilityState === 'hidden') callback();
+		};
+		document.addEventListener('visibilitychange', onVisibility);
+		addEventListener('pagehide', callback);
+		return () => {
+			document.removeEventListener('visibilitychange', onVisibility);
+			removeEventListener('pagehide', callback);
+		};
+	}
+};
+
 export function webPlatform(): Platform {
 	return {
 		kind: 'web',
@@ -88,6 +104,7 @@ export function webPlatform(): Platform {
 		share: webShare,
 		haptics: webHaptics,
 		deepLinks: webDeepLinks,
-		systemBars: webSystemBars
+		systemBars: webSystemBars,
+		lifecycle: webLifecycle
 	};
 }

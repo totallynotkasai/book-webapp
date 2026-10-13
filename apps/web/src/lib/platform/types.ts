@@ -102,6 +102,14 @@ export interface DeepLinksAdapter {
 	onOpen(callback: (url: URL) => void): () => void;
 }
 
+export interface LifecycleAdapter {
+	/**
+	 * Calls back when the app is leaving the screen: backgrounded, switched away from or closed,
+	 * the moment to save anything pending. Returns an unsubscribe function.
+	 */
+	onHide(callback: () => void): () => void;
+}
+
 /** The colours behind the system bars, from the page's own (P1-MOB-01). */
 export interface SystemBarsColors {
 	/** Behind the status bar, as a CSS hex colour. */
@@ -123,4 +131,5 @@ export interface Platform {
 	haptics: HapticsAdapter;
 	deepLinks: DeepLinksAdapter;
 	systemBars: SystemBarsAdapter;
+	lifecycle: LifecycleAdapter;
 }
