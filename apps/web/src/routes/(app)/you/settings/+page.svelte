@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { contrastLevels, themeModes, type ContrastLevel, type ThemeMode } from '@book/core';
 	import { contrastLabels, PLACEHOLDER_SEED, themeModeLabels } from '@book/tokens';
-	import { Button, Card, Chip, prefersReducedMotion, SegmentedButton } from '@book/ui';
+	import { Button, Card, Chip, prefersReducedMotion, SegmentedButton, Switch } from '@book/ui';
 	import { MediaQuery } from 'svelte/reactivity';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import SeedPicker from '$lib/components/SeedPicker.svelte';
@@ -137,6 +137,16 @@
 				/>
 			</section>
 		</div>
+	</section>
+
+	<section aria-labelledby="content-heading">
+		<h2 id="content-heading">Content</h2>
+		<Switch
+			label="Hide AI-generated content"
+			description="Books and add-ons made by AI won’t show in the store, the Illustrations menu or the community. AI-assisted ones still show, labelled."
+			checked={preferences.current.hideAiGenerated}
+			onchange={(hideAiGenerated) => preferences.update({ hideAiGenerated })}
+		/>
 	</section>
 
 	<section aria-labelledby="accessibility-heading">

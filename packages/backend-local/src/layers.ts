@@ -14,6 +14,7 @@ import {
 	type Clock,
 	type IllustrationPackFile,
 	type IllustrationPackSummaryDto,
+	type IllustrationPreviewDto,
 	type LayersApi,
 	type OpenPackDto,
 	type OpenTrackDto,
@@ -196,6 +197,58 @@ export function createLayersApi(deps: {
 				}),
 				contentToken: token,
 				expiresAt: new Date(expiresAt).toISOString()
+			};
+		},
+		async previews(bookId) {
+			deps.requireUser();
+			const packs = (await db.getAllFromIndex('illustrationPacks', 'bookId', bookId))
+				.filter((p) => p.listingState === 'listed')
+				.sort(byListing);
+			const illustrations: IllustrationPreviewDto[] = [];
+			const files: string[] = [];
+			for (const pack of packs) {
+				const file: IllustrationPackFile = await layerFile(
+					pack.packUrl,
+					illustrationPackFileSchema
+				);
+				// Invariant 6: a store page shows only what the creator marked spoiler-safe.
+				for (const ill of file.illustrations.filter((i) => i.spoilerSafe)) {
+					const variants = ill.image.variants.map((v) => ({ ...v, path: `${pack.id}/${v.path}` }));
+					files.push(...variants.map((v) => v.path));
+					illustrations.push({
+						id: ill.id,
+						packId: pack.id,
+						packName: pack.name,
+						alt: ill.alt,
+						caption: ill.caption,
+						credit: ill.credit,
+						image: { ...ill.image, variants }
+					});
+				}
+			}
+			// Packs live side by side, so one token covers every preview image and nothing else.
+			const base = packs[0] ? directoryOf(directoryOf(packs[0].packUrl)) : '';
+			const { token, expiresAt } = deps.content.grantLayer(`previews:${bookId}`, base, files);
+			return { illustrations, contentToken: token, expiresAt: new Date(expiresAt).toISOString() };
+		},
+
+		async narrationSample(bookId) {
+			const user = deps.requireUser();
+			const track = (await db.getAllFromIndex('audioTracks', 'bookId', bookId))
+				.filter((t) => t.listingState === 'listed' && t.sample)
+				.sort(byListing)[0];
+			if (!track?.sample) return null;
+			const file: AudioTrackFile = await layerFile(track.trackUrl, audioTrackFileSchema);
+			const chapter = file.chapters[track.sample.chapter];
+			if (!chapter) return null;
+			return {
+				track: await summariseTrack(track, user.id),
+				chapterId: chapter.chapterId,
+				chapterTitle: track.sample.title,
+				// SIMULATION: a static file, as in openTrack.
+				audioUrl: chapter.audio,
+				startMs: track.sample.startMs,
+				durationMs: track.sample.durationMs
 			};
 		}
 	};

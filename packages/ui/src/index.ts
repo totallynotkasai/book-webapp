@@ -30,4 +30,5 @@ export { default as TextField } from './TextField.svelte';
 export { default as Tooltip } from './Tooltip.svelte';
 export { iconPaths, type IconName } from './icons';
 export { motionDuration, prefersReducedMotion, uid } from './motion';
+export { keepOpenForSnackbar, SNACKBAR_HOST_ATTRIBUTE } from './outside';
 export type { MenuItem, NavItem, TabItem } from './types';

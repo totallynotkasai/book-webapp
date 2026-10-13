@@ -20,6 +20,7 @@ import {
 } from '@book/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ManualClock } from './clock';
+import { describeStoreContract } from './store';
 
 /** Must return a freshly seeded, independent backend on every call, signed in as the default. */
 export type MakeBackend = (context: { clock: ManualClock }) => Promise<Backend>;
@@ -218,14 +219,19 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 
 		describe('layers (Entitlements first, §8.1, Invariants 15 and 16)', () => {
 			/** The first Book in the reader's library with a Layer of this kind. */
+			/** A Persona (left signed in) with a Book in their library and a Layer of this kind on it. */
 			async function bookWith(kind: 'illustration_pack' | 'audio_track') {
-				await backend.session.signInAs(personaWithRole('reader').id);
-				const library = await backend.library.list();
-				for (const entry of library.items) {
-					const layers = await backend.layers.list(entry.book.id);
-					if (layers.some((l) => l.kind === kind)) return { bookId: entry.book.id, layers };
+				for (const persona of personas) {
+					await backend.session.signInAs(persona.id);
+					const library = await backend.library.list({ limit: 100 });
+					for (const entry of library.items) {
+						const layers = await backend.layers.list(entry.book.id);
+						if (layers.some((l) => l.kind === kind && l.entitled)) {
+							return { bookId: entry.book.id, layers };
+						}
+					}
 				}
-				throw new Error(`The seed needs a Book with a ${kind} in the reader’s library.`);
+				throw new Error(`The seed needs a Persona holding a ${kind} for a Book they own.`);
 			}
 			async function bookWithPacks() {
 				const { bookId, layers } = await bookWith('illustration_pack');
@@ -368,6 +374,13 @@ export function describeBackendContract(name: string, makeBackend: MakeBackend):
 				const priorities = queue.items.map((f) => f.priority);
 				expect(priorities).toEqual([...priorities].sort((a, b) => b - a));
 			});
+		});
+
+		describeStoreContract({
+			backend: () => backend,
+			clock: () => clock,
+			personas: () => personas,
+			conforms: (module, method, value) => conforms(module as never, method as never, value)
 		});
 	});
 }

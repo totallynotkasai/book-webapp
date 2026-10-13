@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
+	import { keepOpenForSnackbar } from './outside';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -42,7 +43,7 @@
 				<div {...props} class="scrim"></div>
 			{/snippet}
 		</Dialog.Overlay>
-		<Dialog.Content>
+		<Dialog.Content onInteractOutside={keepOpenForSnackbar}>
 			{#snippet child({ props })}
 				<div {...props} class={['dialog', size, className]}>
 					<Dialog.Title>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import type { PersonaDto } from '@book/core';
+	import type { OrderDto, PersonaDto } from '@book/core';
+	import { formatPrice } from '$lib/format';
 	import { featureFlags, flags, profile } from '$lib/flags';
 	import ImportDialog from '$lib/library/ImportDialog.svelte';
 	import { editedAlice } from '$lib/library/test-books';
@@ -28,6 +29,7 @@
 	/** Changes save to IndexedDB asynchronously; say when they have landed. */
 	let saving = $state(0);
 	let saved = $state(false);
+	let orders = $state<(OrderDto & { userId: string })[]>([]);
 
 	async function refresh() {
 		controls ??= await getDevControls();
@@ -35,7 +37,18 @@
 		currentUserId = controls.currentUserId();
 		simulation = { ...controls.simulation() };
 		now = controls.clock.now();
+		orders = await controls.orders();
 	}
+
+	/** Refunds revoke what the order granted, a Bundle's children too (P1-STO-02). */
+	async function refund(order: OrderDto) {
+		await controls?.refundOrder(order.id);
+		snackbars.show('Refunded (simulated). What it granted is revoked.');
+		await refresh();
+	}
+
+	const personaName = (userId: string) =>
+		personas.find((p) => p.user.id === userId)?.label ?? userId;
 
 	$effect(() => {
 		refresh();
@@ -253,6 +266,28 @@
 		</section>
 	{/if}
 
+	<section aria-labelledby="orders-heading">
+		<h2 id="orders-heading">Purchases</h2>
+		{#if orders.length}
+			<ul class="orders">
+				{#each orders as order (order.id)}
+					<li>
+						<span
+							>{personaName(order.userId)}: {order.items.map((i) => i.title).join(', ')} · {formatPrice(
+								order.total
+							)} · {order.status}</span
+						>
+						{#if order.status !== 'refunded'}
+							<button onclick={() => void refund(order)}>Refund</button>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<p class="muted">No purchases yet. Orders from every Persona show here, to refund.</p>
+		{/if}
+	</section>
+
 	<section aria-labelledby="data-heading">
 		<h2 id="data-heading">Data</h2>
 		<div class="row">
@@ -361,6 +396,22 @@
 		flex-wrap: wrap;
 		gap: var(--space-3);
 		align-items: end;
+	}
+
+	.orders {
+		display: grid;
+		gap: var(--space-2);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.orders li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
 	}
 
 	label {

@@ -87,7 +87,11 @@ export async function loadLibrary(): Promise<LibraryView> {
 				lang: book.lang,
 				aiUse: 'none',
 				coverUrl: null,
-				price: { amountMinor: 0, currency: 'GBP' }
+				price: { amountMinor: 0, currency: 'GBP' },
+				contentRating: 'all_ages',
+				hasIllustrations: false,
+				hasNarration: false,
+				inLibrary: true
 			},
 			progress: await stores.progress.get(book.id)
 		});

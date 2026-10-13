@@ -1,7 +1,15 @@
 <script lang="ts">
-	import type { Anchor, Annotation, HighlightColour, PlacedBookmark, TocEntry } from '@book/core';
+	import type {
+		Anchor,
+		Annotation,
+		BookmarkDesignDto,
+		HighlightColour,
+		PlacedBookmark,
+		TocEntry
+	} from '@book/core';
 	import { highlightLabels } from '@book/tokens';
-	import { AdaptiveSheet, Chip, IconButton, Menu, Tabs } from '@book/ui';
+	import { AdaptiveSheet, Chip, Icon, IconButton, Menu, Tabs } from '@book/ui';
+	import BookmarkRibbon from '$lib/components/BookmarkRibbon.svelte';
 	import { tick } from 'svelte';
 	import type { BookNotes } from './notes.svelte';
 
@@ -26,6 +34,13 @@
 		onrenamebookmark: (bookmark: PlacedBookmark) => void;
 		onremovebookmark: (bookmark: PlacedBookmark) => void;
 		onexport: (format: 'md' | 'txt') => void;
+		/** Chapters the reader can't open yet, after the rest (P1-STO-01, P1-STO-04). */
+		locked?: { chapterId: string; title: string; note: string }[];
+		onlocked?: (chapterId: string) => void;
+		/** The reader's Bookmark Designs, and the one each Placed Bookmark is drawn with. */
+		designs?: BookmarkDesignDto[];
+		designOf?: (bookmark: PlacedBookmark) => BookmarkDesignDto | undefined;
+		ondesignbookmark?: (bookmark: PlacedBookmark, designProductId: string) => void;
 	}
 
 	let {
@@ -41,7 +56,12 @@
 		onremovenote,
 		onrenamebookmark,
 		onremovebookmark,
-		onexport
+		onexport,
+		locked = [],
+		onlocked,
+		designs = [],
+		designOf,
+		ondesignbookmark
 	}: Props = $props();
 
 	let filter = $state<HighlightColour | null>(null);
@@ -101,6 +121,21 @@
 								}}
 							>
 								{entry.label || 'Untitled'}
+							</button>
+						</li>
+					{/each}
+					{#each locked as chapter (chapter.chapterId)}
+						<li class="locked">
+							<button
+								type="button"
+								class="row"
+								onclick={() => {
+									open = false;
+									onlocked?.(chapter.chapterId);
+								}}
+							>
+								<span class="locked-title"><Icon name="lock" size={18} /> {chapter.title}</span>
+								<span class="locked-note">{chapter.note}</span>
 							</button>
 						</li>
 					{/each}
@@ -213,6 +248,7 @@
 					<ul>
 						{#each notes.liveBookmarks as b (b.id)}
 							<li class="item">
+								{#if designOf?.(b)}<BookmarkRibbon look={designOf(b)!.look} size={28} />{/if}
 								<button type="button" class="row note" onclick={() => jump(b.anchor)}>
 									<span class="where">{titleAt(b.anchor.ordinal)}</span>
 									{#if b.label}<span class="label">{b.label}</span>{/if}
@@ -225,6 +261,18 @@
 										label={b.label ? 'Rename bookmark' : 'Label bookmark'}
 										onclick={() => onrenamebookmark(b)}
 									/>
+									{#if designs.length > 1}
+										<Menu
+											label="Bookmark design"
+											icon="palette"
+											align="end"
+											items={designs.map((d) => ({
+												label: d.name,
+												icon: designOf?.(b)?.productId === d.productId ? 'check' : undefined,
+												onselect: () => ondesignbookmark?.(b, d.productId)
+											}))}
+										/>
+									{/if}
 									<IconButton
 										size="small"
 										icon="delete"
@@ -251,6 +299,22 @@
 
 	.toc {
 		padding-top: var(--space-2);
+	}
+
+	.locked .row {
+		display: grid;
+		gap: 2px;
+		color: var(--md-sys-color-on-surface-variant);
+	}
+
+	.locked-title {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.locked-note {
+		font-size: var(--md-sys-typescale-body-small-size);
 	}
 
 	.row {

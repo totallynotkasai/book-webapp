@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import {
 		chapterForOrdinal,
@@ -7,6 +7,8 @@
 		isBackendError,
 		type Anchor,
 		type Annotation,
+		type BookmarkDesignDto,
+		type PlanDto,
 		type HighlightColour,
 		type PlacedBookmark,
 		type PointAnchor,
@@ -16,16 +18,19 @@
 	} from '@book/core';
 	import { createEngine, type ReaderEngine, type VisibleRange } from '@book/reader-core';
 	import { highlightLabels } from '@book/tokens';
-	import { Button, Dialog, IconButton, Progress, prefersReducedMotion } from '@book/ui';
+	import { Badge, Button, Dialog, IconButton, Progress, prefersReducedMotion } from '@book/ui';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { copyText } from '$lib/clipboard';
+	import BookmarkRibbon from '$lib/components/BookmarkRibbon.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import { describeError, type DescribedError } from '$lib/errors';
+	import { formatDate } from '$lib/format';
 	import { getPlatform } from '$lib/platform';
 	import { getBackend, getStores } from '$lib/services';
 	import { preferences } from '$lib/state/preferences.svelte';
 	import { snackbars } from '$lib/state/snackbar.svelte';
+	import SubscribeSheet from '$lib/store/SubscribeSheet.svelte';
 	import { chapterTitleAt } from './chapters';
 	import ContentsSheet, { type ContentsTab } from './ContentsSheet.svelte';
 	import IllustrationCard from './IllustrationCard.svelte';
@@ -54,7 +59,8 @@
 	 * Selecting text (mouse, long-press, or Shift+arrows) brings up the selection toolbar.
 	 * Pictures (§8.2) and narration (§8.3) come from the Book's Layers.
 	 */
-	let { bookId }: { bookId: string } = $props();
+	/** `sample`: "Read sample" for a Book the reader doesn't own (P1-STO-01). */
+	let { bookId, sample = false }: { bookId: string; sample?: boolean } = $props();
 
 	type Phase =
 		| { kind: 'opening' }
@@ -203,6 +209,48 @@
 	let stageTop = $state(0);
 	let stageBottom = $state(0);
 
+	// ---- Samples and early access (P1-STO-01, P1-STO-04): the readable text ends early ----
+	const locked = $derived(opened?.locked ?? []);
+	const storeHref = $derived(
+		opened?.slug ? resolve('/(app)/book/[slug]', { slug: opened.slug }) : null
+	);
+	/** The last readable Word: past it are the locked Chapters. */
+	const readableEnd = $derived(
+		manifest?.chapters.findLast((c) => c.wordCount > 0)?.lastOrdinal ?? Infinity
+	);
+	const atReadableEnd = $derived(
+		locked.length > 0 && !!visible && visible.last.ordinal >= readableEnd
+	);
+	let endDismissed = $state(false);
+	let earlyPlan = $state.raw<PlanDto | null>(null);
+	let subscribeOpen = $state(false);
+	const lockedNote = (l: (typeof locked)[number]) =>
+		l.reason === 'sample'
+			? 'Not in the sample'
+			: `Early access${l.freeAt ? ` until ${formatDate(l.freeAt)}` : ''}`;
+
+	async function subscribeForEarlyAccess() {
+		const first = locked[0];
+		if (!first?.planId) return;
+		const plans = await (await getBackend()).support.listPlans(first.creatorHandle);
+		earlyPlan = plans.find((p) => p.id === first.planId) ?? null;
+		subscribeOpen = !!earlyPlan;
+	}
+
+	/** The new Chapters open on the next open of the Book: save the place, then open it again. */
+	async function reopen() {
+		await saver?.flush();
+		location.reload();
+	}
+
+	// ---- Bookmark Designs (P1-STO-03) ----
+	let designs = $state.raw<BookmarkDesignDto[]>([]);
+	const ownedDesigns = $derived(designs.filter((d) => d.owned));
+	function designOf(bookmark: PlacedBookmark | undefined): BookmarkDesignDto | undefined {
+		const id = bookmark?.bookmarkDesignProductId ?? prefs.bookmarkDesignProductId;
+		return ownedDesigns.find((d) => d.productId === id) ?? ownedDesigns.find((d) => d.isDefault);
+	}
+
 	/** Placed Bookmarks on the visible page: the ribbon shows and the toggle is on. */
 	const pageBookmarks = $derived(
 		visible && notes ? notes.bookmarksBetween(visible.first.ordinal, visible.last.ordinal) : []
@@ -234,7 +282,7 @@
 		phase = { kind: 'opening' };
 		try {
 			await preferences.openBook(bookId);
-			const book = await openBook(bookId);
+			const book = await openBook(bookId, { sample });
 			opened = book;
 			const stores = await getStores();
 			notes = new BookNotes(stores, bookId, book.manifest.revisionId);
@@ -498,7 +546,15 @@
 	async function playNarration() {
 		if (!narration) return;
 		if (!narration.track?.entitled) {
-			snackbars.show('You don’t have the narration for this book yet.');
+			const slug = opened?.slug;
+			snackbars.show('You don’t have the narration for this book yet.', {
+				action: slug
+					? {
+							label: 'See it in the store',
+							run: () => void goto(resolve('/(app)/book/[slug]', { slug }))
+						}
+					: undefined
+			});
 			return;
 		}
 		if (!narration.active && !narration.covers(visible?.chapterId)) {
@@ -541,6 +597,10 @@
 	async function loadLayers(book: OpenedBook) {
 		try {
 			const [backend, stores] = await Promise.all([getBackend(), getStores()]);
+			void backend.catalogue.listBookmarkDesigns().then(
+				(all) => (designs = all),
+				() => {}
+			);
 			const layers = await backend.layers.list(bookId);
 			const pictures = new BookIllustrations(backend, stores, bookId, book.manifest.revisionId);
 			const voice = new BookNarration({
@@ -926,7 +986,11 @@
 			});
 			return;
 		}
-		const created = await notes.addBookmark(visible.first);
+		const created = await notes.addBookmark(
+			visible.first,
+			undefined,
+			preferences.current.bookmarkDesignProductId
+		);
 		snackbars.show('Page bookmarked', {
 			action: {
 				label: 'Add label',
@@ -997,7 +1061,10 @@
 	<header class="bar top" inert={!chrome || undefined}>
 		<IconButton icon="arrow_back" label="Back to library" href={resolve('/library')} />
 		<div class="titles">
-			<span class="book-title">{manifest?.title ?? ''}</span>
+			<span class="book-title"
+				>{manifest?.title ?? ''}{#if opened?.access === 'sample'}<Badge tone="primary">Sample</Badge
+					>{/if}</span
+			>
 			<span class="chapter-title" data-testid="chapter-title">{chapterTitle}</span>
 		</div>
 		<IconButton
@@ -1073,8 +1140,16 @@
 	{/if}
 
 	{#if pageBookmarks.length}
-		<!-- The default Bookmark Design: a ribbon on the page edge (§9.3). -->
-		<div class="ribbon" data-testid="bookmark-ribbon" aria-hidden="true"></div>
+		<!-- A ribbon on the page edge in the bookmark's Bookmark Design (§9.3, P1-STO-03). -->
+		{@const design = designOf(pageBookmarks[0])}
+		<div
+			class="ribbon"
+			data-testid="bookmark-ribbon"
+			data-design={design?.productId}
+			aria-hidden="true"
+		>
+			{#if design}<BookmarkRibbon look={design.look} />{:else}<span class="plain"></span>{/if}
+		</div>
 	{/if}
 
 	{#if phase.kind === 'opening'}
@@ -1119,6 +1194,35 @@
 			/>
 		{/if}
 	</div>
+
+	{#if atReadableEnd && !endDismissed && locked[0]}
+		{@const next = locked[0]}
+		<div class="end-card" role="status" data-testid="locked-end">
+			{#if next.reason === 'sample'}
+				<p class="end-title">That’s the end of the sample</p>
+				<p>Get <strong>{manifest?.title}</strong> to keep reading.</p>
+				<div class="end-actions">
+					<Button variant="text" onclick={() => (endDismissed = true)}>Not now</Button>
+					{#if storeHref}<Button href={storeHref}>Get the book</Button>{/if}
+				</div>
+			{:else}
+				<p class="end-title">Next: {next.title}</p>
+				<p>
+					It’s early access for {next.creatorName}’s subscribers{next.freeAt
+						? `, and free for everyone who owns the book from ${formatDate(next.freeAt)}`
+						: ''}.
+				</p>
+				<div class="end-actions">
+					<Button variant="text" onclick={() => (endDismissed = true)}>Not now</Button>
+					{#if next.planId}
+						<Button icon="card_membership" onclick={() => void subscribeForEarlyAccess()}
+							>Subscribe</Button
+						>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	{#if pinchPreview !== null}
 		<div class="pinch" aria-hidden="true">{Math.round(pinchPreview * 100)}%</div>
@@ -1193,8 +1297,25 @@
 		onrenamebookmark={(bookmark) => (textDialog = { kind: 'bookmark', bookmark })}
 		onremovebookmark={(b) => void removeBookmark(b)}
 		onexport={(format) => void exportNotes(format)}
+		locked={locked.map((l) => ({ chapterId: l.chapterId, title: l.title, note: lockedNote(l) }))}
+		onlocked={() => {
+			endDismissed = false;
+			void jump({ progression: 1 });
+		}}
+		designs={ownedDesigns}
+		designOf={(b) => designOf(b)}
+		ondesignbookmark={(b, productId) => void notes?.designBookmark(b.id, productId)}
 	/>
 {/if}
+
+<SubscribeSheet
+	bind:open={subscribeOpen}
+	plan={earlyPlan}
+	ondone={() => {
+		snackbars.show('Early access is open. Opening the new chapters…');
+		setTimeout(() => void reopen(), 1200);
+	}}
+/>
 
 {#if toolbar}
 	<SelectionToolbar
@@ -1265,6 +1386,8 @@
 		mode={prefs.illustrations}
 		{illustrations}
 		onmode={(illustrationsMode) => change({ illustrations: illustrationsMode })}
+		{storeHref}
+		hideAi={prefs.hideAiGenerated}
 	/>
 	<IllustrationCard
 		bind:open={cardOpen}
@@ -1436,12 +1559,53 @@
 		top: var(--safe-top);
 		right: calc(var(--safe-right) + 24px);
 		z-index: 4;
+		display: flex;
+		pointer-events: none;
+	}
+
+	/* Before the designs have loaded: the default look. */
+	.ribbon .plain {
 		width: 22px;
 		height: 44px;
 		background: var(--md-sys-color-primary);
 		clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
-		box-shadow: var(--md-sys-elevation-1);
-		pointer-events: none;
+	}
+
+	.end-card {
+		position: absolute;
+		right: calc(var(--safe-right) + var(--space-4));
+		bottom: calc(var(--safe-bottom) + 96px);
+		left: calc(var(--safe-left) + var(--space-4));
+		z-index: 6;
+		display: grid;
+		gap: var(--space-2);
+		max-width: 28rem;
+		margin-inline: auto;
+		padding: var(--space-4) var(--space-4) var(--space-2);
+		border-radius: var(--md-sys-shape-corner-large);
+		background: var(--md-sys-color-surface-container-high);
+		color: var(--md-sys-color-on-surface);
+		box-shadow: var(--md-sys-elevation-3);
+	}
+
+	.end-card p {
+		margin: 0;
+	}
+
+	.end-title {
+		font-size: var(--md-sys-typescale-title-medium-size);
+		font-weight: var(--md-sys-typescale-weight-medium);
+	}
+
+	.end-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: var(--space-2);
+	}
+
+	.book-title :global(.badge) {
+		margin-inline-start: var(--space-2);
+		vertical-align: middle;
 	}
 
 	/* Above the bottom bar while it shows; with the player, at the foot of the page otherwise. */

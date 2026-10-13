@@ -21,7 +21,8 @@ describe('defaultReaderPreferences (§9.4)', () => {
 			pageTurn: 'slide',
 			illustrations: 'popup',
 			narration: { rate: 1, autoTurn: true, highlight: 'word' },
-			hintsSeen: []
+			hintsSeen: [],
+			hideAiGenerated: false
 		});
 	});
 });

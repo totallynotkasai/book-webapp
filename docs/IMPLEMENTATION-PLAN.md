@@ -21,7 +21,7 @@
 | **1.3** Make it yours | Highlights, notes, Placed Bookmarks, export; an edited re-import keeps your notes | P1-RDR-06, P1-RDR-07, P1-ING-03, P1-APP-04 | Done (12 Oct 2026; notes in §6) |
 | **1.4** Illustrations ★ | All four Illustration modes with the Tenniel pack, plus a second pack | P1-LAY-01, P1-LAY-02, P1-LAY-06, P1-LAY-07 | Done (12 Oct 2026; notes in §6) |
 | **1.5** Narration ★ | Synced narration for chapters 1–3: highlighting, auto-turn, tap-to-seek, lock-screen playback | P1-LAY-03, P1-LAY-04 | Done (12 Oct 2026; notes in §6) |
-| **1.6** Store and ownership (simulated) | Browse, buy (simulated) and claim Books; Complete edition; Bookmark Designs; Tips; Creator Subscriptions with early-access Chapters | P1-STO-01 to 05 | Not started |
+| **1.6** Store and ownership (simulated) | Browse, buy (simulated) and claim Books; Complete edition; Bookmark Designs; Tips; Creator Subscriptions with early-access Chapters | P1-STO-01 to 05 | Done (13 Oct 2026; notes in §6) |
 | **1.7** Creator Studio (simulated) | Upload and publish a Book, publish a new Revision, build an Illustration Pack, add narration, set up plans | P1-STU-01 to 04, P1-LAY-05 | Not started |
 | **1.8** Community and moderation (simulated) | Submit, approve, endorse and rate community Layers; Flags and the admin review queue | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 | Not started |
 | **1.9** Android build and PoC readiness | The Android app, a tester build, the PoC review kit | P1-MOB-01, P1-QA-01 to 03 | Not started |
@@ -570,6 +570,22 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 - Buy a Bookmark Design and use it in two Books.
 - Tip the demo serial's author; subscribe; read an early-access Chapter; cancel; move the clock forward a month: the Chapter locks again but your purchases stay.
 - Turn on "Hide AI-generated content".
+
+**Done (13 October 2026): what was built and how it differs from the plan.** Every Try-it item is a Playwright spec in Chromium and WebKit (`apps/web/e2e/store.spec.ts`), with eleven new contract cases in `@book/contract-tests` (`store.ts`): idempotent purchases and claims, the Complete edition's Layers, samples, Tips, subscriptions ending with the clock, and spoiler-safe previews under their own token. The work was paused after Phase 1.5 at the owner's request and finished on 13 October. Deviations:
+
+- **Seed version 7, backend database version 6** (orders, subscriptions, Tips, Bookmark Designs, plans, shelves). In owner builds the Reader now starts with *Alice* as **the book only**, so its Illustrations and narration are there to get and the Complete edition can be tried; tester builds, which have no store, still start with every official Layer (seed Entitlements carry a `profiles` list). This changes Phase 1.2's "Alice is granted to every Persona" for the Reader in owner builds only.
+- **Bundle price for what you own:** a Complete edition costs its price reduced in proportion to the list price of what the reader already owns, rounded down (`bundlePriceFor` in `@book/domain`); owning everything makes it free and "Add to library". Checkout lists each item with "You have this".
+- **New error code `PAYMENT_DECLINED`** in the §10.1 enum (a declined simulated payment; "Nothing was charged").
+- **Early access is a Product** (`early_access`, a new `ProductKind`) that only a Creator Subscription grants, never sold alone; a serial's newest Chapters are early access until a `freeAt` date (`// SIMULATION:`, OPEN-10 and OPEN-11 stay open, proposal in the PR). Locked Chapters are listed in `content.open` (`locked`, with reason, whose they are, when they're free, and the plan that opens them) and refused under the content token. They show in Contents with a lock, and at the end of the last open Chapter the reader says what's next and offers "Subscribe" or "Get the book": never a dead end.
+- **Samples:** "Read sample" opens the Book's opening, up to a tenth of its Words in whole Chapters (`sampleChapterIds`, `// SIMULATION:` until creators choose their own), through the same `content.open` with `sample: true`. Reading Progress is saved as usual, so after buying, the Book opens where the sample ended.
+- **Content ratings** are a placeholder scheme (`all_ages`, `teen`, `mature`, `// SIMULATION:` until OPEN-12), with content warnings on the Book page.
+- **Bookmark Designs** are drawn from a small "look" (ribbon, notched or tab; two colours; an optional mark), not images, so four seeded designs cost nothing in the bundle. Choosing one in You → Bookmarks makes it the default for new Placed Bookmarks in every Book (`bookmarkDesignProductId` in Reader Preferences); each bookmark's design can be changed in the Bookmarks tab.
+- **"Hide AI-generated content"** (Settings, kept in Reader Preferences) hides AI-generated Books on the store, search and Creator profiles, and AI-generated Layers on Book pages and in the reader's Layers menus. The community hub follows in 1.8.
+- **Refunds** are in the dev panel (every Persona's orders), since there is no support desk to ask.
+- **Placeholders live beside the rule they feed**, each marked `// SIMULATION:` (sample share in `@book/domain`, early-access windows in the seed, rating names in `core`), rather than in one config file as §4.3 says; the PR lists them. Revenue splits (P1-STU-04) get the one config file.
+- **On phones the Book page's cover is smaller** (40% of the width), so the primary button shows without scrolling.
+- **CI splits E2E into four shards** run side by side, with check, lint and unit tests in their own job: one job took 18½ of its 20 minutes in Phase 1.5.
+- **Fixes found on the way:** pressing a snackbar's "Undo" could close the sheet the deletion was made in (Bits UI counts the snackbar as outside the modal) and let the press turn the page; sheets, dialogs and overlays now ignore presses on the snackbar. Undoing a deleted bookmark now keeps its Bookmark Design.
 
 ### Phase 1.7 — Creator Studio (simulated)
 

@@ -1,4 +1,5 @@
 # DESIGN.md §12.4: every PR runs check, lint, unit tests, build and Playwright E2E.
+# E2E is split into shards that run side by side: in one job it outgrew the time limit.
 name: CI
 
 on:
@@ -27,6 +28,24 @@ jobs:
       - run: npm run build
       - run: npm run build:tester -w @book/web
 
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    name: e2e (${{ matrix.shard }}/4)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run build:tester -w @book/web
+
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v5
@@ -39,11 +58,11 @@ jobs:
       - name: Install Playwright system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx -w @book/web playwright install-deps chromium webkit
-      - run: npm run test:e2e -w @book/web
+      - run: npm run test:e2e -w @book/web -- --shard=${{ matrix.shard }}/4
 
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: apps/web/playwright-report
           retention-days: 7

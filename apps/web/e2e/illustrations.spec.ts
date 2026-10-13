@@ -16,6 +16,12 @@ import {
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
+// The Author holds every Layer of the catalogue Alice. The Reader starts with the book only and
+// gets its Layers in the store (plan §6 Phase 1.6; store.spec.ts).
+test.beforeEach(async ({ page }) => {
+	await switchPersona(page, 'Author');
+});
+
 const card = (page: Page) => page.getByTestId('illustration-card');
 
 async function chapter(page: Page, title: RegExp) {
@@ -49,7 +55,7 @@ test('first open: the hint, the picture, closing it, and the dot for a new one',
 }) => {
 	await openReader(page, 'book-alice');
 	// Official packs are on from the start (§8.1), and nothing is saved until the reader changes it.
-	expect(await storedRecords(page, 'user-reader', 'layerSelection')).toEqual([]);
+	expect(await storedRecords(page, 'user-author', 'layerSelection')).toEqual([]);
 	await chapter(page, /Down the Rabbit-Hole/);
 	for (let i = 0; i < 2; i++) {
 		await page.keyboard.press('ArrowRight');
@@ -189,7 +195,7 @@ test('turn on Rackham, put it first, and move between the packs', async ({ page 
 				(
 					await storedRecords<{ illustrationPackIds: string[] }>(
 						page,
-						'user-reader',
+						'user-author',
 						'layerSelection'
 					)
 				)[0]?.illustrationPackIds
