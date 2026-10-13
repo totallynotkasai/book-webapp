@@ -1,6 +1,6 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 12 October 2026 (Phase 0 exit: ADR-001 to ADR-005 accepted; D-026 to D-028)
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 13 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031)
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
 > **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
@@ -1140,7 +1140,7 @@ On every PR: `npm ci`, `npm run check`, `npm run lint`, `npm test`, `npm run bui
 - [ ] Stored-data changes ship with a migration: an IndexedDB version bump with an upgrade step (now), or a drizzle-kit migration and updated seed (Phase 2+).
 - [ ] UI is keyboard-operable, labelled, and respects reduced motion.
 - [ ] Glossary terms used correctly; this document updated if a decision changed.
-- [ ] No secrets committed; new environment variables added to `.env.example` with a comment.
+- [ ] No secrets committed (the one exception is the PoC APK signing key, D-030); new environment variables added to `.env.example` with a comment.
 
 ---
 
@@ -1513,7 +1513,7 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | D-013 | Page turns: none / slide / fade now; page curl later as a skin | Accepted |
 | D-014 | The PoC uses *Alice* only (Tenniel illustrations, LibriVox narration); status windows tested with a hand-made fixture | Accepted; amended by D-023 |
 | D-015 | Reader engine: foliate-js behind our `ReaderEngine` adapter, pinned by git commit (ADR-001). Resolves OPEN-01 | Accepted (owner decision, 12 Oct 2026); Android checks run on the emulator in Phase 1 (D-028) |
-| D-016 | Word marking and word index format: Blocks carry `data-b`; a per-Chapter word index holds `[wordId, block, start, end]` with a per-Block check (ADR-002). Resolves OPEN-13 | Accepted (owner decision, 12 Oct 2026); TalkBack check in P1-QA-02 |
+| D-016 | Word marking and word index format: Blocks carry `data-b`; a per-Chapter word index holds `[wordId, block, start, end]` with a per-Block check (ADR-002). Resolves OPEN-13 | Accepted (owner decision, 12 Oct 2026). P1-QA-02: on the emulator, TalkBack gets each paragraph whole (the marking splits no Words); the spoken walkthrough is on `docs/device-checklist.md` |
 | D-017 | Alignment model and hosting: whisper.cpp `base.en` with DTW token timestamps (`-ojf -nfa --dtw`), per-chapter bias correction, CPU hosting (about 0.3–0.6 CPU-hours per audio hour), no GPU (ADR-003) | Accepted (owner decision, 12 Oct 2026) |
 | D-018 | Mobile audio, selection and files (ADR-004): native playback with a native media session for background narration; native selection plus our toolbar; `<input type=file>`; Capacitor SystemBars insets. Amended by D-027 | Accepted (owner decision, 12 Oct 2026); device checks on the emulator in Phase 1 (D-028) |
 | D-019 | AI-generated content allowed but must be labelled; readers can hide it; authors can refuse it on their Books (§10.6). Resolves the former OPEN-09 | Accepted |
@@ -1526,6 +1526,9 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 | D-026 | Words come from `text-pipeline`'s own deterministic, versioned tokeniser (UAX #29-style rules over Unicode properties), not `Intl.Segmenter`. The tokeniser version is stored on each Revision, and a golden test checks Chromium, WebKit and Node give identical WordIds. Han, Hiragana, Katakana and Thai are one Word per character in version 1. Resolves OPEN-14 | Accepted (owner decision, 12 Oct 2026) |
 | D-027 | Background narration on Android uses our own small Capacitor plugin on AndroidX Media3 (ExoPlayer and `MediaSessionService`, Apache-2.0) in the app's Android project. Capawesome Audio Player, which ADR-004 named, is available only with a paid Capawesome Insiders licence. Amends D-018 | Accepted (owner decision, 12 Oct 2026) |
 | D-028 | During Phase 1, Android testing runs on the Android Studio emulator (API 36, Google APIs, x86_64; a Pixel 7 profile and a 360 dp small-phone profile) instead of the owner's phone, which is busy with another project. Hardware-dependent checks are repeated on the phone when it is free. Amends D-024's "rather than an emulator" for Phase 1 only | Accepted (owner decision, 12 Oct 2026) |
+| D-029 | Tester builds are hosted on GitHub Pages, deployed by a workflow run by hand (`.github/workflows/tester.yml`) with the built-in `GITHUB_TOKEN` only: no other tokens or secrets. The build stays host-agnostic: the folder it's served from comes from `BASE_PATH` at build time, and `404.html` is the SPA fallback most static hosts read, so moving host changes only the deploy job. The signed APK is served beside the app. GitHub Pages needs a public repository, or a paid plan for a private one | Accepted (owner decision, 13 Oct 2026); first deploy by the owner |
+| D-030 | The PoC's tester APK is signed with a key committed to the repository with a published password (`apps/web/android/app/poc-release.jks`), so CI and any checkout build the same installable APK without secrets. An explicit exception to §12.5's "no secrets committed", for the PoC app ID `io.github.totallynotkasai.bookpoc` only; the named product (OPEN-07) gets its own app ID and a private key. Testers install the APK directly rather than through Play Console internal testing (BACKLOG AND-01). Debug builds use the `.dev` app ID, so the owner's build and the tester APK install side by side | Accepted (owner decision, 13 Oct 2026) |
+| D-031 | One tester build for every PoC review session. A facilitator link turns on simulated areas on the device that opens it, which remembers them: `?areas=store,community` on the web, `bookpoc://open?areas=…` in the Android app, and `?areas=none` to go back to reading only. The dev panel can never be turned on this way. Amends P0-09, where only a build (`VITE_FLAGS`) could add areas | Accepted (owner decision, 13 Oct 2026) |
 
 ---
 

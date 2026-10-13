@@ -19,6 +19,10 @@ npm run build   # static web app
 npm run dev:host                    # dev server reachable from the phone over Wi-Fi
 npm run build:tester -w @book/web   # tester profile into apps/web/build-tester
 npm run cap:sync | cap:android      # from apps/web: sync, or build + install on the phone over adb
+npm run apk:tester -w @book/web     # tester APK, signed with the PoC key (D-030), into apps/web/build-apk
+npm run budget -w @book/web         # reader route JavaScript budget, after npm run build
+npm run test:perf -w @book/web      # DESIGN.md §12.3 budgets at phone speed, after npm run build
+node apps/web/scripts/android-smoke.mjs   # Phase 1 exit flow inside the installed Android app
 ```
 
 Import boundaries (DESIGN.md §5.3) are ESLint rules in `eslint.config.js`, tested in `tests/`.

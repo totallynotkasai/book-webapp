@@ -24,7 +24,7 @@
 | **1.6** Store and ownership (simulated) | Browse, buy (simulated) and claim Books; Complete edition; Bookmark Designs; Tips; Creator Subscriptions with early-access Chapters | P1-STO-01 to 05 | Done (13 Oct 2026; notes in §6) |
 | **1.7** Creator Studio (simulated) | Upload and publish a Book, publish a new Revision, build an Illustration Pack, add narration, set up plans | P1-STU-01 to 04, P1-LAY-05 | Done (13 Oct 2026; notes in §6) |
 | **1.8** Community and moderation (simulated) | Submit, approve, endorse and rate community Layers; Flags and the admin review queue | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 | Done (13 Oct 2026; notes in §6) |
-| **1.9** Android build and PoC readiness | The Android app, a tester build, the PoC review kit | P1-MOB-01, P1-QA-01 to 03 | Not started |
+| **1.9** Android build and PoC readiness | The Android app, a tester build, the PoC review kit | P1-MOB-01, P1-QA-01 to 03 | Done (13 Oct 2026; notes in §6) |
 
 After phase 1.3 the work splits into two tracks that can run in parallel or in either order: the **Layers track** (1.4, 1.5) and the **Platform track** (1.6, 1.7, 1.8). See §7.
 
@@ -68,7 +68,7 @@ After phase 1.3 the work splits into two tracks that can run in parallel or in e
 | Component approach (OPEN-02) | *Decided 12 Oct 2026: our own on Bits UI (ADR-005)* | P0-10 |
 | Deterministic tokenisation (OPEN-14) | *Decided 12 Oct 2026: our own versioned tokeniser (D-026)* | P1-ING-01 |
 | Placeholder brand seed colour (does not resolve OPEN-07) | *Decided 12 Oct 2026 (owner): deep teal `#00696B`*, in `PLACEHOLDER_SEED` in `packages/tokens` | P1-UI-01 |
-| How testers get the build | Web: a free static host (it serves files only; no backend). Android: Play Console internal testing or a direct APK. Testers with iPhones use the web build in Safari | P1-QA-03 |
+| How testers get the build | *Decided 13 Oct 2026 (owner): the web build on GitHub Pages, deployed with the built-in token only and kept host-agnostic (D-029); Android as a direct APK signed with a committed PoC-only key (D-030); one tester build, with facilitator links adding simulated areas per device (D-031). Testers with iPhones use the web build in Safari* | P1-QA-03 |
 
 ---
 
@@ -673,6 +673,34 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 
 **Exit:** DESIGN.md's Phase 1 exit passes (automatically on web, by hand on your Android phone) and so does its simulated areas exit, for the phases kept in scope; then the owner runs the PoC review (DESIGN.md §13.3).
 
+**Done (13 October 2026): what was built and how it differs from the plan.** The Phase 1 exit flow passes automatically on the web (Playwright, Chromium and WebKit) and inside the Android app on the emulator: `apps/web/scripts/android-smoke.mjs` drives the installed app through Playwright's Android support, 9 of 9 steps on the tester APK and 11 of 11 on the owner build with its simulated areas. What needs the phone itself (the lock screen, TalkBack's speech, installing a download, the camera roll) is on `docs/device-checklist.md` for when it's free (D-028). The owner's choices, recorded as D-029 to D-031: GitHub Pages with no API tokens and easy to move; a committed PoC-only signing key; a placeholder teal book icon; one tester build with facilitator links. Notes and deviations:
+
+*P1-MOB-01 (Android build):*
+- **Placeholder icon and splash:** a white open book on teal `#00696B`, drawn once in `apps/web/icons/book.svg` and rendered by `npm run icons -w @book/web` (Playwright's Chromium) into the adaptive icon with a monochrome layer for themed icons, legacy icons for Android 7, the splash screens (Android 12+ draws its own from the launch theme), the favicon (it was still Svelte's) and an Apple touch icon. The name stays "Book Reader (PoC)".
+- **The strips behind the system bars** (the Phase 1.1 note) now match the page: our small `AppWindow` plugin (Kotlin, in the app like the narration plugin) paints them from the page's colours, through a new `systemBars` platform adapter: the reading page in a book, elsewhere the surface on top and the navigation bar's colour below on compact screens. On the web it sets `theme-color`. The window background starts as the default theme's surface, light or dark, until the app paints it.
+- **Debug builds get their own app ID** (`…bookpoc.dev`, "Book Reader (dev)"), so the owner's build and the tester APK install side by side (D-030).
+- **Found on the emulator and fixed:** (1) leaving the app didn't save the reading place at once: Capacitor keeps the WebView running in the background, so the page gets no `visibilitychange` or `pagehide`; a `lifecycle` platform adapter adds the App plugin's `pause`. (2) Back left the reader with a sheet still open, and on the Library went "back" to `/`; it now closes what's open first, then goes back, and on a top-level screen puts the app in the background. (3) Dialogs taller than a small phone hid their buttons; the body now scrolls between title and buttons (`packages/ui` Dialog). `@capacitor/app` 8.1.1 (official, MIT) provides `pause`, Back and the facilitator links.
+- **Checked on the emulator by hand:** rotation, 130% system font size, dark mode, the facilitator link's intent. TalkBack is installed there but adb can't perform its gestures or record its speech, so its walkthrough is a checklist for the phone (P1-QA-02 below).
+
+*P1-QA-01 (performance):* every DESIGN.md §12.3 budget is met at 4× and 6× CPU on desktop Chromium (4G for the cold open) and inside the app on the emulator; `docs/perf/p1-qa-01.md` has the numbers and method.
+- **The cold open was over budget** (2.6 s at 4× over 4G): route code, the EPUB, the import worker, the fonts and the engine downloaded one after another. The reader now starts the engine and fonts as it opens and the simulated backend warms its worker while the EPUB downloads (`Pipeline.warm`): 1.4 s. The test server now gzips as static hosts do.
+- **In CI, as DESIGN.md asks "where measurable":** the reader route's JavaScript (`npm run budget`, 215.7 of 250 KB gzipped, run after the build) and the import pipeline (`ingest.budget.test.ts`); the E2E import spec already timed the browser import. The other budgets are measured on demand (`npm run test:perf`, `scripts/perf-android.mjs`), not gated: timings on shared CI runners are too noisy for a pass/fail line.
+- **DevTools CPU throttling doesn't slow Web Workers,** so the spec times the worker's jobs (`performance.measure('pipeline:<op>')`) and adds them back at the same slowdown; the pass/fail figure includes that.
+- Headroom: 34 KB on the reader route; Zod is 32 KB of it (BACKLOG RDR-03). With the real backend (Phase 2) the cold open loses the in-browser EPUB processing altogether.
+
+*P1-QA-02 (accessibility):*
+- **axe on every route** now includes the reader with each of its panels (contents and notes, the three preference tabs, Illustrations, keyboard shortcuts, the selection toolbar, the pop-up picture, the narration player), Help, Bookmark designs, Purchases, Your data and the welcome; light and dark, Chromium and WebKit. axe waits for animations to finish, so contrast isn't measured on a dialog still fading in.
+- **Keyboard map in Help** (You → Help), shared with the reader's `?` dialog (`lib/reader/shortcuts.ts`), plus the app-wide keys.
+- **Reduced-motion audit:** every transition and animation uses the duration tokens, which are 0 under reduced motion, and page turns become instant. One bug: an indeterminate progress bar ended its zero-length animation out of view, so it showed nothing while loading; it now stands still. A spec checks nothing moves under reduced motion.
+- **Deviation: the screen-reader walkthroughs aren't done yet.** On the emulator the Android accessibility tree TalkBack reads was checked (whole paragraphs, named controls, hidden controls out of reach; ADR-002's check), but the spoken TalkBack walkthrough and a desktop one (NVDA or Narrator) are step-by-step checklists in `docs/device-checklist.md` for the owner.
+
+*P1-QA-03 (tester build and review kit):*
+- **One tester build with facilitator links** (D-031) instead of building one per kind of session: `?areas=store,community` on the web, `bookpoc://open?areas=…` in the Android app; the device remembers them; `?areas=none` resets; never the dev panel. `apps/web/static/sessions.html` (not linked from the app) has a link of each kind per session, the Android ones as intent links Chrome follows.
+- **First-run welcome**, once per device: what the build is, and Start reading, which opens *Alice* at Chapter I. Project Gutenberg's front matter (its licence) came first otherwise; a general "open at the text" rule is BACKLOG RDR-02. The chapter leaves the address once used, so a reload resumes. You → Help → Show the welcome again.
+- **Web deploy (D-029):** `.github/workflows/tester.yml`, run by hand, uses only the built-in `GITHUB_TOKEN`: it encodes the narration audio (ffmpeg; the committed transcripts mean no whisper), builds the APK and the web app with the Pages base path, and publishes both. The build is host-agnostic (`BASE_PATH`, `404.html`), marked `noindex`, and shows its date and commit in Help (`VITE_BUILD_ID`). **The owner turns Pages on and runs the first deploy;** Pages needs a public repository or a paid plan.
+- **Android: a signed APK (D-030),** not Play Console internal testing (BACKLOG AND-01). `npm run apk:tester -w @book/web` signs `build-tester` with the committed PoC key; CI builds it on every PR as an artifact (no narration audio there; the tester workflow's has it).
+- **`docs/poc-review.md`:** before the first session, preparing each one, a session script, the observation sheet, the §13.3 questions and what to record afterwards, and the limits testers may meet.
+
 ---
 
 ## 7. Dependencies and parallel tracks
@@ -731,7 +759,8 @@ flowchart LR
 | Component (@testing-library/svelte) | 1.1 | `ui` components and reader components: keyboard, focus, reduced motion |
 | End to end (Playwright, Chromium + WebKit) | 0.1 (smoke) | One spec per phase's Try-it list; DESIGN.md's Phase 1 exit flows. WebKit is also the only stand-in for iOS until the backlog item is picked up |
 | Accessibility | 1.1 | axe on every route; TalkBack and a desktop screen reader walkthrough in 1.9 |
-| Device | 0.1 | The owner's Android phone, per `docs/device-checklist.md` from 1.9; iPhone checks are in the backlog |
+| Device | 0.1 | The owner's Android phone, per `docs/device-checklist.md` from 1.9 (the emulator meanwhile, D-028; `scripts/android-smoke.mjs` runs the Phase 1 exit flow in the installed app); iPhone checks are in the backlog |
+| Performance | 1.9 | The reader route's JavaScript and the import pipeline in CI; all of DESIGN.md §12.3 at phone speed on demand (`npm run test:perf`, `scripts/perf-android.mjs`) |
 
 E2E tests run `backend-local` with zero latency, no injected failures and a fixed clock, plus dedicated specs that switch failures on to check the error states.
 

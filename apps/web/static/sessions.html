@@ -1,0 +1,116 @@
+<!doctype html>
+<!--
+	PoC review facilitator links (P1-QA-03, D-031): open this page on the tester's device and tap
+	the session's link. "In the browser" opens the web app with those areas; "In the Android app"
+	opens the installed tester app with them (an intent link, which Chrome on Android follows).
+	The device remembers the areas until another link changes them. Not linked from the app.
+-->
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<title>PoC review sessions · Book Reader</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				--teal: #00696b;
+				--surface: #f4fbfa;
+				--text: #161d1d;
+				--muted: #3f4949;
+				--line: #bec9c8;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--teal: #80d4d6;
+					--surface: #0e1415;
+					--text: #dde4e3;
+					--muted: #bec9c8;
+					--line: #3f4949;
+				}
+			}
+			body {
+				max-width: 40rem;
+				margin: 0 auto;
+				padding: 24px 16px 48px;
+				background: var(--surface);
+				color: var(--text);
+				font:
+					16px/1.5 system-ui,
+					sans-serif;
+			}
+			h1 {
+				font-size: 1.6rem;
+				font-weight: 500;
+			}
+			p {
+				color: var(--muted);
+			}
+			ul {
+				padding: 0;
+				list-style: none;
+			}
+			li {
+				padding: 16px 0;
+				border-bottom: 1px solid var(--line);
+			}
+			strong {
+				display: block;
+				margin-bottom: 8px;
+			}
+			a {
+				display: inline-block;
+				min-height: 48px;
+				margin: 4px 8px 4px 0;
+				padding: 12px 16px;
+				box-sizing: border-box;
+				border: 1px solid var(--teal);
+				border-radius: 24px;
+				color: var(--teal);
+				text-decoration: none;
+			}
+			a:focus-visible {
+				outline: 3px solid var(--teal);
+				outline-offset: 2px;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>PoC review sessions</h1>
+		<p>
+			For the facilitator. Open this page on the tester's phone or computer and tap the session's
+			link. The device remembers the areas until another link here changes them.
+		</p>
+		<ul id="sessions"></ul>
+		<p>
+			The Android links need the tester app installed (<a href="book-reader-poc.apk">get the APK</a
+			>) and Chrome on Android. The developer panel is never available in tester builds.
+		</p>
+		<script>
+			const APP = 'io.github.totallynotkasai.bookpoc';
+			const sessions = [
+				['Reading only', 'none'],
+				['Reading and the store', 'store'],
+				['Reading, the store and community illustrations', 'store,community'],
+				[
+					'Everything simulated: store, Studio, community and moderation',
+					'store,studio,community,admin'
+				]
+			];
+			const list = document.getElementById('sessions');
+			for (const [label, areas] of sessions) {
+				const item = document.createElement('li');
+				const title = document.createElement('strong');
+				title.textContent = label;
+				const web = document.createElement('a');
+				web.href = `./?areas=${areas}`;
+				web.textContent = 'In the browser';
+				const app = document.createElement('a');
+				app.href = `intent://open?areas=${areas}#Intent;scheme=bookpoc;package=${APP};end`;
+				app.textContent = 'In the Android app';
+				item.append(title, web, app);
+				list.append(item);
+			}
+		</script>
+	</body>
+</html>

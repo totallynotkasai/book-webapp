@@ -1,6 +1,6 @@
 # ADR-002: Word marking: spans, or Block indexes with offsets
 
-- **Status:** **Accepted** (12 October 2026, owner decision before Phase 1). The TalkBack check moves to the emulator (P1-QA-02). Resolves OPEN-13 and D-016. The tokeniser question this ADR raised (OPEN-14) is settled by D-026: our own deterministic tokeniser instead of `Intl.Segmenter`.
+- **Status:** **Accepted** (12 October 2026, owner decision before Phase 1). The TalkBack check moves to the emulator (P1-QA-02). Done on 13 October 2026: TalkBack’s view of the reader (the Android accessibility tree) has each paragraph as one whole piece of text, so Block marking splits no Words; adb can’t drive TalkBack’s gestures or capture its speech, so the spoken walkthrough is on `docs/device-checklist.md` for the phone. Resolves OPEN-13 and D-016. The tokeniser question this ADR raised (OPEN-14) is settled by D-026: our own deterministic tokeniser instead of `Intl.Segmenter`.
 - **Date:** 12 October 2026
 - **Task:** P0-05 Spike: Word marking. Resolves OPEN-13 (and D-016) once accepted.
 - **Spike code:** was `packages/reader-core/src/spike/publication.ts` (`markWords`, `indexWords`) and `engine.ts` (`WordMap`); deleted in Phase 1.1. P1-ING-01 and P1-RDR-01 implement option B for real.
