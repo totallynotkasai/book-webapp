@@ -394,6 +394,12 @@
 
 	async function open() {
 		phase = { kind: 'opening' };
+		// The engine's code and the reading fonts load while the Book opens, not after it
+		// (P1-QA-01: on a cold open over 4G they were the last two downloads in a row).
+		const engineLoading = createEngine();
+		// Awaited below, where a failure is reported; until then it mustn't count as unhandled.
+		engineLoading.catch(() => {});
+		const fontsLoading = readingFontFaces();
 		try {
 			await preferences.openBook(bookId);
 			const [backend, stores] = await Promise.all([getBackend(), getStores()]);
@@ -421,8 +427,8 @@
 			await notes.load();
 			const progress = await stores.progress.get(bookId);
 			saver = studioMode ? undefined : new ProgressSaver(stores, bookId, progress);
-			const fontFaceCss = await readingFontFaces();
-			engine = await createEngine();
+			const fontFaceCss = await fontsLoading;
+			engine = await engineLoading;
 			listen(engine);
 			const start =
 				progress && progress.current.revisionId === book.manifest.revisionId

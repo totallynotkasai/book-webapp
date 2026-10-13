@@ -5,10 +5,12 @@ import { test as base, expect, type Page } from '@playwright/test';
 // Specs that need failures switch them on through the dev panel.
 export const E2E_NOW = new Date('2026-10-11T09:00:00.000Z');
 
-export const test = base.extend<{ welcomed: boolean }>({
+export const test = base.extend<{ welcomed: boolean; fixedClock: boolean }>({
 	/** False shows the first-run welcome (P1-QA-03); every other spec starts past it. */
 	welcomed: [true, { option: true }],
-	page: async ({ page, welcomed }, use) => {
+	/** False keeps the real clock: the performance spec times things in the page (P1-QA-01). */
+	fixedClock: [true, { option: true }],
+	page: async ({ page, welcomed, fixedClock }, use) => {
 		await page.addInitScript((seen) => {
 			if (seen) localStorage.setItem('book-welcome', 'seen');
 			globalThis.__BOOK_E2E_SIMULATION__ = {
@@ -21,7 +23,7 @@ export const test = base.extend<{ welcomed: boolean }>({
 				clockOffsetMs: 0
 			};
 		}, welcomed);
-		await page.clock.setFixedTime(E2E_NOW);
+		if (fixedClock) await page.clock.setFixedTime(E2E_NOW);
 		await use(page);
 	}
 });

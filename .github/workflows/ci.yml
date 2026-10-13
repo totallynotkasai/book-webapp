@@ -26,6 +26,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # DESIGN.md §12.3: the reader route's JavaScript budget (P1-QA-01).
+      - run: npm run budget -w @book/web
       - run: npm run build:tester -w @book/web
 
   # The Android app builds on every PR (P1-MOB-01), as the signed tester APK (D-030). Its artifact

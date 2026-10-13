@@ -18,6 +18,7 @@
 		if (!params.has('chapter') || preview || creatorPackId) return;
 		const url = new URL(page.url);
 		url.searchParams.delete('chapter');
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the current page's own URL
 		replaceState(url, page.state);
 	});
 </script>

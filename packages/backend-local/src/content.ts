@@ -151,6 +151,8 @@ export function createContentApi(deps: {
 				const existing = await db.getAllFromIndex('revisions', 'bookId', bookId);
 				const seeded = existing.find((r) => !r.studio);
 				if (seeded) return seeded.id;
+				// The pipeline starts up while the EPUB downloads (P1-QA-01: the cold open).
+				deps.pipeline.warm?.();
 				const bytes = await deps.loadFile(epubUrl);
 				const result = await deps.pipeline.ingest(bytes, { bookId });
 				await saveRevision(bookId, result);

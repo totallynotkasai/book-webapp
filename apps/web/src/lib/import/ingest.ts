@@ -68,8 +68,22 @@ function run<T>(
 	transfer: Transferable[] = [],
 	onProgress?: (done: number, total: number) => void
 ): Promise<T> {
+	// Each job shows as `pipeline:<op>` in the browser's performance tools; the P1-QA-01
+	// performance spec reads them too.
+	const start = performance.now();
+	const measure = () => performance.measure(`pipeline:${message.op}`, { start });
 	return new Promise<T>((resolve, reject) => {
-		pending.set(message.id, { resolve: resolve as (r: never) => void, reject, onProgress });
+		pending.set(message.id, {
+			resolve: ((result: never) => {
+				measure();
+				resolve(result);
+			}) as (r: never) => void,
+			reject: (error) => {
+				measure();
+				reject(error);
+			},
+			onProgress
+		});
 		getWorker().postMessage(message, transfer);
 	});
 }
@@ -85,6 +99,11 @@ export interface IngestRequest {
 
 /** What the worker returns: the processed Revision, and migrated Anchors for a new version. */
 export type IngestOutput = IngestResult & { migration?: MigrationResult };
+
+/** Starts the worker before its first job, so its code loads while the caller fetches a file. */
+export function warmImportWorker(): void {
+	getWorker();
+}
 
 /** Processes an EPUB in the worker. The bytes are copied, so the caller can keep its buffer. */
 export function ingestInWorker(
