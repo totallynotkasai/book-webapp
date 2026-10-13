@@ -85,7 +85,10 @@
 						<div class="about">
 							<div class="title">
 								<span class="name">{pack.name}</span>
-								{#if pack.isOfficial}<Badge>Official</Badge>{/if}
+								{#if pack.isOfficial}<Badge>Official</Badge>{:else if pack.endorsed}<Badge
+										tone="primary"
+										icon="verified">Author-endorsed</Badge
+									>{/if}
 							</div>
 							<p class="meta">
 								By {pack.creatorName} · {pack.illustrationCount} pictures · {AI_LABELS[pack.aiUse]}

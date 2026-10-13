@@ -3,10 +3,13 @@
 	import { page } from '$app/state';
 	import type { BookPageDto, LayerSummaryDto, OfferDto, PlanDto } from '@book/core';
 	import { Badge, Button, Icon, Skeleton } from '@book/ui';
+	import ReportDialog from '$lib/community/ReportDialog.svelte';
+	import StarRating from '$lib/community/StarRating.svelte';
 	import AiLabel from '$lib/components/AiLabel.svelte';
 	import BookCover from '$lib/components/BookCover.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import StatusView from '$lib/components/StatusView.svelte';
+	import { flags } from '$lib/flags';
 	import { contentRatingLabels, formatPrice } from '$lib/format';
 	import { getBackend } from '$lib/services';
 	import { preferences } from '$lib/state/preferences.svelte';
@@ -37,7 +40,7 @@
 			);
 			return { detail, sample, plans, subscribed };
 		},
-		{ topics: ['catalogue', 'entitlements'] }
+		{ topics: ['catalogue', 'entitlements', 'community'] }
 	);
 
 	let checkoutOpen = $state(false);
@@ -45,6 +48,7 @@
 	let tipOpen = $state(false);
 	let subscribeOpen = $state(false);
 	let plan = $state.raw<PlanDto | null>(null);
+	let reportOpen = $state(false);
 
 	function labelOf(detail: BookPageDto, productId: string): string {
 		if (detail.offers.some((o) => o.kind === 'book' && o.productId === productId))
@@ -201,7 +205,16 @@
 												: `${layer.illustrationCount} pictures`}
 											· {layer.isOfficial ? 'Official' : `Community: ${layer.creatorName}`}
 										</span>
-										<span class="layer-badges"><AiLabel aiUse={layer.aiUse} /></span>
+										<span class="layer-badges">
+											{#if layer.endorsed}<Badge tone="primary" icon="verified"
+													>Author-endorsed</Badge
+												>{/if}
+											<AiLabel aiUse={layer.aiUse} />
+										</span>
+										{#if !layer.isOfficial}<StarRating
+												name={layer.name}
+												rating={layer.rating}
+											/>{/if}
 									</div>
 									<div class="layer-get">
 										{#if layer.entitled}
@@ -219,6 +232,19 @@
 							{/each}
 						</ul>
 					{/if}
+					<div class="community-links">
+						{#if flags.community}
+							<Button
+								variant="text"
+								icon="person_add"
+								href={resolve('/(app)/book/[slug]/community', { slug: detail.slug })}
+								>Community illustrations and narration</Button
+							>
+						{/if}
+						<Button variant="text" icon="flag" onclick={() => (reportOpen = true)}
+							>Report this book</Button
+						>
+					</div>
 					{#if detail.isSerial && plans.length}
 						<p class="note">
 							<Icon name="lock" size={18} /> The newest chapters are early access for {detail
@@ -239,6 +265,10 @@
 				}))}
 			/>
 			<TipSheet bind:open={tipOpen} creator={detail.creator} bookId={detail.id} />
+			<ReportDialog
+				bind:open={reportOpen}
+				target={{ type: 'book', id: detail.id, title: detail.title }}
+			/>
 			<SubscribeSheet bind:open={subscribeOpen} {plan} />
 		{/snippet}
 	</StatusView>
@@ -285,6 +315,13 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-2);
+	}
+
+	.community-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+		margin-top: var(--space-2);
 	}
 
 	.warnings,

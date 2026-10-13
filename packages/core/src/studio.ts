@@ -122,7 +122,9 @@ export const studioPackSummarySchema = z.object({
 	/** Illustrations whose text changed in a new Revision and couldn't be placed again (§6.2). */
 	orphaned: int.nonnegative(),
 	aiUse: aiUseSchema.nullable(),
-	price: moneySchema
+	price: moneySchema,
+	/** A moderator asked for its AI label to be corrected (§10.6). */
+	relabelRequired: z.boolean().default(false)
 });
 export type StudioPackSummaryDto = z.infer<typeof studioPackSummarySchema>;
 
@@ -139,7 +141,9 @@ export const studioTrackSummarySchema = z.object({
 	/** Chapters by Sync Map status, for the dashboard's next steps. */
 	ready: int.nonnegative(),
 	needsReview: int.nonnegative(),
-	stale: int.nonnegative()
+	stale: int.nonnegative(),
+	/** A moderator asked for its AI label to be corrected (§10.6). */
+	relabelRequired: z.boolean().default(false)
 });
 export type StudioTrackSummaryDto = z.infer<typeof studioTrackSummarySchema>;
 

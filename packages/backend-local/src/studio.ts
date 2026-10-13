@@ -651,7 +651,8 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			missingAlt: live.filter((i) => !i.alt.trim()).length,
 			orphaned: draft.illustrations.length - live.length,
 			aiUse: pack.aiUse,
-			price: product?.price ?? money(0, CURRENCY)
+			price: product?.price ?? money(0, CURRENCY),
+			relabelRequired: pack.relabelRequired
 		};
 	}
 
@@ -794,7 +795,8 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			chapterCount: file.chapters.length,
 			ready: count('ready'),
 			needsReview: count('needs_review'),
-			stale: count('stale')
+			stale: count('stale'),
+			relabelRequired: track.relabelRequired
 		};
 	}
 
@@ -943,7 +945,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				{ creatorId: book.creatorId },
 				{
 					title: `A community ${kindName(kind)} for “${book.title}”`,
-					body: `${creator?.displayName ?? 'A creator'} made “${layer.name}” (${items} ${kind === 'illustration_pack' ? 'pictures' : 'chapters'}) for your book. Approve or decline it in your Studio.`,
+					body: `${creator?.displayName ?? 'A creator'} made “${layer.name}” (${items} ${kind === 'illustration_pack' ? (items === 1 ? 'picture' : 'pictures') : items === 1 ? 'chapter' : 'chapters'}) for your book. Approve or decline it in your Studio.`,
 					about: { type: kind, id: layer.id }
 				}
 			);

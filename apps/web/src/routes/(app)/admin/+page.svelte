@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Badge, Skeleton } from '@book/ui';
+	import { Badge, Button, Skeleton } from '@book/ui';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import StatusView from '$lib/components/StatusView.svelte';
@@ -8,8 +8,9 @@
 	import { getBackend } from '$lib/services';
 	import { resource } from '$lib/state/resource.svelte';
 
-	// P1-APP-01: the admin review queue, read-only. Moderators only; backend-local enforces it
-	// (FORBIDDEN), as the Phase 2 API will (§10.6). Flag detail and actions: P1-ADM-02.
+	// The admin review queue (P1-APP-01, P1-ADM-02): open Flags, highest priority first, each
+	// opening its detail and actions. Moderators only; backend-local enforces it (FORBIDDEN), as
+	// the Phase 2 API will (§10.6).
 	const queue = resource(async () => (await getBackend()).moderation.listQueue({ limit: 100 }), {
 		topics: ['moderation', 'session']
 	});
@@ -29,7 +30,11 @@
 		title="Review queue"
 		subtitle="Flags and reports, highest priority first. Detector scores are evidence for you, never a verdict."
 		back={{ href: resolve('/you'), label: 'Back to You' }}
-	/>
+	>
+		{#snippet actions()}
+			<Button variant="text" icon="gavel" href={resolve('/(app)/admin/log')}>Action log</Button>
+		{/snippet}
+	</PageHeader>
 
 	<StatusView resource={queue} what="The review queue">
 		{#snippet loading()}
@@ -50,7 +55,9 @@
 							<Badge tone={flag.rule === 'report' ? 'error' : 'tertiary'}
 								>{flagRuleLabels[flag.rule]}</Badge
 							>
-							<span class="target">{targetLabels[flag.targetType]}: {flag.targetTitle}</span>
+							<a class="target" href={resolve('/(app)/admin/flags/[flagId]', { flagId: flag.id })}
+								>{targetLabels[flag.targetType]}: {flag.targetTitle}</a
+							>
 						</div>
 						<p class="details">{flag.details}</p>
 						<p class="meta">Priority {flag.priority} · {formatDate(flag.createdAt)}</p>

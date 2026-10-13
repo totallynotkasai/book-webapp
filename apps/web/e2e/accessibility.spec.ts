@@ -34,9 +34,18 @@ for (const scheme of ['light', 'dark'] as const) {
 			await expect(page.getByRole('heading', { name: 'Creator Studio' })).toBeVisible();
 			await page.waitForLoadState('networkidle');
 			await expectNoViolations(page);
+			await page.goto('/you/inbox');
+			await expect(page.getByRole('heading', { name: 'Inbox', level: 1 })).toBeVisible();
+			await expectNoViolations(page);
 			await switchPersona(page, 'Moderator');
 			await page.goto('/admin');
 			await expect(page.getByText('Reader report')).toBeVisible();
+			await expectNoViolations(page);
+			await page.getByRole('link', { name: /Book: The Lamplighter/ }).click();
+			await expect(page.getByRole('heading', { name: 'What fired' })).toBeVisible();
+			await expectNoViolations(page);
+			await page.goto('/admin/log');
+			await expect(page.getByRole('heading', { name: 'Moderation log', level: 1 })).toBeVisible();
 			await expectNoViolations(page);
 		});
 

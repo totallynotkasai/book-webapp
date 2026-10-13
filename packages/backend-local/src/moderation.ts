@@ -451,7 +451,12 @@ export function createModerationApi(deps: {
 			);
 			const details = `${reports.length} ${reports.length === 1 ? 'reader reported' : 'readers reported'} it. Latest reason: ${input.reason.replace('_', ' ')}${input.details ? ` (“${input.details}”)` : ''}.`;
 			if (open) {
-				await db.put('flags', { ...open, priority: reportPriority(reports.length), details });
+				// More reports only ever raise it (§10.6).
+				await db.put('flags', {
+					...open,
+					priority: Math.max(open.priority, reportPriority(reports.length)),
+					details
+				});
 			} else {
 				await raise({
 					targetType: input.targetType,

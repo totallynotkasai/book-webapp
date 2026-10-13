@@ -597,16 +597,6 @@
 			"priority": 2,
 			"details": "Two readers reported it. Reason given: “Chapter 4 needs a content warning for violence.” (Seeded demo report.)",
 			"createdAt": "2026-10-01T10:30:00.000Z"
-		},
-		{
-			"id": "flag-volume-wren",
-			"targetType": "creator",
-			"targetId": "creator-wren-ashdown",
-			"rule": "upload_volume",
-			"state": "open",
-			"priority": 1,
-			"details": "Published 11 new Revisions of different Books in 30 days (threshold 10). The content is labelled AI-generated, so it stays listed. (Seeded demo Flag.)",
-			"createdAt": "2026-10-05T08:00:00.000Z"
 		}
 	],
 	"bookmarkDesigns": [

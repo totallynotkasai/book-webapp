@@ -231,6 +231,12 @@ test('“Hide AI-generated content” takes AI-generated Books out of the store'
 	await expect(page.getByRole('link', { name: /The Lamplighter's Ledger/ }).first()).toBeVisible();
 	await page.goto('/you/settings');
 	await page.getByRole('switch', { name: 'Hide AI-generated content' }).click();
+	// Preferences save asynchronously; leaving before they land could lose the change.
+	await expect
+		.poll(
+			async () => (await storedPreferences(page, 'user-reader')) as { hideAiGenerated?: boolean }
+		)
+		.toMatchObject({ hideAiGenerated: true });
 	await page.goto('/store');
 	await expect(page.getByRole('heading', { name: 'Illustrated and narrated' })).toBeVisible();
 	await expect(page.getByRole('link', { name: /The Lamplighter's Ledger/ })).toHaveCount(0);

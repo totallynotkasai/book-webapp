@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import type { StudioBookDetailDto } from '@book/core';
+	import type { CurationDto, StudioBookDetailDto, StudioLayerDto } from '@book/core';
 	import { Badge, Button, Card, Icon, Skeleton } from '@book/ui';
 	import AiLabel from '$lib/components/AiLabel.svelte';
 	import BookCover from '$lib/components/BookCover.svelte';
@@ -10,7 +10,7 @@
 	import { formatAmount, formatPrice } from '$lib/format';
 	import { getBackend } from '$lib/services';
 	import { resource } from '$lib/state/resource.svelte';
-	import { bookStateLabel } from '$lib/studio/summaries';
+	import { bookStateLabel, listingStateLabels, listingStateTones } from '$lib/studio/summaries';
 	import UploadDialog from '$lib/studio/UploadDialog.svelte';
 
 	// The Studio dashboard (P1-STU-01 to P1-STU-04; plan §6 Phase 1.7 UX notes): your Books and
@@ -31,10 +31,48 @@
 				studio.listPlans()
 			]);
 			const details = await Promise.all(list.items.map((b) => studio.getBook(b.id)));
-			return { steps: suggestions(details), plans: plans.length };
+			const curations = await Promise.all(list.items.map((b) => studio.curation(b.id)));
+			return {
+				steps: [...curationSteps(details, curations), ...suggestions(details)].slice(0, 6),
+				plans: plans.length
+			};
 		},
-		{ topics: ['studio'] }
+		{ topics: ['studio', 'community', 'moderation'] }
 	);
+	/** The Creator's packs and narrations for other authors' Books (P1-COM-01). */
+	const work = resource(
+		async () => (await getBackend()).studio.listLayers().then((l) => l.filter((x) => x.community)),
+		{ topics: ['studio', 'community', 'moderation'] }
+	);
+
+	/** Submissions to approve and Flags to look at come first (§10.6 author curation). */
+	function curationSteps(details: StudioBookDetailDto[], curations: CurationDto[]): Step[] {
+		return curations.flatMap((c, i) => {
+			const book = details[i]!;
+			const href = resolve('/(app)/studio/books/[bookId]', { bookId: book.id });
+			const steps: Step[] = [];
+			if (c.pending.length) {
+				steps.push({
+					text: `Approve or decline ${c.pending.length} community ${c.pending.length === 1 ? 'submission' : 'submissions'} for “${book.settings.title}”`,
+					href
+				});
+			}
+			if (c.flags.length) {
+				steps.push({
+					text: `${c.flags.length} ${c.flags.length === 1 ? 'Flag or report' : 'Flags and reports'} on “${book.settings.title}”`,
+					href
+				});
+			}
+			return steps;
+		});
+	}
+
+	function workHref(layer: StudioLayerDto): string {
+		if (layer.kind === 'audio_track') {
+			return resolve('/(app)/studio/tracks/[trackId]', { trackId: layer.id });
+		}
+		return `${resolve('/read/[bookId]', { bookId: layer.bookId })}?mode=creator&pack=${encodeURIComponent(layer.id)}`;
+	}
 
 	interface Step {
 		text: string;
@@ -75,7 +113,7 @@
 				steps.push({ text: `Add narration to ${title}`, href });
 			}
 		}
-		return steps.slice(0, 6);
+		return steps;
 	}
 
 	let uploadOpen = $state(false);
@@ -142,6 +180,31 @@
 					<li>
 						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- steps hold resolved hrefs -->
 						<a href={step.href}><Icon name="arrow_forward" size={20} /><span>{step.text}</span></a>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
+	{#if work.data?.length}
+		<section aria-labelledby="work-heading">
+			<h2 id="work-heading">Your work for other authors’ books</h2>
+			<ul class="books">
+				{#each work.data as layer (layer.id)}
+					<li data-testid="community-work">
+						<div class="book-text">
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- workHref resolves -->
+							<a href={workHref(layer)}>{layer.name}</a>
+							<span class="meta">
+								For “{layer.bookTitle}”
+								<Badge tone={listingStateTones[layer.state]}
+									>{listingStateLabels[layer.state]}</Badge
+								>
+								{#if layer.relabelRequired}<Badge tone="error" icon="warning"
+										>Correct its AI label</Badge
+									>{/if}
+							</span>
+						</div>
 					</li>
 				{/each}
 			</ul>

@@ -88,7 +88,11 @@ export class BookIllustrations {
 			credit: draft.credit,
 			price: draft.price,
 			entitled: true,
-			illustrationCount: draft.illustrationCount
+			illustrationCount: draft.illustrationCount,
+			creatorHandle: '',
+			endorsed: false,
+			rating: null,
+			myRating: null
 		};
 		this.packs = [pack];
 		this.enabled = [draft.id];
