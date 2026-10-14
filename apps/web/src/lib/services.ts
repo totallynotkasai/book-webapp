@@ -8,7 +8,12 @@ import type { LocalBackend, LocalBackendControls, SimulationSettings } from '@bo
 import type { LocalStores } from '@book/storage-local';
 import { asset } from '$app/paths';
 import { profile } from '$lib/flags';
-import { ingestInWorker, migrateInWorker, wordsInWorker } from '$lib/import/ingest';
+import {
+	ingestInWorker,
+	migrateInWorker,
+	warmImportWorker,
+	wordsInWorker
+} from '$lib/import/ingest';
 // Fetched at runtime, never bundled, to protect the reader route's JavaScript budget (plan §4.3).
 import seedUrl from '../../../../fixtures/seed/seed.json?url';
 
@@ -47,7 +52,8 @@ function localBackend(): Promise<LocalBackend> {
 						previous: previous ? { files: previous, anchors: [], progress: [] } : undefined
 					}),
 				migrate: (input) => migrateInWorker(input),
-				words: (revision) => wordsInWorker(revision)
+				words: (revision) => wordsInWorker(revision),
+				warm: warmImportWorker
 			}
 		})
 	);

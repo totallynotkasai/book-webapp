@@ -1,0 +1,94 @@
+# The tester build (P1-QA-03, D-029, D-030): the tester web app on GitHub Pages, with the signed
+# tester APK beside it at book-reader-poc.apk. Run it by hand: Actions → Tester build → Run workflow.
+#
+# It uses only the built-in GITHUB_TOKEN: no secrets, no other tokens. Nothing in the build is
+# Pages-specific except BASE_PATH (the folder Pages serves from) and 404.html, the SPA fallback
+# that Netlify, Cloudflare Pages and most other static hosts also read, so moving host means
+# changing the deploy job only.
+#
+# Before the first run, the owner turns on Pages: Settings → Pages → Source: GitHub Actions.
+# GitHub Pages needs a public repository, or a paid plan for a private one.
+name: Tester build
+
+on:
+  workflow_dispatch:
+    inputs:
+      narration:
+        description: Include the narration audio (downloads the LibriVox MP3s and encodes them)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tester-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+
+      # The .m4a files aren't committed (P0-11): encode them from the LibriVox recording. The
+      # committed transcripts mean whisper isn't needed, only ffmpeg.
+      - name: Narration audio
+        if: inputs.narration
+        run: |
+          command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          npm run fixtures:audio
+          npm run narration
+
+      - name: Name this build
+        run: |
+          echo "VITE_BUILD_ID=$(date -u +%Y-%m-%d) · ${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_NAME=0.1-poc.${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      # The app inside the APK is served from the root, so it's built first, without BASE_PATH.
+      - name: Tester APK
+        run: npm run apk:tester -w @book/web
+
+      - id: pages
+        uses: actions/configure-pages@v6
+      - name: Tester web app
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          npm run build:tester -w @book/web
+          cd apps/web/build-tester
+          cp index.html 404.html
+          cp ../build-apk/book-reader-poc.apk .
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/web/build-tester
+      - uses: actions/upload-artifact@v7
+        with:
+          name: book-reader-poc-apk
+          path: apps/web/build-apk/book-reader-poc.apk
+          retention-days: 30
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

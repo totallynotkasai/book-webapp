@@ -1,0 +1,6 @@
+<!-- The placeholder app mark (P1-MOB-01): an open book, white on the placeholder seed teal
+     (#00696B, OPEN-07). scripts/icons.mjs renders every icon and splash screen from these paths. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+	<path fill="#ffffff" d="M11.2 6.6C9.4 5.3 6.9 4.8 3.5 5.1V18.4C6.9 18.1 9.4 18.6 11.2 19.9Z" />
+	<path fill="#ffffff" d="M12.8 6.6C14.6 5.3 17.1 4.8 20.5 5.1V18.4C17.1 18.1 14.6 18.6 12.8 19.9Z" />
+</svg>

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { flagForRoute, isRouteEnabled, resolveFlags, resolveProfile } from './flags';
+import {
+	AREAS_KEY,
+	areasFromLink,
+	flagForRoute,
+	isRouteEnabled,
+	rememberAreas,
+	resolveFlags,
+	resolveProfile
+} from './flags';
 
 describe('profiles', () => {
 	it('defaults to owner', () => {
@@ -25,6 +33,48 @@ describe('profiles', () => {
 			admin: false,
 			devPanel: false
 		});
+	});
+});
+
+describe('facilitator links (D-031)', () => {
+	const link = (query: string) => new URL(`https://example.test/book-webapp/${query}`);
+
+	function memoryStorage(): Storage {
+		const items = new Map<string, string>();
+		return {
+			get length() {
+				return items.size;
+			},
+			clear: () => items.clear(),
+			getItem: (key) => items.get(key) ?? null,
+			key: (i) => [...items.keys()][i] ?? null,
+			removeItem: (key) => void items.delete(key),
+			setItem: (key, value) => void items.set(key, String(value))
+		};
+	}
+
+	it('reads the areas a link asks for, in a fixed order, without the dev panel', () => {
+		expect(areasFromLink(link('?areas=community,store'))).toBe('store,community');
+		expect(areasFromLink(link('?areas=devPanel,admin,nonsense'))).toBe('admin');
+		expect(areasFromLink(link('?areas=none'))).toBe('');
+		expect(areasFromLink(link('?areas='))).toBe('');
+		expect(areasFromLink(link(''))).toBeUndefined();
+	});
+
+	it('remembers them on the device and says when that changed anything', () => {
+		const storage = memoryStorage();
+		expect(rememberAreas(link('?areas=store'), storage)).toBe(true);
+		expect(storage.getItem(AREAS_KEY)).toBe('store');
+		expect(rememberAreas(link('?areas=store'), storage)).toBe(false);
+		expect(rememberAreas(link('?other=1'), storage)).toBe(false);
+		expect(storage.getItem(AREAS_KEY)).toBe('store');
+		expect(rememberAreas(link('?areas=none'), storage)).toBe(true);
+		expect(storage.getItem(AREAS_KEY)).toBe('');
+	});
+
+	it('turns the remembered areas into flags, never the dev panel', () => {
+		expect(resolveFlags('tester', ',store,community').store).toBe(true);
+		expect(resolveFlags('tester', ',store,community,devPanel').devPanel).toBe(false);
 	});
 });
 

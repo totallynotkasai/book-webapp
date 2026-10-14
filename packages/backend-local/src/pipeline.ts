@@ -37,6 +37,8 @@ export interface Pipeline {
 	words(
 		revision: RevisionText
 	): Promise<{ chapterId: string; wordIds: number[]; texts: string[] }[]>;
+	/** Gets ready for a job that's coming (the app starts its worker), so it loads meanwhile. */
+	warm?(): void;
 }
 
 /** The thread-local default: text-pipeline, loaded only when first needed. */

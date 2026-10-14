@@ -5,9 +5,14 @@ import { test as base, expect, type Page } from '@playwright/test';
 // Specs that need failures switch them on through the dev panel.
 export const E2E_NOW = new Date('2026-10-11T09:00:00.000Z');
 
-export const test = base.extend({
-	page: async ({ page }, use) => {
-		await page.addInitScript(() => {
+export const test = base.extend<{ welcomed: boolean; fixedClock: boolean }>({
+	/** False shows the first-run welcome (P1-QA-03); every other spec starts past it. */
+	welcomed: [true, { option: true }],
+	/** False keeps the real clock: the performance spec times things in the page (P1-QA-01). */
+	fixedClock: [true, { option: true }],
+	page: async ({ page, welcomed, fixedClock }, use) => {
+		await page.addInitScript((seen) => {
+			if (seen) localStorage.setItem('book-welcome', 'seen');
 			globalThis.__BOOK_E2E_SIMULATION__ = {
 				latencyMs: { min: 0, max: 0 },
 				failureRate: 0,
@@ -17,8 +22,8 @@ export const test = base.extend({
 				aiDetectorVerdict: 'clean',
 				clockOffsetMs: 0
 			};
-		});
-		await page.clock.setFixedTime(E2E_NOW);
+		}, welcomed);
+		if (fixedClock) await page.clock.setFixedTime(E2E_NOW);
 		await use(page);
 	}
 });
@@ -158,6 +163,18 @@ export async function showChrome(page: Page) {
 
 /** axe at WCAG 2.2 AA (IMPLEMENTATION-PLAN.md §9): no violations on what's on screen now. */
 export async function expectNoViolations(page: Page) {
+	// Contrast is measured on the settled page: a dialog fading in is half transparent. Endless
+	// animations (progress indicators) don't count.
+	await page.waitForFunction(
+		() =>
+			document
+				.getAnimations()
+				.every(
+					(a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity
+				),
+		undefined,
+		{ timeout: 5_000 }
+	);
 	const results = await new AxeBuilder({ page })
 		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
 		.analyze();

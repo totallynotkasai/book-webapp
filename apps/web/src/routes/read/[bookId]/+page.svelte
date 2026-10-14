@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import Reader from '$lib/reader/Reader.svelte';
 
@@ -9,6 +10,17 @@
 		params.has('preview') ? { revisionId: params.get('preview') || undefined } : null
 	);
 	const creatorPackId = $derived(params.get('mode') === 'creator' ? params.get('pack') : null);
+
+	// When reading, ?chapter= (the welcome's "Start reading") is where to begin, not part of the
+	// address to come back to: once the Reader has it, it leaves the URL, so a reload resumes
+	// where the reader got to.
+	afterNavigate(() => {
+		if (!params.has('chapter') || preview || creatorPackId) return;
+		const url = new URL(page.url);
+		url.searchParams.delete('chapter');
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the current page's own URL
+		replaceState(url, page.state);
+	});
 </script>
 
 <!-- A new Reader per Book (and per sample, preview or pack), so nothing carries over between them. -->

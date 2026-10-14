@@ -1,4 +1,4 @@
-# DESIGN.md §12.4: every PR runs check, lint, unit tests, build and Playwright E2E.
+# DESIGN.md §12.4: every PR runs check, lint, unit tests, build, Playwright E2E and the Android build.
 # E2E is split into shards that run side by side: in one job it outgrew the time limit.
 name: CI
 
@@ -26,7 +26,32 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # DESIGN.md §12.3: the reader route's JavaScript budget (P1-QA-01).
+      - run: npm run budget -w @book/web
       - run: npm run build:tester -w @book/web
+
+  # The Android app builds on every PR (P1-MOB-01), as the signed tester APK (D-030). Its artifact
+  # installs on a phone for a quick look; narration audio is only in the Tester build workflow's.
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run apk:tester -w @book/web
+      - uses: actions/upload-artifact@v7
+        with:
+          name: book-reader-poc-apk
+          path: apps/web/build-apk/book-reader-poc.apk
+          retention-days: 7
 
   e2e:
     runs-on: ubuntu-latest

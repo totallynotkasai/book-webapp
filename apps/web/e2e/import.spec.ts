@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { strToU8, zipSync } from 'fflate';
 import type { Page } from '@playwright/test';
+import { bigEpub } from './books';
 import { expect, openDevPanel, test } from './fixtures';
 
 // P1-ING-02 acceptance and the Phase 1.2 Try-it import items: import an EPUB, import it again
@@ -64,34 +65,6 @@ test('a broken file gets a reason the reader can act on', async ({ page }) => {
 	await importFile(page, epubFile('zip.epub', zipSync({ 'readme.txt': strToU8('hi') })));
 	await expect(page.getByTestId('import-error')).toHaveText(/not an EPUB/);
 });
-
-/** A generated EPUB of 150,000 Words in 30 chapters (the §12.3 import budget). */
-function bigEpub(): Uint8Array {
-	const sentence =
-		'Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do. ';
-	const files: Record<string, Uint8Array> = {
-		mimetype: strToU8('application/epub+zip'),
-		'META-INF/container.xml': strToU8(
-			'<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>'
-		)
-	};
-	const ids = Array.from({ length: 30 }, (_, i) => i);
-	for (const i of ids) {
-		// 238 paragraphs of 21 Words, plus a two-Word heading: 5,000 Words a chapter.
-		const paragraphs = Array.from({ length: 238 }, () => `<p>${sentence}</p>`).join('');
-		files[`OEBPS/c${i}.xhtml`] = strToU8(
-			`<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>c${i}</title></head><body><h1>Chapter ${i + 1}</h1>${paragraphs}</body></html>`
-		);
-	}
-	files['OEBPS/content.opf'] = strToU8(
-		`<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">urn:test:big</dc:identifier><dc:title>Big Test</dc:title><dc:language>en</dc:language></metadata><manifest>${ids
-			.map((i) => `<item id="c${i}" href="c${i}.xhtml" media-type="application/xhtml+xml"/>`)
-			.join(
-				''
-			)}</manifest><spine>${ids.map((i) => `<itemref idref="c${i}"/>`).join('')}</spine></package>`
-	);
-	return zipSync(files);
-}
 
 test('a 150,000-word EPUB imports within 10 s, with progress and a responsive page', async ({
 	page

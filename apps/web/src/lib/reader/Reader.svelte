@@ -21,7 +21,7 @@
 	import { createEngine, type ReaderEngine, type VisibleRange } from '@book/reader-core';
 	import { highlightLabels } from '@book/tokens';
 	import { Badge, Button, Dialog, IconButton, Progress, prefersReducedMotion } from '@book/ui';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { copyText } from '$lib/clipboard';
 	import BookmarkRibbon from '$lib/components/BookmarkRibbon.svelte';
@@ -82,10 +82,12 @@
 		sample?: boolean;
 		preview?: { revisionId?: string } | null;
 		creatorPackId?: string | null;
-		/** Open at this Chapter (an ingest report's link into a preview). */
+		/** Open at this Chapter (an ingest report's link into a preview; the welcome's Chapter I). */
 		startChapter?: string | null;
 	} = $props();
 	const studioMode = $derived(!!preview || !!creatorPackId);
+	// Read once: the reader route takes ?chapter= out of the address as soon as it's open.
+	const openAtChapter = untrack(() => startChapter);
 
 	type Phase =
 		| { kind: 'opening' }
@@ -392,6 +394,12 @@
 
 	async function open() {
 		phase = { kind: 'opening' };
+		// The engine's code and the reading fonts load while the Book opens, not after it
+		// (P1-QA-01: on a cold open over 4G they were the last two downloads in a row).
+		const engineLoading = createEngine();
+		// Awaited below, where a failure is reported; until then it mustn't count as unhandled.
+		engineLoading.catch(() => {});
+		const fontsLoading = readingFontFaces();
 		try {
 			await preferences.openBook(bookId);
 			const [backend, stores] = await Promise.all([getBackend(), getStores()]);
@@ -419,8 +427,8 @@
 			await notes.load();
 			const progress = await stores.progress.get(bookId);
 			saver = studioMode ? undefined : new ProgressSaver(stores, bookId, progress);
-			const fontFaceCss = await readingFontFaces();
-			engine = await createEngine();
+			const fontFaceCss = await fontsLoading;
+			engine = await engineLoading;
 			listen(engine);
 			const start =
 				progress && progress.current.revisionId === book.manifest.revisionId
@@ -436,7 +444,7 @@
 				fontFaceCss,
 				start
 			});
-			if (startChapter) await engine.goTo({ chapterId: startChapter });
+			if (openAtChapter) await engine.goTo({ chapterId: openAtChapter });
 			void loadLayers(book);
 			applied = {
 				typography: JSON.stringify(typographyOf(prefs)),

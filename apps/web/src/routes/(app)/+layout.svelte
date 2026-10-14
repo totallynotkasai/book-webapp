@@ -2,11 +2,17 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Icon, NavigationBar, NavigationRail, type NavItem } from '@book/ui';
+	import { onMount } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
+	import Welcome from '$lib/components/Welcome.svelte';
 	import { flags } from '$lib/flags';
 	import { session } from '$lib/state/session.svelte';
+	import { welcome } from '$lib/state/welcome.svelte';
 
 	let { children } = $props();
+
+	// The first-run welcome (P1-QA-03), once per device.
+	onMount(() => welcome.start());
 
 	// M3 window classes (DESIGN.md §11.5): a bottom bar on compact screens, a rail from 600 px.
 	const wide = new MediaQuery('min-width: 600px');
@@ -79,6 +85,8 @@
 		<div class="bar"><NavigationBar {items} /></div>
 	{/if}
 </div>
+
+<Welcome />
 
 <style>
 	.shell {

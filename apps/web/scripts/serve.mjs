@@ -1,10 +1,13 @@
 // Serves a built copy of the app (adapter-static output) with the SPA fallback, the way a static
-// host does. Used by Playwright and for trying a production build on a phone.
+// host does: byte ranges for audio, and text files gzipped as GitHub Pages and other hosts send
+// them (so the performance spec measures realistic downloads, P1-QA-01). Used by Playwright and
+// for trying a production build on a phone.
 // Usage: node scripts/serve.mjs [dir=build] [port=4173] [--host]
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve } from 'node:path';
+import { gzipSync } from 'node:zlib';
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const root = resolve(args[0] ?? 'build');
@@ -27,6 +30,17 @@ const TYPES = {
 	'.txt': 'text/plain; charset=utf-8'
 };
 
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.json', '.svg', '.txt']);
+const gzipped = new Map();
+
+async function gzippedFile(file, mtimeMs) {
+	const cached = gzipped.get(file);
+	if (cached?.mtimeMs === mtimeMs) return cached.data;
+	const data = gzipSync(await readFile(file));
+	gzipped.set(file, { mtimeMs, data });
+	return data;
+}
+
 async function fileFor(urlPath) {
 	const path = normalize(decodeURIComponent(urlPath.split('?')[0] ?? '/'));
 	const candidate = join(root, path);
@@ -41,7 +55,21 @@ async function fileFor(urlPath) {
 createServer(async (req, res) => {
 	const file = (await fileFor(req.url ?? '/')) ?? join(root, 'index.html');
 	const type = TYPES[extname(file)] ?? 'application/octet-stream';
-	const { size } = await stat(file);
+	const { size, mtimeMs } = await stat(file);
+	if (
+		!req.headers.range &&
+		COMPRESSIBLE.has(extname(file)) &&
+		/\bgzip\b/.test(req.headers['accept-encoding'] ?? '')
+	) {
+		const data = await gzippedFile(file, mtimeMs);
+		res.writeHead(200, {
+			'content-type': type,
+			'content-encoding': 'gzip',
+			'content-length': data.length,
+			vary: 'Accept-Encoding'
+		});
+		return res.end(req.method === 'HEAD' ? undefined : data);
+	}
 	// Byte ranges, as static hosts serve them: browsers need them to seek in audio (P0-06).
 	const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
 	if (range && (range[1] || range[2])) {

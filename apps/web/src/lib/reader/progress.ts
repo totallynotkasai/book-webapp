@@ -4,6 +4,7 @@
  */
 import type { PointAnchor, ReadingProgress, Stores } from '@book/core';
 import type { VisibleRange } from '@book/reader-core';
+import { getPlatform } from '$lib/platform';
 
 export const PROGRESS_DEBOUNCE_MS = 2000;
 
@@ -21,9 +22,7 @@ export class ProgressSaver {
 	#timer: ReturnType<typeof setTimeout> | undefined;
 	#pending: VisibleRange | null = null;
 	#furthest: { anchor: PointAnchor; progression: number } | null;
-	#onHide = () => {
-		if (document.visibilityState === 'hidden') void this.flush();
-	};
+	#offHide: () => void;
 
 	constructor(stores: Stores, bookId: string, existing: ReadingProgress | undefined) {
 		this.#stores = stores;
@@ -31,8 +30,8 @@ export class ProgressSaver {
 		this.#furthest = existing
 			? { anchor: existing.furthest, progression: existing.furthestProgression }
 			: null;
-		document.addEventListener('visibilitychange', this.#onHide);
-		addEventListener('pagehide', this.#onHide);
+		// Leaving the app saves at once (on Android, the WebView isn't told it's hidden).
+		this.#offHide = getPlatform().lifecycle.onHide(() => void this.flush());
 	}
 
 	/** Call on every `relocated`. */
@@ -72,8 +71,7 @@ export class ProgressSaver {
 	}
 
 	async close() {
-		document.removeEventListener('visibilitychange', this.#onHide);
-		removeEventListener('pagehide', this.#onHide);
+		this.#offHide();
 		await this.flush();
 	}
 }

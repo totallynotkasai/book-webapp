@@ -5,6 +5,9 @@ import { defineConfig } from 'vite';
 export default defineConfig(({ mode }) => {
 	// `vite build --mode tester` (npm run build:tester) writes the tester profile beside the owner one.
 	const out = mode === 'tester' ? 'build-tester' : 'build';
+	// Static hosts that serve the app from a folder (GitHub Pages project sites: /book-webapp) set
+	// BASE_PATH at build time (D-029). Empty serves it from the root, as Capacitor and E2E do.
+	const base = (process.env.BASE_PATH ?? '').replace(/\/$/, '') as '' | `/${string}`;
 	return {
 		server: {
 			// IPv4 loopback, so `adb reverse tcp:5173 tcp:5173` reaches it from a USB-connected phone.
@@ -25,7 +28,8 @@ export default defineConfig(({ mode }) => {
 
 				// Static output: no server needed, deployable to any static host, and wrappable by
 				// Capacitor for mobile. Switch to a server adapter when public book pages need SSR.
-				adapter: adapter({ pages: out, assets: out, fallback: 'index.html' })
+				adapter: adapter({ pages: out, assets: out, fallback: 'index.html' }),
+				paths: { base }
 			})
 		]
 	};
