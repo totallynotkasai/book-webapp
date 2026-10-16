@@ -28,6 +28,7 @@ import type { BackendDatabase, RevisionRecord } from './db';
 import type { StoredFiles } from './files';
 import type { Pipeline, ProcessedRevision } from './pipeline';
 import type { BookRecord } from './seed';
+import type { StoryModule } from './story';
 
 /** Tokens last an hour (§10.3). */
 export const CONTENT_TOKEN_MS = 60 * 60 * 1000;
@@ -109,6 +110,8 @@ export function createContentApi(deps: {
 	files: StoredFiles;
 	/** Brings subscriptions up to date before early access is checked (P1-STO-04). */
 	beforeAccess?: (userId: string) => Promise<void>;
+	/** Recaps and glossaries (P1-RDR-13). */
+	story?: Pick<StoryModule, 'forReader'>;
 }): ContentModule {
 	const { db, clock } = deps;
 	const grants = new Map<string, Grant>();
@@ -260,25 +263,34 @@ export function createContentApi(deps: {
 		return { token, expiresAt };
 	}
 
+	/**
+	 * Who may read a Book (Invariant 15): its owners, and anyone reading the sample of a listed
+	 * one. Rejects with `ENTITLEMENT_REQUIRED` otherwise.
+	 */
+	async function access(bookId: string, sample: boolean) {
+		const user = deps.requireUser();
+		const book = await db.get('books', bookId);
+		if (!book) throw new BackendError('NOT_FOUND', 'That book isn’t in the store.');
+		const product = (await db.getAll('products')).find(
+			(p) => p.kind === 'book' && p.refId === bookId
+		);
+		await deps.beforeAccess?.(user.id);
+		const entitlements = await db.getAllFromIndex('entitlements', 'userId', user.id);
+		const holds = (productId: string) =>
+			hasEntitlement(entitlements, user.id, productId, clock.now());
+		const owns = !!product && holds(product.id);
+		if (!owns && !(sample && book.listingState === 'listed')) {
+			throw new BackendError('ENTITLEMENT_REQUIRED', 'This book isn’t in your library yet.', {
+				bookId,
+				slug: book.slug
+			});
+		}
+		return { book, owns, holds };
+	}
+
 	return {
 		async open(bookId, options): Promise<OpenBookDto> {
-			const user = deps.requireUser();
-			const book = await db.get('books', bookId);
-			if (!book) throw new BackendError('NOT_FOUND', 'That book isn’t in the store.');
-			const product = (await db.getAll('products')).find(
-				(p) => p.kind === 'book' && p.refId === bookId
-			);
-			await deps.beforeAccess?.(user.id);
-			const entitlements = await db.getAllFromIndex('entitlements', 'userId', user.id);
-			const holds = (productId: string) =>
-				hasEntitlement(entitlements, user.id, productId, clock.now());
-			const owns = !!product && holds(product.id);
-			if (!owns && !(options?.sample && book.listingState === 'listed')) {
-				throw new BackendError('ENTITLEMENT_REQUIRED', 'This book isn’t in your library yet.', {
-					bookId,
-					slug: book.slug
-				});
-			}
+			const { book, owns, holds } = await access(bookId, !!options?.sample);
 			const revisionId = await currentRevisionId(book);
 			const creator = await db.get('creators', book.creatorId);
 			const manifest = await manifestOf(revisionId);
@@ -371,6 +383,18 @@ export function createContentApi(deps: {
 				progress: input.progress
 			});
 			return { revisionId, ...migrated };
+		},
+
+		async storySoFar(bookId) {
+			// A sample reader gets what their sample Chapters hold, like the sample itself.
+			const { book, owns, holds } = await access(bookId, true);
+			const revisionId = await currentRevisionId(book);
+			const manifest = await manifestOf(revisionId);
+			const locked = new Set(
+				(await lockedFor(book, manifest, owns, holds)).map((l) => l.chapterId)
+			);
+			if (!deps.story) return null;
+			return deps.story.forReader(book, revisionId, (chapterId) => !locked.has(chapterId));
 		},
 
 		grantLayer(layerId, baseUrl, only) {

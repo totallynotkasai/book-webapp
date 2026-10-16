@@ -75,6 +75,8 @@ import { newId, serialiser } from './checkout';
 import type { ContentModule } from './content';
 import type { BackendDatabase, RevisionRecord } from './db';
 import { parseStudioUrl, STUDIO_PREFIX, studioUrl, type StoredFiles } from './files';
+import { extensionOf, MAX_IMAGE_BYTES, sniffImage } from './images';
+import type { StoryModule } from './story';
 import type { Pipeline } from './pipeline';
 import { paginate } from './paging';
 import type {
@@ -91,7 +93,6 @@ import type { SupportModule } from './support';
 /** §10.2 upload limits. */
 const MAX_EPUB_BYTES = 100 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;
-const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 /** A new Book's title until its first upload is processed. */
 const UNTITLED = 'Untitled book';
 /** The currency new Products are priced in. SIMULATION: one currency until Phase 4. */
@@ -121,6 +122,8 @@ export interface StudioDeps {
 	support: Pick<SupportModule, 'planDto' | 'refresh'>;
 	moderation: ModerationModule;
 	inbox: InboxModule;
+	/** Recaps and glossaries (P1-STU-05). */
+	story: StoryModule;
 	changed: (...topics: BackendTopic[]) => void;
 }
 
@@ -140,18 +143,6 @@ function sniffAudio(b: Uint8Array): { type: string; ext: string } | null {
 	if (ascii(0, 4) === 'OggS') return { type: 'audio/ogg', ext: 'ogg' };
 	return null;
 }
-
-/** Image types from content (§10.2): the device re-encodes to WebP, but checks don't trust it. */
-function sniffImage(b: Uint8Array): string | null {
-	if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
-	if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
-	const ascii = (from: number, to: number) => String.fromCharCode(...b.subarray(from, to));
-	if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return 'image/webp';
-	return null;
-}
-
-const extensionOf = (type: string) =>
-	({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' })[type] ?? 'bin';
 
 /** Newest upload first; a seeded Book's own Revision (no upload) is the oldest. */
 function newestFirst(a: RevisionRecord, b: RevisionRecord): number {
@@ -1249,6 +1240,8 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			};
 			await db.put('books', next);
 			await moveLayers(next, record.id);
+			// Recaps and glossary find their names in the new text (P1-STU-05 acceptance).
+			await deps.story.moveTo(bookId, record.id);
 			if (check.hold) await heldNotice(book.creatorId, 'book', bookId, book.title);
 			deps.changed('studio', 'catalogue');
 			return detail(next);
@@ -1818,6 +1811,34 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			}
 			deps.changed('studio', 'catalogue', 'community');
 			return curationOf(book);
+		},
+
+		// ---- the story so far (P1-STU-05) ----
+
+		async getStory(bookId) {
+			const { book } = await ownBook(bookId);
+			return deps.story.studio(book, await workingRevisionId(book));
+		},
+
+		async saveRecap(bookId, input) {
+			const { book } = await ownBook(bookId);
+			return deps.story.saveRecap(book, await workingRevisionId(book), input);
+		},
+
+		async saveGlossaryEntry(bookId, entryId, input) {
+			const { book } = await ownBook(bookId);
+			return deps.story.saveEntry(book, await workingRevisionId(book), entryId, input);
+		},
+
+		async removeGlossaryEntry(bookId, entryId) {
+			const { book } = await ownBook(bookId);
+			return deps.story.removeEntry(book, await workingRevisionId(book), entryId);
+		},
+
+		async publishStory(bookId, input) {
+			const { book } = await ownBook(bookId);
+			await requireActive();
+			return deps.story.publish(book, await workingRevisionId(book), input?.aiUse);
 		},
 
 		async setCommunityListing(layerId, listed) {

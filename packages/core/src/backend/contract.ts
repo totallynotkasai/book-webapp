@@ -58,6 +58,13 @@ import {
 	reportInputSchema,
 	studioLayerSchema
 } from '../community';
+import {
+	glossaryEntryInputSchema,
+	publishStoryInputSchema,
+	recapInputSchema,
+	storySoFarSchema,
+	studioStorySchema
+} from '../story';
 import { pageRequestSchema, pageSchema } from './paging';
 
 const optionalPage = z.tuple([pageRequestSchema.optional()]);
@@ -122,7 +129,8 @@ export const backendContract = {
 		migrateAnchors: {
 			input: z.tuple([id, migrateAnchorsInputSchema]),
 			output: migrateAnchorsResultSchema
-		}
+		},
+		storySoFar: { input: slug, output: storySoFarSchema.nullable() }
 	},
 	layers: {
 		list: { input: slug, output: z.array(layerSummarySchema) },
@@ -177,7 +185,15 @@ export const backendContract = {
 			output: curationSchema
 		},
 		endorse: { input: z.tuple([id, z.boolean()]), output: curationSchema },
-		setCommunityListing: { input: z.tuple([id, z.boolean()]), output: curationSchema }
+		setCommunityListing: { input: z.tuple([id, z.boolean()]), output: curationSchema },
+		getStory: { input: slug, output: studioStorySchema },
+		saveRecap: { input: z.tuple([id, recapInputSchema]), output: studioStorySchema },
+		saveGlossaryEntry: {
+			input: z.tuple([id, id.nullable(), glossaryEntryInputSchema]),
+			output: studioStorySchema
+		},
+		removeGlossaryEntry: { input: z.tuple([id, id]), output: studioStorySchema },
+		publishStory: { input: z.tuple([id, publishStoryInputSchema]), output: studioStorySchema }
 	},
 	community: {
 		hub: { input: slug, output: communityHubSchema },

@@ -53,6 +53,13 @@ import type {
 } from '../community';
 import type { LayerSummaryDto, OpenPackDto, OpenTrackDto } from '../layers';
 import type {
+	GlossaryEntryInput,
+	PublishStoryInput,
+	RecapInput,
+	StorySoFarDto,
+	StudioStoryDto
+} from '../story';
+import type {
 	BookmarkDesignDto,
 	BookPageDto,
 	NarrationSampleDto,
@@ -178,6 +185,13 @@ export interface ContentApi {
 	 * (`ENTITLEMENT_REQUIRED`). Phase 2 runs the same `migrateAnchors` on the server.
 	 */
 	migrateAnchors(bookId: string, input: MigrateAnchorsInput): Promise<MigrateAnchorsResult>;
+	/**
+	 * The Book's published recaps and glossary on its current Revision (P1-RDR-13), or null when its
+	 * author hasn't published any. Like `open`: an owner, or a sample reader of a listed Book, and
+	 * only what's in Chapters they can open. The reader shows what's at or before how far they've
+	 * read (Invariant 6, `storySoFarAt` in `@book/domain`). Rejects with `ENTITLEMENT_REQUIRED`.
+	 */
+	storySoFar(bookId: string): Promise<StorySoFarDto | null>;
 }
 
 /**
@@ -260,6 +274,32 @@ export interface StudioApi {
 	endorse(layerId: string, endorsed: boolean): Promise<CurationDto>;
 	/** Hides (delists) or relists a community Layer on the author's Book (§10.6). */
 	setCommunityListing(layerId: string, listed: boolean): Promise<CurationDto>;
+
+	/**
+	 * The story so far being written for one of the Creator's own Books (P1-STU-05): a recap per
+	 * Chapter and glossary entries with their first appearances, on the Revision readers have (or,
+	 * before the Book is out, its newest processed upload). Rejects with `CONFLICT` before any text
+	 * is processed. Changes are a draft until `publishStory`.
+	 */
+	getStory(bookId: string): Promise<StudioStoryDto>;
+	/** Writes (or, with empty text, removes) a Chapter's recap in the draft. */
+	saveRecap(bookId: string, input: RecapInput): Promise<StudioStoryDto>;
+	/**
+	 * Adds an entry (`entryId` null) or changes one in the draft; its names' first appearances are
+	 * found in the text. Rejects with `VALIDATION_FAILED` when another entry has the same name, or
+	 * a picture has no alt text.
+	 */
+	saveGlossaryEntry(
+		bookId: string,
+		entryId: string | null,
+		input: GlossaryEntryInput
+	): Promise<StudioStoryDto>;
+	removeGlossaryEntry(bookId: string, entryId: string): Promise<StudioStoryDto>;
+	/**
+	 * Makes the draft what readers see. The AI answer is required (§10.6); rejects with
+	 * `VALIDATION_FAILED` while an entry's name isn't in the text, or there's nothing to publish.
+	 */
+	publishStory(bookId: string, input: PublishStoryInput): Promise<StudioStoryDto>;
 }
 
 /**

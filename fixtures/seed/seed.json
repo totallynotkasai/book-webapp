@@ -1,5 +1,5 @@
 {
-	"version": 8,
+	"version": 9,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -997,6 +997,125 @@
 		{
 			"userId": "seed-reader-12",
 			"creatorId": "creator-ink-and-quill"
+		}
+	],
+	"stories": [
+		{
+			"bookId": "book-lamplighters-ledger",
+			"aiUse": "generated",
+			"publishedAt": "2026-10-01T09:00:00.000Z",
+			"recaps": [
+				{
+					"chapterId": "text/chapter-1.xhtml",
+					"text": "Tam Reed was Named on her fourteenth birthday while lighting the Wickery Round for Mister Cobb. The System made her a Lamplighter, with a skill called Kindle. At the Saltgate steps a silent grey fog, the Murk, stopped Kindle working, and a Smudge rolled out of it until a lit match drove it back. Tam ran to Mister Cobb’s door with a grey cat beside her, and he said he had been keeping something for her."
+				},
+				{
+					"chapterId": "text/chapter-2.xhtml",
+					"text": "Mister Cobb told Tam the Murk had come once before, long ago, and that the grey cat was called Wick. He gave her the Lamplighter’s Ledger, where every lamp on the Round had been written down for 312 years, and accepting it unlocked Inscribe: a lamp written in the Ledger resists the Murk. Then Bram Ollery, a Baker, came to say his brother Pim had not come back from Saltgate, and they set off to find him."
+				},
+				{
+					"chapterId": "text/chapter-3.xhtml",
+					"text": "Tam and Bram crossed Saltgate Bridge one lamp at a time, lighting each with a match and writing it in the Ledger so the Murk drew back, while Bram’s Proof made Smudges rise and burst. With a Greater Smudge between them and Pim, Tam wrote lamp fifty-two in again beneath Agnes Wray’s entry on the first page, and it lit by itself. Pim woke, and a tall figure in a grey coat watched from the Lumen Guild."
+				},
+				{
+					"chapterId": "text/chapter-4.xhtml",
+					"text": "Isolde Vell, Guildmaster of the Lumen Guild, ordered the Wickery Round converted to sigil-lights, then walked it with Tam to see for herself. When the Murk rose, all ten sigil-lights went out while every inscribed oil lamp held, because a light nobody lit cannot be written down. A hidden page in the Ledger then revealed the First Lamp beneath St Ember, lit with a flame carried, not made, and Tam realised it had gone out."
+				},
+				{
+					"chapterId": "text/chapter-5.xhtml",
+					"text": "Bram’s family oven had burned since his great-grandfather lit it from lamp one, so its fire was a flame carried, not made. Guildmaster Vell gave Tam the key to St Ember tower, and Tam, Bram and Wick carried an ember through the dark old town. Beneath the tower, Tam answered the Warden of the Murk by reading from the Ledger, but by the time they reached the First Lamp the ember was almost out."
+				},
+				{
+					"chapterId": "text/chapter-6.xhtml",
+					"text": "Bram used Proof to make the dying ember rise into a flame, and the First Lamp lit once Tam had written it into the Ledger. The Murk retreated, the old town’s lamps lit themselves, and Tam’s class evolved into Keeper of Lamps. The Lumen Guild asked her to keep the book and Mister Cobb to teach new lamplighters. Then a new page in Agnes Wray’s hand pointed Tam towards the Long Road."
+				}
+			],
+			"glossary": [
+				{
+					"id": "entry-tamsin-reed",
+					"name": "Tamsin Reed",
+					"aliases": ["Tam Reed", "Tam"],
+					"description": "A Hollowmere girl Named a Lamplighter at dusk on her fourteenth birthday, halfway up a ladder while lighting the Wickery Round for Mister Cobb."
+				},
+				{
+					"id": "entry-hollowmere",
+					"name": "Hollowmere",
+					"aliases": [],
+					"description": "The city where Tam lives, with its lanes, its canal and the bells of St Ember. In Hollowmere, the System comes to you at dusk on your fourteenth birthday."
+				},
+				{
+					"id": "entry-mister-cobb",
+					"name": "Mister Cobb",
+					"aliases": ["Ezra Cobb"],
+					"description": "Hollowmere’s old lamplighter, seventy-three, who has walked the Wickery Round every night for fifty years and taught Tam its order. His knees have finally given up."
+				},
+				{
+					"id": "entry-the-murk",
+					"name": "the Murk",
+					"aliases": ["Murk"],
+					"description": "A low, silent grey fog that does not move with the wind; those who walk in it forget where they were going. The System gives its weakness as ‘Light that is remembered’."
+				},
+				{
+					"id": "entry-kindle",
+					"name": "Kindle",
+					"aliases": [],
+					"description": "Tam’s first Lamplighter skill. She lights a lamp she can touch just by thinking the word, at a cost of 1 Light."
+				},
+				{
+					"id": "entry-lumen-guild",
+					"name": "Lumen Guild",
+					"aliases": ["Guild"],
+					"description": "The guild whose Clerks wear grey coats with silver buttons. Its white sigil-lights never flicker or need a ladder, and half of Hollowmere already has them."
+				},
+				{
+					"id": "entry-saltgate-bridge",
+					"name": "Saltgate Bridge",
+					"aliases": ["Saltgate"],
+					"description": "The bridge at the foot of the Saltgate steps, where the canal path of the Wickery Round ends. On Tam’s first night, every lamp on it was dark."
+				},
+				{
+					"id": "entry-wick",
+					"name": "Wick",
+					"aliases": [],
+					"description": "A grey cat with one white ear who followed Tam along the canal path on her Naming Day, and ran beside her when she fled the Murk."
+				},
+				{
+					"id": "entry-the-ledger",
+					"name": "The Lamplighter’s Ledger",
+					"aliases": ["the Ledger"],
+					"description": "A huge leather book with a brass clasp shaped like a flame. Every lamp lit on the Wickery Round for 312 years is written in it, and Mister Cobb has made Tam its keeper."
+				},
+				{
+					"id": "entry-inscribe",
+					"name": "Inscribe",
+					"aliases": [],
+					"description": "A skill Tam unlocked by accepting the Ledger: she writes a lamp she has lit into it, and an inscribed lamp resists the Murk. Costs 1 Light."
+				},
+				{
+					"id": "entry-bram-ollery",
+					"name": "Bram Ollery",
+					"aliases": ["Bram"],
+					"description": "A year older than Tam and usually covered in flour, he brings Mister Cobb yesterday’s bread. He was Named a Baker in the summer, and his skill Proof makes things rise."
+				},
+				{
+					"id": "entry-isolde-vell",
+					"name": "Isolde Vell",
+					"aliases": ["Guildmaster Vell", "Guildmaster"],
+					"description": "Guildmaster of the Lumen Guild of Hollowmere. Her public notice orders the Wickery Round converted to sigil-lights and says the post of Lamplighter is no longer required."
+				},
+				{
+					"id": "entry-first-lamp",
+					"name": "First Lamp",
+					"aliases": ["Lamp 0", "Lamp Zero"],
+					"description": "Lamp 0, from a hidden page in the Ledger: lit by Agnes Wray beneath the tower of St Ember, with a flame carried, not made. All the lamps of the city are lit from it."
+				},
+				{
+					"id": "entry-warden-of-the-murk",
+					"name": "Warden of the Murk",
+					"aliases": ["Warden"],
+					"description": "A faceless figure made of the Murk, taller than a door, waiting at the foot of the stair beneath St Ember tower. It asks where you are going; those who cannot answer forget the way home."
+				}
+			]
 		}
 	]
 }

@@ -25,6 +25,8 @@ export interface StudioFixtures {
 	book: Uint8Array;
 	/** The same EPUB with one paragraph changed in its first Chapter only. */
 	edited: Uint8Array;
+	/** Names in `book`'s text (P1-STU-05): one in its first Chapter, one first in its second. */
+	names: { inFirstChapter: string; inSecondChapter: string };
 }
 
 interface Context {
@@ -362,6 +364,221 @@ export function describeStudioContract(ctx: Context): void {
 			await backend.studio.publishRevision(book.id, { revisionId: upload.id, aiUse: 'none' });
 			const after = await backend.studio.getTrack(track.id);
 			expect(after.chapters.find((c) => c.chapterId === first.chapterId)!.status).toBe('stale');
+		});
+	});
+
+	describe('studio: the story so far (P1-STU-05, P1-RDR-13)', () => {
+		const { inFirstChapter, inSecondChapter } = ctx.fixtures.names;
+		const entry = (name: string, aliases: string[] = []) => ({
+			name,
+			aliases,
+			description: `About ${name}.`
+		});
+
+		it('is written as a draft, found in the text, and published only with every name in it and the AI answer', async () => {
+			const backend = ctx.backend();
+			const { book } = await publishedBook();
+			const empty = await backend.studio.getStory(book.id);
+			conforms('studio', 'getStory', empty);
+			expect(empty.recaps.length).toBeGreaterThan(1);
+			expect(empty.recaps.every((r) => r.text === '' && !r.changed)).toBe(true);
+			expect(empty).toMatchObject({ glossary: [], publishedAt: null, unpublishedChanges: false });
+			expect(empty.problems).toHaveLength(1);
+
+			const [first, second] = empty.recaps;
+			let story = await backend.studio.saveRecap(book.id, {
+				chapterId: first!.chapterId,
+				text: '  What happened first.  '
+			});
+			conforms('studio', 'saveRecap', story);
+			expect(story.recaps[0]!.text).toBe('What happened first.');
+			story = await backend.studio.saveGlossaryEntry(book.id, null, entry(inSecondChapter));
+			conforms('studio', 'saveGlossaryEntry', story);
+			await backend.studio.saveGlossaryEntry(book.id, null, entry(inFirstChapter));
+			story = await backend.studio.saveGlossaryEntry(book.id, null, entry('Zebedee Crumbhorn'));
+			// In order of first appearance; the one that isn't in the text last.
+			expect(story.glossary.map((e) => e.name)).toEqual([
+				inFirstChapter,
+				inSecondChapter,
+				'Zebedee Crumbhorn'
+			]);
+			const [early, later, absent] = story.glossary;
+			expect(early!.names[0]!.chapterId).toBe(first!.chapterId);
+			expect(later!.names[0]).toMatchObject({ chapterId: second!.chapterId });
+			expect(later!.names[0]!.firstAppearance).toMatchObject({
+				kind: 'range',
+				bookId: book.id,
+				revisionId: story.revisionId
+			});
+			expect(later!.names[0]!.context).toContain(inSecondChapter.split(' ')[0]);
+			expect(absent!.names[0]).toMatchObject({ firstAppearance: null, chapterId: null });
+			expect(story.problems.join(' ')).toContain('Zebedee Crumbhorn');
+			expect(story.unpublishedChanges).toBe(true);
+
+			// Readers have nothing until it's published.
+			await signIn('reader');
+			await backend.checkout.claim(
+				(await backend.catalogue.getBook(book.slug)).offers[0]!.productId
+			);
+			expect(await backend.content.storySoFar(book.id)).toBeNull();
+
+			await signIn('creator');
+			await expectBackendError(
+				backend.studio.publishStory(book.id, {} as never),
+				'VALIDATION_FAILED'
+			);
+			await expectBackendError(
+				backend.studio.publishStory(book.id, { aiUse: 'assisted' }),
+				'VALIDATION_FAILED'
+			);
+			story = await backend.studio.removeGlossaryEntry(book.id, absent!.id);
+			conforms('studio', 'removeGlossaryEntry', story);
+			story = await backend.studio.publishStory(book.id, { aiUse: 'assisted' });
+			conforms('studio', 'publishStory', story);
+			expect(story).toMatchObject({ aiUse: 'assisted', unpublishedChanges: false, problems: [] });
+			expect(story.publishedAt).not.toBeNull();
+
+			// A draft change isn't the readers' until it's published again.
+			story = await backend.studio.saveRecap(book.id, {
+				chapterId: second!.chapterId,
+				text: 'What happened next.'
+			});
+			expect(story.unpublishedChanges).toBe(true);
+
+			await signIn('reader');
+			const opened = await backend.content.open(book.id);
+			const forReader = await backend.content.storySoFar(book.id);
+			conforms('content', 'storySoFar', forReader);
+			expect(forReader).toMatchObject({
+				bookId: book.id,
+				revisionId: opened.revisionId,
+				aiUse: 'assisted',
+				recaps: [{ chapterId: first!.chapterId, text: 'What happened first.' }]
+			});
+			expect(forReader!.glossary.map((e) => e.names[0]!.name).sort()).toEqual(
+				[inFirstChapter, inSecondChapter].sort()
+			);
+			const later2 = forReader!.glossary.find((e) => e.names[0]!.name === inSecondChapter)!;
+			expect(later2.names[0]!.firstAppearance.startWordId).toBe(
+				later!.names[0]!.firstAppearance!.startWordId
+			);
+		});
+
+		it('names an entry with what it’s also called, one name to one entry, and pictures need alt text', async () => {
+			const backend = ctx.backend();
+			const { book } = await publishedBook();
+			let story = await backend.studio.saveGlossaryEntry(
+				book.id,
+				null,
+				entry(inFirstChapter, [inSecondChapter, inFirstChapter, 'Not In The Text'])
+			);
+			const [saved] = story.glossary;
+			// The entry's own name again is dropped; an alias not in the text yet is allowed.
+			expect(saved!.aliases).toEqual([inSecondChapter, 'Not In The Text']);
+			expect(saved!.names.map((n) => n.firstAppearance !== null)).toEqual([true, true, false]);
+			expect(story.problems).toEqual([]);
+			await expectBackendError(
+				backend.studio.saveGlossaryEntry(book.id, null, entry(inSecondChapter)),
+				'VALIDATION_FAILED'
+			);
+			const picture = {
+				width: 2,
+				height: 3,
+				dominant: '#336699',
+				variants: [{ width: 2, file: blob(PNG, 'image/png') }]
+			};
+			await expectBackendError(
+				backend.studio.saveGlossaryEntry(book.id, saved!.id, {
+					...entry(inFirstChapter),
+					picture
+				}),
+				'VALIDATION_FAILED'
+			);
+			story = await backend.studio.saveGlossaryEntry(book.id, saved!.id, {
+				...entry(inFirstChapter),
+				picture,
+				pictureAlt: 'A portrait.'
+			});
+			expect(story.glossary[0]!.picture).toMatchObject({ alt: 'A portrait.', width: 2, height: 3 });
+			expect(story.glossary[0]!.aliases).toEqual([]);
+			story = await backend.studio.saveGlossaryEntry(book.id, saved!.id, {
+				...entry(inFirstChapter),
+				picture: null
+			});
+			expect(story.glossary[0]!.picture).toBeNull();
+			await expectBackendError(
+				backend.studio.removeGlossaryEntry(book.id, 'entry-unknown'),
+				'NOT_FOUND'
+			);
+			await expectBackendError(
+				backend.studio.saveRecap(book.id, { chapterId: 'no-such-chapter', text: 'x' }),
+				'NOT_FOUND'
+			);
+		});
+
+		it('finds its names again in a new version, and marks recaps whose Chapter changed', async () => {
+			const backend = ctx.backend();
+			const { book, revisionId } = await publishedBook();
+			const [first, second] = (await backend.studio.getStory(book.id)).recaps;
+			await backend.studio.saveRecap(book.id, { chapterId: first!.chapterId, text: 'One.' });
+			await backend.studio.saveRecap(book.id, { chapterId: second!.chapterId, text: 'Two.' });
+			const before = await backend.studio.saveGlossaryEntry(book.id, null, entry(inSecondChapter));
+			await backend.studio.publishStory(book.id, { aiUse: 'none' });
+			const anchor = before.glossary[0]!.names[0]!.firstAppearance!;
+			expect(anchor.revisionId).toBe(revisionId);
+
+			const upload = await backend.studio.upload(blob(ctx.fixtures.edited), { bookId: book.id });
+			await processed(book.id, upload.id);
+			await backend.studio.publishRevision(book.id, { revisionId: upload.id, aiUse: 'none' });
+			const after = await backend.studio.getStory(book.id);
+			expect(after.revisionId).toBe(upload.id);
+			// Only the first Chapter's text changed (the fixture's edit).
+			expect(after.recaps.map((r) => r.changed)).toEqual(
+				after.recaps.map((r) => r.chapterId === first!.chapterId)
+			);
+			expect(after.glossary[0]!.names[0]!.firstAppearance).toMatchObject({
+				revisionId: upload.id,
+				startWordId: anchor.startWordId,
+				endWordId: anchor.endWordId
+			});
+			// Saving the recap again says it's been looked at.
+			const resaved = await backend.studio.saveRecap(book.id, {
+				chapterId: first!.chapterId,
+				text: 'One, edited.'
+			});
+			expect(resaved.recaps[0]!.changed).toBe(false);
+
+			await signIn('reader');
+			await backend.checkout.claim(
+				(await backend.catalogue.getBook(book.slug)).offers[0]!.productId
+			);
+			const forReader = await backend.content.storySoFar(book.id);
+			expect(forReader!.revisionId).toBe(upload.id);
+			expect(forReader!.glossary[0]!.names[0]!.firstAppearance.revisionId).toBe(upload.id);
+			expect(forReader!.recaps.map((r) => r.text)).toEqual(['One.', 'Two.']);
+		});
+
+		it('is only for the Book’s own Creator, and only for readers who can open the Book', async () => {
+			const backend = ctx.backend();
+			const { book } = await publishedBook();
+			await backend.studio.saveRecap(book.id, {
+				chapterId: (await backend.studio.getStory(book.id)).recaps[0]!.chapterId,
+				text: 'One.'
+			});
+			await backend.studio.publishStory(book.id, { aiUse: 'none' });
+			await signIn('creator', 1);
+			await expectBackendError(backend.studio.getStory(book.id), 'FORBIDDEN');
+			await expectBackendError(
+				backend.studio.saveGlossaryEntry(book.id, null, entry(inFirstChapter)),
+				'FORBIDDEN'
+			);
+			await expectBackendError(
+				backend.studio.publishStory(book.id, { aiUse: 'none' }),
+				'FORBIDDEN'
+			);
+			await signIn('reader');
+			await expectBackendError(backend.studio.getStory(book.id), 'FORBIDDEN');
+			await expectBackendError(backend.content.storySoFar('book-unknown'), 'NOT_FOUND');
 		});
 	});
 

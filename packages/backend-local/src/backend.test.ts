@@ -73,7 +73,11 @@ describeBackendContract(
 	'backend-local',
 	async ({ clock }) => (await makeLocal({ clock })).backend,
 	{
-		studio: { book: statusWindow, edited: editedStatusWindow() }
+		studio: {
+			book: statusWindow,
+			edited: editedStatusWindow(),
+			names: { inFirstChapter: 'Mara Quill', inSecondChapter: 'Mill Floor' }
+		}
 	}
 );
 
@@ -406,5 +410,49 @@ describe('store simulation (P1-STO-02, P1-STO-04)', () => {
 				queue.filter((f) => f.rule === 'upload_volume' && f.targetId === 'creator-ink-and-quill')
 			).toHaveLength(1);
 		});
+	});
+});
+
+describe('the seeded story so far (P1-STU-05, P1-RDR-13)', () => {
+	it('is the Ledger’s, found in its text the first time it’s read', async () => {
+		const { backend } = await makeLocal();
+		await backend.session.signInAs('author');
+		const story = (await backend.content.storySoFar('book-lamplighters-ledger'))!;
+		expect(story.aiUse).toBe('generated');
+		expect(story.recaps).toHaveLength(6);
+		expect(story.revisionId).toBe(
+			(await backend.content.open('book-lamplighters-ledger')).revisionId
+		);
+		const cobb = story.glossary.find((e) => e.id === 'entry-mister-cobb')!;
+		expect(cobb.names.map((n) => n.name)).toEqual(['Mister Cobb', 'Ezra Cobb']);
+		expect(cobb.names[1]!.firstAppearance.startOrdinal).toBeGreaterThan(
+			cobb.names[0]!.firstAppearance.startOrdinal
+		);
+		// The Studio sees the same, as its draft.
+		const studio = await backend.studio.getStory('book-lamplighters-ledger');
+		expect(studio).toMatchObject({ aiUse: 'generated', unpublishedChanges: false, problems: [] });
+		// Every Chapter with Words can have one, front matter too (left empty here).
+		expect(studio.recaps.map((r) => r.title)).toEqual([
+			'About This Serial',
+			'1. Dusk Shift',
+			'2. The Ledger',
+			'3. Murk on Saltgate Bridge',
+			'4. Sigil-Lights',
+			'5. The Lamp That Remembers',
+			'6. Balancing the Ledger'
+		]);
+		expect(studio.glossary.every((e) => e.names[0]!.firstAppearance)).toBe(true);
+	});
+
+	it('gives a sample reader only what their sample Chapters hold', async () => {
+		const { backend } = await makeLocal();
+		const story = (await backend.content.storySoFar('book-lamplighters-ledger'))!;
+		const opened = await backend.content.open('book-lamplighters-ledger', { sample: true });
+		const locked = new Set(opened.locked.map((l) => l.chapterId));
+		expect(locked.size).toBeGreaterThan(0);
+		expect(story.recaps.length).toBe(6 - locked.size);
+		expect(story.recaps.some((r) => locked.has(r.chapterId))).toBe(false);
+		expect(story.glossary.map((e) => e.id)).not.toContain('entry-isolde-vell');
+		await expectBackendError(backend.content.storySoFar('book-unknown'), 'NOT_FOUND');
 	});
 });

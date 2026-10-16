@@ -23,6 +23,7 @@ import type {
 	ShelfRecord
 } from './seed';
 import type { SimulationSettings } from './simulation';
+import type { StoryRecord } from './story';
 
 /**
  * backend-local's own database: the simulated "server", kept apart from the user's `Stores`
@@ -65,6 +66,8 @@ export interface BackendDB extends DBSchema {
 	inbox: { key: string; value: InboxRecord; indexes: { userId: string } };
 	/** What each Creator published when, for `upload_volume`. */
 	publishes: { key: string; value: PublishRecord; indexes: { creatorId: string } };
+	/** The story so far (P1-STU-05): each Book's recaps and glossary, draft and published. */
+	stories: { key: string; value: StoryRecord };
 }
 
 export interface ReportRecord {
@@ -246,11 +249,12 @@ export const SEEDED_STORES = [
 	'reports',
 	'moderationActions',
 	'inbox',
-	'publishes'
+	'publishes',
+	'stories'
 ] as const;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 8;
+const VERSION = 9;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -312,6 +316,10 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 				db.createObjectStore('moderationActions', { keyPath: 'id' });
 				db.createObjectStore('inbox', { keyPath: 'id' }).createIndex('userId', 'userId');
 				db.createObjectStore('publishes', { keyPath: 'id' }).createIndex('creatorId', 'creatorId');
+			}
+			if (oldVersion < 9) {
+				// P1-STU-05: recaps and glossaries. Seeded like Books, so a new seed version fills it.
+				db.createObjectStore('stories', { keyPath: 'bookId' });
 			}
 		}
 	});
