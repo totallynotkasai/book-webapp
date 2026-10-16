@@ -816,7 +816,7 @@ export class FoliateEngine implements ReaderEngine {
 			chapterId,
 			firstOrdinal: words.index.firstOrdinal,
 			wordIds: words.index.words.map((w) => w[0]),
-			texts: words.index.words.map((_, i) => map.text(i)),
+			texts: map.punctuatedTexts(),
 			blocks: words.index.words.map((w) => w[1])
 		};
 	}

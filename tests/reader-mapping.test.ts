@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { RevisionManifest, WordIndex } from '@book/core';
 import { ChapterWords, DocWordMap } from '@book/reader-core';
+import { sentenceSpans } from '@book/domain';
 import { ingestEpub, tokenise } from '@book/text-pipeline';
 import { describe, expect, it } from 'vitest';
 
@@ -48,6 +49,19 @@ describe.each(available)('%s', (name, path) => {
 			expect(doc.querySelector('parsererror'), chapter.chapterId).toBeNull();
 			const map = new DocWordMap(doc, new ChapterWords(manifest, chapter, index));
 			expect(map.mismatchedBlocks(), chapter.chapterId).toEqual([]);
+			// What the device voice says (P1-LAY-08): every Word with its punctuation, each in
+			// exactly one sentence, in order.
+			const texts = map.punctuatedTexts();
+			expect(texts).toHaveLength(index.words.length);
+			const sentences = sentenceSpans(
+				texts,
+				index.words.map((w) => w[1])
+			);
+			expect(sentences[0]?.[0]).toBe(0);
+			expect(sentences.at(-1)?.[1]).toBe(texts.length - 1);
+			sentences.forEach(([first], s) => {
+				if (s > 0) expect(first).toBe(sentences[s - 1]![1] + 1);
+			});
 			const sample = new Set<number>([0, index.words.length - 1]);
 			for (let i = 0; i < index.words.length; i += step) sample.add(i);
 			for (const i of sample) {
@@ -65,6 +79,7 @@ describe.each(available)('%s', (name, path) => {
 				expect(anchor.quote.exact).toBe(text);
 				expect(map.words.indexOfOrdinal(anchor.ordinal)).toBe(i);
 				expect(map.words.indexOfWordId(anchor.wordId)).toBe(i);
+				expect(texts[i]).toContain(text);
 				checked++;
 			}
 		}
@@ -99,5 +114,40 @@ describe('selections snap to whole Words (Invariant 5)', () => {
 		expect(anchor.endOrdinal).toBe(chapter.firstOrdinal + 6);
 		expect(anchor.quote.exact.split(' ').length).toBeGreaterThanOrEqual(4);
 		expect(anchor.quote.prefix.length).toBeLessThanOrEqual(32);
+	});
+});
+
+describe('Words with their punctuation (chapterText, §8.3)', () => {
+	it('carries quotes and stops, so sentences split as the narration expects', async () => {
+		const result = await ingestEpub(
+			new Uint8Array(readFileSync(join(root, 'apps/web/static/books/alice.epub'))),
+			{ bookId: 'book-alice' }
+		);
+		const file = (p: string) =>
+			new TextDecoder().decode(result.files.find((f) => f.path === p)!.data);
+		const manifest = JSON.parse(file('manifest.json')) as RevisionManifest;
+		const entry = manifest.toc.find((t) => /CHAPTER I\./.test(t.label))!;
+		const chapter = manifest.chapters.find((c) => c.chapterId === entry.chapterId)!;
+		const index = JSON.parse(file(`index/${chapter.chapterId}.words.json`)) as WordIndex;
+		const doc = new DOMParser().parseFromString(
+			file(`content/${chapter.href}`),
+			'application/xhtml+xml'
+		);
+		const map = new DocWordMap(doc, new ChapterWords(manifest, chapter, index));
+		const texts = map.punctuatedTexts();
+		expect(texts).toHaveLength(index.words.length);
+		const joined = texts.join(' ');
+		expect(joined).toContain(
+			'“and what is the use of a book,” thought Alice “without pictures or conversations?”'
+		);
+		// Every Word keeps its own letters, with only punctuation around them.
+		for (let i = 0; i < texts.length; i++) expect(texts[i]).toContain(map.text(i));
+		const sentences = sentenceSpans(
+			texts,
+			index.words.map((w) => w[1])
+		);
+		// Chapter I has far more sentences than paragraphs.
+		const paragraphs = new Set(index.words.map((w) => w[1])).size;
+		expect(sentences.length).toBeGreaterThan(paragraphs * 1.5);
 	});
 });

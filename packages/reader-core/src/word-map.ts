@@ -139,6 +139,45 @@ export class DocWordMap {
 		return this.range(i)?.toString() ?? '';
 	}
 
+	/** A Block's own text as one string: the word index's offsets count into it. */
+	blockText(b: number): string {
+		return (
+			this.#block(b)
+				?.nodes.map((n) => n.node.data)
+				.join('') ?? ''
+		);
+	}
+
+	/**
+	 * Every Word with the punctuation it carries on the page: opening quotes and brackets before
+	 * it, closing punctuation after it (`“Well!”`), so sentences can be found (§8.3) and spoken.
+	 * The text between two Words in a Block is split at its spaces: up to the first belongs to the
+	 * Word before, after the last to the Word after; with no space, all of it to the Word before.
+	 */
+	punctuatedTexts(): string[] {
+		const words = this.words.index.words;
+		const texts: string[] = [];
+		let current = -1;
+		let text = '';
+		for (let i = 0; i < words.length; i++) {
+			const [, b, start, end] = words[i]!;
+			if (b !== current) {
+				current = b;
+				text = this.blockText(b);
+			}
+			const prev = words[i - 1];
+			const next = words[i + 1];
+			const first = !prev || prev[1] !== b;
+			const before = text.slice(first ? 0 : prev[3], start);
+			const after = text.slice(end, next && next[1] === b ? next[2] : text.length);
+			const space = /\s/u.test(before);
+			const lead = space ? /\S*$/u.exec(before)![0] : first ? before : '';
+			const trail = /^\S*/u.exec(after)![0];
+			texts.push(lead + text.slice(start, end) + trail);
+		}
+		return texts;
+	}
+
 	/** The Block element holding the i-th Word (figures go after it, §8.2). */
 	blockElement(i: number): Element | null {
 		const entry = this.words.index.words[i];
