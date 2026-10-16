@@ -35,9 +35,20 @@
 	}: Props = $props();
 
 	const labelId = uid('slider-label');
+	/**
+	 * Whether the reader is moving it. Bits UI also reports a change when it clamps the value to
+	 * a new `max` (narration's next, shorter Chapter), which isn't the reader's; `oninput` is.
+	 */
+	let interacting = false;
 </script>
 
-<div class={['slider-field', className]}>
+<div
+	class={['slider-field', className]}
+	onpointerdowncapture={() => (interacting = true)}
+	onkeydowncapture={() => (interacting = true)}
+	onpointerupcapture={() => (interacting = false)}
+	onkeyupcapture={() => (interacting = false)}
+>
 	<div class="heading">
 		<span id={labelId} class="label">{label}</span>
 		{#if showValue}<span class="value" aria-hidden="true">{format(value)}</span>{/if}
@@ -51,7 +62,7 @@
 		{disabled}
 		onValueChange={(next) => {
 			value = next;
-			oninput?.(next);
+			if (interacting) oninput?.(next);
 		}}
 		onValueCommit={(next) => onchange?.(next)}
 	>

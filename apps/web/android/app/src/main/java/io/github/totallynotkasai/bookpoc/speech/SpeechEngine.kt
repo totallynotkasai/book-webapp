@@ -15,6 +15,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import androidx.core.content.ContextCompat
+import io.github.totallynotkasai.bookpoc.sleep.SleepTimer
 import java.util.Locale
 
 /**
@@ -29,6 +30,10 @@ import java.util.Locale
  *
  * Only on-device voices are offered or used (D-036): never one that needs the network, so the
  * text being read never leaves the phone.
+ *
+ * The sleep timer (P1-LAY-09) stops speech before an utterance ([stopBefore]): the next
+ * Chapter's first, or, once the time is up, the one after the sentence being said. A voice
+ * can't fade mid-sentence, so it finishes the sentence instead.
  */
 object SpeechEngine {
     data class Utterance(val id: Int, val text: String)
@@ -73,13 +78,61 @@ object SpeechEngine {
     var player: SpeechPlayer? = null
     val listeners = mutableSetOf<() -> Unit>()
 
+    /** The sleep timer: [onSleepTick] notices when its time is up. */
+    val sleep = SleepTimer(playing = { playing }, tick = { onSleepTick() })
+
+    /** Speech stops before this utterance for the sleep timer; [Int.MAX_VALUE] when it needn't. */
+    private var stopBefore = Int.MAX_VALUE
+
     val currentId: Int? get() = queue.getOrNull(index)?.id
     val hasQueue: Boolean get() = queue.isNotEmpty()
     val title: String? get() = currentId?.let { id -> titles.headMap(id + 1).let { if (it.isEmpty()) null else it[it.lastKey()] } }
 
     private fun changed() {
+        // Only playing time counts towards the sleep timer.
+        sleep.playingChanged()
         player?.refresh()
         listeners.toList().forEach { it() }
+    }
+
+    // ---- the sleep timer ----
+
+    /** Arms the sleep timer (`time` with [ms] of speaking, or `item`), replacing any; null turns it off. */
+    fun setSleep(kind: String?, ms: Long) {
+        sleep.arm(kind, ms)
+        updateStop()
+        changed()
+    }
+
+    private fun timeUp() = sleep.kind == "time" && (sleep.timeLeftMs ?: 1L) <= 0L
+
+    private fun updateStop() {
+        stopBefore = when {
+            sleep.kind == "item" -> (index + 1 until queue.size).firstOrNull { titles.containsKey(queue[it].id) }
+                ?: Int.MAX_VALUE
+            timeUp() -> index + 1
+            else -> Int.MAX_VALUE
+        }
+    }
+
+    private fun onSleepTick() {
+        if (!timeUp() || stopBefore <= index + 1) return
+        // Time's up: finish the sentence being said, then stop.
+        updateStop()
+        changed()
+    }
+
+    /** The sleep timer stops speech here, ready to go on from the sentence at [at]. */
+    private fun sleepAt(at: Int) {
+        playing = false
+        stopEngine()
+        index = at
+        from = 0
+        charIndex = 0
+        sleep.done()
+        stopBefore = Int.MAX_VALUE
+        abandonFocus()
+        changed()
     }
 
     /** Binds to the device's speech engine once; [done] says whether there is one. */
@@ -157,12 +210,14 @@ object SpeechEngine {
         error = null
         applyVoice()
         tts?.setSpeechRate(rate)
+        updateStop()
         start()
     }
 
     fun enqueue(utterances: List<Utterance>, chapterTitle: String) {
         utterances.firstOrNull()?.let { titles[it.id] = chapterTitle }
         queue.addAll(utterances)
+        updateStop()
         if (playing) topUp()
         changed()
     }
@@ -173,6 +228,11 @@ object SpeechEngine {
         stopEngine()
         // Resume from the Word it had reached.
         from = charIndex
+        // Paused while finishing its last sentence: the sleep timer has done its job.
+        if (timeUp()) {
+            sleep.cancel()
+            stopBefore = Int.MAX_VALUE
+        }
         abandonFocus()
         changed()
     }
@@ -194,6 +254,7 @@ object SpeechEngine {
         from = char.coerceIn(0, queue[i].text.length)
         charIndex = from
         ended = false
+        updateStop()
         if (playing) flush() else changed()
     }
 
@@ -208,6 +269,7 @@ object SpeechEngine {
         }
         charIndex = 0
         ended = false
+        updateStop()
         if (playing) flush() else changed()
     }
 
@@ -219,6 +281,8 @@ object SpeechEngine {
         index = 0
         from = 0
         charIndex = 0
+        sleep.cancel()
+        stopBefore = Int.MAX_VALUE
         abandonFocus()
         changed()
     }
@@ -279,7 +343,9 @@ object SpeechEngine {
     private fun topUp() {
         val engine = tts ?: return
         val max = TextToSpeech.getMaxSpeechInputLength()
-        while (queuedUntil < queue.size - 1 && queuedUntil < index + WINDOW) {
+        // Never past where the sleep timer stops it.
+        val last = minOf(queue.size, stopBefore) - 1
+        while (queuedUntil < last && queuedUntil < index + WINDOW) {
             queuedUntil++
             val utterance = queue[queuedUntil]
             val offset = if (queuedUntil == index) from else 0
@@ -308,9 +374,12 @@ object SpeechEngine {
             handler.post {
                 val spoken = parse(utteranceId) ?: return@post
                 if (spoken.generation != generation) return@post
+                // Queued before the sleep timer's time was up: not to be said.
+                if (spoken.index >= stopBefore) return@post sleepAt(stopBefore)
                 index = spoken.index
                 from = spoken.offset
                 charIndex = spoken.offset
+                updateStop()
                 topUp()
                 changed()
             }
@@ -328,9 +397,14 @@ object SpeechEngine {
         override fun onDone(utteranceId: String?) {
             handler.post {
                 val spoken = parse(utteranceId) ?: return@post
-                if (spoken.generation != generation || spoken.index < queue.size - 1) return@post
+                if (spoken.generation != generation) return@post
+                // The sleep timer stops speech before the next sentence.
+                if (spoken.index + 1 in stopBefore until queue.size) return@post sleepAt(spoken.index + 1)
+                if (spoken.index < queue.size - 1) return@post
                 // The last sentence queued has been said.
                 playing = false
+                sleep.cancel()
+                stopBefore = Int.MAX_VALUE
                 ended = true
                 unregisterNoisy()
                 abandonFocus()

@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import {
 	expect,
 	openReader,
+	readerAction,
 	settled,
 	showChrome,
 	storedRecords,
@@ -33,7 +34,7 @@ async function chapter(page: Page, title: RegExp) {
 
 async function setMode(page: Page, mode: 'Pop-up' | 'Per page' | 'Spread' | 'In text' | 'Off') {
 	await showChrome(page);
-	await page.getByRole('button', { name: 'Illustrations' }).click();
+	await readerAction(page, 'Illustrations');
 	await page
 		.getByRole('radiogroup', { name: 'Show pictures' })
 		.getByRole('radio', { name: mode })

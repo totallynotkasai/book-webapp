@@ -1,5 +1,5 @@
 import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
-import type { AudioAdapter, AudioEvent } from './types';
+import type { AudioAdapter, AudioEvent, SleepState, SleepTimer } from './types';
 
 /**
  * Narration on Android (ADR-004, D-027): our own Capacitor plugin, `Narration`, in
@@ -10,6 +10,9 @@ import type { AudioAdapter, AudioEvent } from './types';
  * The plugin reports its state on every change and about every 250 ms while playing; between
  * reports the position is extrapolated from the playback rate, so highlighting can read it every
  * frame without a bridge call (§8.3: within 100 ms of the audio).
+ *
+ * The sleep timer (P1-LAY-09) runs natively, beside the player, so it stops on time with the
+ * WebView asleep; the plugin reports what's left, extrapolated here like the position.
  */
 interface NativeState {
 	index: number;
@@ -18,6 +21,11 @@ interface NativeState {
 	playing: boolean;
 	ended: boolean;
 	error: string | null;
+	/** The armed sleep timer's kind, or null. */
+	sleepKind?: SleepTimer['kind'] | null;
+	sleepLeftMs?: number | null;
+	/** How many times the sleep timer has stopped playing: each rise is one. */
+	slept?: number;
 }
 
 interface NarrationPlugin {
@@ -33,7 +41,10 @@ interface NarrationPlugin {
 	pause(): Promise<void>;
 	seek(options: { positionMs: number; index?: number }): Promise<void>;
 	setRate(options: { rate: number }): Promise<void>;
+	setSleep(options: { kind: SleepTimer['kind'] | null; ms?: number }): Promise<void>;
 	unload(): Promise<void>;
+	/** The state now; empty with no playlist loaded. */
+	getState(): Promise<Partial<NativeState>>;
 	addListener(
 		event: 'state',
 		callback: (state: NativeState) => void
@@ -66,9 +77,13 @@ export function nativeAudio(): AudioAdapter {
 		state = next;
 		at = performance.now();
 		if (next.index !== before.index) emit('item');
+		else if (!next.playing && Math.abs(next.positionMs - before.positionMs) > 1000) {
+			emit('seek');
+		}
 		if (next.playing !== before.playing) emit(next.playing ? 'play' : 'pause');
 		if (next.ended && !before.ended) emit('ended');
 		if (next.error && next.error !== before.error) emit('error');
+		if ((next.slept ?? 0) > (before.slept ?? 0)) emit('sleep');
 	}
 
 	/** Shows a change at once, before the plugin confirms it. */
@@ -82,10 +97,24 @@ export function nativeAudio(): AudioAdapter {
 		return state.durationMs ? Math.min(ms, state.durationMs) : ms;
 	}
 
+	/** Subscribes once; after the WebView slept (screen locked), catches up with the player. */
+	function subscribe() {
+		if (!subscribed) {
+			subscribed = Narration.addListener('state', receive);
+			document.addEventListener('visibilitychange', () => {
+				if (document.visibilityState !== 'visible') return;
+				void Narration.getState().then(
+					(now) => typeof now.index === 'number' && receive(now as NativeState),
+					() => {}
+				);
+			});
+		}
+		return subscribed;
+	}
+
 	return {
 		async load(items, info, start) {
-			subscribed ??= Narration.addListener('state', receive);
-			await subscribed;
+			await subscribe();
 			assume({ index: start.index, positionMs: start.positionMs, ended: false, error: null });
 			await Narration.load({
 				// The app's own files are packaged with it; the plugin reads them from its assets.
@@ -117,8 +146,25 @@ export function nativeAudio(): AudioAdapter {
 			void Narration.setRate({ rate: next });
 		},
 		unload() {
-			assume({ playing: false });
+			assume({ playing: false, sleepKind: null, sleepLeftMs: null });
 			void Narration.unload();
+		},
+		setSleep(timer) {
+			assume({
+				sleepKind: timer?.kind ?? null,
+				sleepLeftMs: timer?.kind === 'time' ? timer.ms : null
+			});
+			void Narration.setSleep({
+				kind: timer?.kind ?? null,
+				ms: timer?.kind === 'time' ? timer.ms : undefined
+			});
+		},
+		get sleep(): SleepState | null {
+			if (!state.sleepKind) return null;
+			// Both kinds are reported in real time (an item's end allows for the speed already).
+			const left = state.sleepLeftMs ?? null;
+			const running = state.playing ? performance.now() - at : 0;
+			return { kind: state.sleepKind, leftMs: left === null ? null : Math.max(0, left - running) };
 		},
 		get index() {
 			return state.index;

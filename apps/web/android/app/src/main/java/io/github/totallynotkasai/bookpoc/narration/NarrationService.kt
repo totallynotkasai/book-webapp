@@ -37,6 +37,8 @@ class NarrationService : MediaSessionService() {
             .setSeekBackIncrementMs(SKIP_MS)
             .setSeekForwardIncrementMs(SKIP_MS)
             .build()
+        // The sleep timer works on this player directly (P1-LAY-09).
+        NarrationSleep.attach(player)
 
         // The lock screen's buttons: ±15 s around play/pause (DESIGN.md §8.3).
         val back = CommandButton.Builder(CommandButton.ICON_SKIP_BACK_15)
@@ -77,6 +79,7 @@ class NarrationService : MediaSessionService() {
 
     override fun onDestroy() {
         session?.run {
+            (player as? ExoPlayer)?.let(NarrationSleep::detach)
             player.release()
             release()
         }

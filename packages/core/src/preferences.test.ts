@@ -78,6 +78,17 @@ describe('resolvePreferences', () => {
 		});
 	});
 
+	it('remembers the last sleep-timer choice, and only a real one (P1-LAY-09)', () => {
+		expect(defaultReaderPreferences.narration.sleepTimer).toBeUndefined();
+		expect(resolvePreferences({ narration: { sleepTimer: 30 } }).narration.sleepTimer).toBe(30);
+		expect(resolvePreferences({ narration: { sleepTimer: 'chapter' } }).narration.sleepTimer).toBe(
+			'chapter'
+		);
+		const odd = resolvePreferences({ narration: { sleepTimer: 45, rate: 1.5 } }).narration;
+		expect(odd.sleepTimer).toBeUndefined();
+		expect(odd.rate).toBe(1.5);
+	});
+
 	it('keeps a valid seed colour', () => {
 		expect(resolvePreferences({ theme: { seedColor: '#1b6b6b' } }).theme.seedColor).toBe('#1b6b6b');
 	});

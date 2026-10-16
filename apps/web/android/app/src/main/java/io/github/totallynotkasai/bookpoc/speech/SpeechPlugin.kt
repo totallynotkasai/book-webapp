@@ -44,6 +44,9 @@ class SpeechPlugin : Plugin() {
             .put("playing", SpeechEngine.playing)
             .put("ended", SpeechEngine.ended)
             .put("error", SpeechEngine.error ?: JSONObject.NULL)
+            .put("sleepKind", SpeechEngine.sleep.kind ?: JSONObject.NULL)
+            .put("sleepLeftMs", SpeechEngine.sleep.timeLeftMs ?: JSONObject.NULL)
+            .put("slept", SpeechEngine.sleep.fired)
 
     /** Runs [block] on the main thread once the engine is ready, or rejects the call. */
     private fun withEngine(call: PluginCall, block: () -> Unit) {
@@ -197,6 +200,17 @@ class SpeechPlugin : Plugin() {
         val voice = call.getString("voice") ?: return call.reject("No voice.")
         handler.post {
             SpeechEngine.setVoice(voice)
+            call.resolve()
+        }
+    }
+
+    /** Arms the sleep timer (P1-LAY-09): `time` with `ms` of speaking, or `item`; no kind turns it off. */
+    @PluginMethod
+    fun setSleep(call: PluginCall) {
+        val kind = call.getString("kind")?.takeIf { it == "time" || it == "item" }
+        val ms = call.getDouble("ms", 0.0)?.toLong() ?: 0L
+        handler.post {
+            SpeechEngine.setSleep(kind, ms)
             call.resolve()
         }
     }

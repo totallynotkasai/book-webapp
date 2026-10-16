@@ -103,6 +103,21 @@ export interface EngineOptions {
 	fontFaceCss: string;
 	/** Where to open; the first linear Chapter when absent. */
 	start?: Anchor | { progression: number };
+	/**
+	 * The button shown above a squeezed table (P1-RDR-12): its text, and an icon's SVG path in a
+	 * `0 -960 960 960` viewBox. The app owns the words and icons. No buttons when absent.
+	 */
+	tableButton?: { label: string; icon: string };
+}
+
+/** A squeezed table, copied into the app's document for the table viewer (P1-RDR-12). */
+export interface TableView {
+	/** Rebuilt from an allowlist, with the look the page computed set inline (tables.ts). */
+	table: HTMLTableElement;
+	/** The colour behind the table on the page, and its text colour. */
+	background: string;
+	color: string;
+	caption: string | null;
 }
 
 export interface EngineEvents {
@@ -132,6 +147,8 @@ export interface EngineEvents {
 		preventDefault: () => void;
 	};
 	figureActivated: { id: string };
+	/** "Open table" was pressed above a squeezed table (P1-RDR-12): a copy for the viewer. */
+	tableActivated: TableView;
 	/** A tap outside any link or Word, in top-level coordinates (tap zones, §9.2). */
 	tap: { x: number; y: number };
 	/** Keys pressed while focus is inside the book, so shortcuts work there too. */

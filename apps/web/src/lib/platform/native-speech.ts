@@ -1,5 +1,12 @@
 import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
-import type { SpeechAdapter, SpeechEvent, SpeechPosition, SpeechVoice } from './types';
+import type {
+	SleepState,
+	SleepTimer,
+	SpeechAdapter,
+	SpeechEvent,
+	SpeechPosition,
+	SpeechVoice
+} from './types';
 
 /**
  * The device voice on Android (P1-LAY-08, ADR-006): our own Capacitor plugin, `Speech`, in
@@ -9,7 +16,8 @@ import type { SpeechAdapter, SpeechEvent, SpeechPosition, SpeechVoice } from './
  * Chapter, with the screen locked, and the lock screen can pause it or skip a sentence.
  *
  * The plugin reports its state on every change: each sentence it starts and each Word in it
- * (`onRangeStart`, Android 8 and later; older versions highlight by sentence).
+ * (`onRangeStart`, Android 8 and later; older versions highlight by sentence). The sleep timer
+ * (P1-LAY-09) runs natively too, so it stops on time with the WebView asleep.
  */
 interface NativeState {
 	id: number | null;
@@ -17,6 +25,12 @@ interface NativeState {
 	playing: boolean;
 	ended: boolean;
 	error: string | null;
+	/** The armed sleep timer's kind, or null. */
+	sleepKind?: SleepTimer['kind'] | null;
+	/** Speaking time left (`time`); 0 while it finishes its last sentence. */
+	sleepLeftMs?: number | null;
+	/** How many times the sleep timer has stopped speech: each rise is one. */
+	slept?: number;
 }
 
 interface SpeechPlugin {
@@ -40,6 +54,7 @@ interface SpeechPlugin {
 	stop(): Promise<void>;
 	setRate(options: { rate: number }): Promise<void>;
 	setVoice(options: { voice: string }): Promise<void>;
+	setSleep(options: { kind: SleepTimer['kind'] | null; ms?: number }): Promise<void>;
 	getState(): Promise<NativeState>;
 	addListener(
 		event: 'state',
@@ -51,6 +66,8 @@ const Speech = registerPlugin<SpeechPlugin>('Speech');
 
 export function nativeSpeech(): SpeechAdapter {
 	let state: NativeState = { id: null, charIndex: 0, playing: false, ended: false, error: null };
+	/** When `state` arrived, on the performance clock. */
+	let at = 0;
 	let subscribed: Promise<PluginListenerHandle> | null = null;
 	const listeners = new Map<SpeechEvent, Set<() => void>>();
 
@@ -61,10 +78,12 @@ export function nativeSpeech(): SpeechAdapter {
 	function receive(next: NativeState) {
 		const before = state;
 		state = next;
+		at = performance.now();
 		if (next.id !== before.id || next.charIndex !== before.charIndex) emit('progress');
 		if (next.playing !== before.playing) emit(next.playing ? 'play' : 'pause');
 		if (next.ended && !before.ended) emit('end');
 		if (next.error && next.error !== before.error) emit('error');
+		if ((next.slept ?? 0) > (before.slept ?? 0)) emit('sleep');
 	}
 
 	function subscribe() {
@@ -124,7 +143,7 @@ export function nativeSpeech(): SpeechAdapter {
 			await Speech.resume();
 		},
 		stop() {
-			receive({ ...state, id: null, charIndex: 0, playing: false });
+			receive({ ...state, id: null, charIndex: 0, playing: false, sleepKind: null });
 			void Speech.stop();
 		},
 		setRate(rate) {
@@ -132,6 +151,23 @@ export function nativeSpeech(): SpeechAdapter {
 		},
 		setVoice(voice) {
 			void Speech.setVoice({ voice });
+		},
+		setSleep(timer) {
+			receive({
+				...state,
+				sleepKind: timer?.kind ?? null,
+				sleepLeftMs: timer?.kind === 'time' ? timer.ms : null
+			});
+			void Speech.setSleep({
+				kind: timer?.kind ?? null,
+				ms: timer?.kind === 'time' ? timer.ms : undefined
+			});
+		},
+		get sleep(): SleepState | null {
+			if (!state.sleepKind) return null;
+			const left = state.sleepLeftMs ?? null;
+			const running = state.playing ? performance.now() - at : 0;
+			return { kind: state.sleepKind, leftMs: left === null ? null : Math.max(0, left - running) };
 		},
 		get playing() {
 			return state.playing;

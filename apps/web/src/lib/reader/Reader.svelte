@@ -15,12 +15,28 @@
 		type RangeAnchor,
 		type ReaderPreferencesPatch,
 		type DraftIllustrationDto,
+		type SleepTimerChoice,
 		type StudioPackDto,
 		type TocEntry
 	} from '@book/core';
-	import { createEngine, type ReaderEngine, type VisibleRange } from '@book/reader-core';
+	import {
+		createEngine,
+		type ReaderEngine,
+		type TableView,
+		type VisibleRange
+	} from '@book/reader-core';
 	import { highlightLabels } from '@book/tokens';
-	import { Badge, Button, Dialog, IconButton, Progress, prefersReducedMotion } from '@book/ui';
+	import {
+		Badge,
+		Button,
+		Dialog,
+		IconButton,
+		iconPaths,
+		Menu,
+		Progress,
+		prefersReducedMotion,
+		type MenuItem
+	} from '@book/ui';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { copyText } from '$lib/clipboard';
@@ -71,8 +87,8 @@
 	 * or Tab. Position comes only from the engine's `relocated` event (§9.1), as Anchors.
 	 * Selecting text (mouse, long-press, or Shift+arrows) brings up the selection toolbar.
 	 * Pictures (§8.2) and narration (§8.3) come from the Book's Layers; any Book can also be read
-	 * aloud by the device's own voice (P1-LAY-08). Search (P1-RDR-10) and focus mode (P1-RDR-11)
-	 * load on first use.
+	 * aloud by the device's own voice (P1-LAY-08), with a sleep timer (P1-LAY-09). Search
+	 * (P1-RDR-10), focus mode (P1-RDR-11) and the table viewer (P1-RDR-12) load on first use.
 	 */
 	/**
 	 * `sample`: "Read sample" for a Book the reader doesn't own (P1-STO-01). `preview`: a Creator
@@ -245,8 +261,13 @@
 		return voiceHere ? 'Read aloud with the device voice' : 'Listen to the narration';
 	});
 	let playerExpanded = $state(false);
-	/** Set while narration turns the page itself, so the turn isn't taken for the reader's. */
-	let autoTurning = false;
+	/**
+	 * Set while narration turns the page itself, so the turn isn't taken for the reader's. Reactive,
+	 * so following looks again once a turn ends: with the screen off a turn can't finish until it
+	 * comes back on, and narration may have stopped at the next Chapter in the meantime (the sleep
+	 * timer), leaving nothing else to move the page there.
+	 */
+	let autoTurning = $state(false);
 	let narrationHint = $state(false);
 	let narrationHintTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -262,6 +283,11 @@
 	/** Where the reader was before searching: Back returns there, however many results they visit. */
 	let searchOrigin: PointAnchor | null = null;
 	let resultShownAt = 0;
+
+	// ---- The table viewer (P1-RDR-12): loads the first time a table is opened ----
+	let tableOpen = $state(false);
+	let table = $state.raw<TableView | null>(null);
+	let TableViewerView = $state.raw<typeof import('./TableViewer.svelte').default>();
 
 	// ---- Focus mode (P1-RDR-11) ----
 	let paragraphs: ParagraphCache | undefined;
@@ -326,6 +352,24 @@
 				: ''
 	);
 	const isRtl = $derived(manifest?.dir === 'rtl');
+	/**
+	 * A phone (M3 compact, §11.5): the top bar keeps the bookmark and contents beside the titles,
+	 * and puts search, pictures and reading preferences under "More", so the titles have room.
+	 */
+	const compact = $derived(windowWidth < 600);
+	const moreItems = $derived<MenuItem[]>([
+		{ label: 'Search in this book', icon: 'search', onselect: () => void openSearch() },
+		...(illustrations?.packs.length
+			? [
+					{
+						label: 'Illustrations',
+						icon: 'photo_library' as const,
+						onselect: () => (layersOpen = true)
+					}
+				]
+			: []),
+		{ label: 'Reading preferences', icon: 'format_size', onselect: () => (prefsOpen = true) }
+	]);
 	/** A Book without packs the reader holds shows no pictures, whatever the mode. */
 	const illustrationMode = $derived(illustrations?.available ? prefs.illustrations : 'off');
 	/** Each enabled pack's current Illustration: never one past the last visible Word. */
@@ -490,7 +534,8 @@
 				theme: tokens,
 				pageTurn: pageTurnOf(prefs, reducedMotion),
 				fontFaceCss,
-				start
+				start,
+				tableButton: { label: 'Open table', icon: iconPaths.open_in_full }
 			});
 			if (openAtChapter) await engine.goTo({ chapterId: openAtChapter });
 			void loadLayers(book);
@@ -626,6 +671,7 @@
 				const illustration = pack?.illustrations.find((i) => i.id === illustrationId);
 				if (pack && illustration) zoomInto({ pack: pack.pack, illustration, previous: null });
 			}),
+			e.on('tableActivated', (view) => void openTable(view)),
 			e.on('error', ({ message }) => snackbars.show(message, { tone: 'error' }))
 		);
 	}
@@ -903,6 +949,14 @@
 		narrationHint = false;
 	}
 
+	/** The sleep timer (P1-LAY-09): the last choice is remembered, globally, but never re-armed. */
+	function setSleep(choice: SleepTimerChoice | null) {
+		reading?.setSleep(choice);
+		if (choice !== null && choice !== preferences.current.narration.sleepTimer) {
+			void preferences.update({ narration: { sleepTimer: choice } });
+		}
+	}
+
 	$effect(() => {
 		narration?.setRate(prefs.narration.rate);
 	});
@@ -1043,6 +1097,21 @@
 	function zoomInto(current: Current) {
 		lightbox = current;
 		lightboxOpen = true;
+	}
+
+	/** "Open table" above a squeezed table: the viewer, loaded the first time (P1-RDR-12). */
+	async function openTable(view: TableView) {
+		try {
+			TableViewerView ??= (await import('./TableViewer.svelte')).default;
+		} catch (error) {
+			console.error(error);
+			snackbars.show('The table couldn’t open. Check your connection and try again.', {
+				tone: 'error'
+			});
+			return;
+		}
+		table = view;
+		tableOpen = true;
 	}
 
 	function dismissHint() {
@@ -1283,7 +1352,8 @@
 			textDialog !== null ||
 			layersOpen ||
 			cardOpen ||
-			lightboxOpen
+			lightboxOpen ||
+			tableOpen
 		);
 	}
 
@@ -1291,6 +1361,10 @@
 		if (phase.kind !== 'ready' || anyOverlayOpen()) return;
 		const target = event.target as HTMLElement | null;
 		if (target?.closest?.('input, textarea, [role="slider"]')) return;
+		// The "Open table" button in the book presses with Enter and Space, not turn the page.
+		if ((event.key === ' ' || event.key === 'Enter') && target?.closest?.('[data-rd-table]')) {
+			return;
+		}
 		const forward = isRtl ? 'ArrowLeft' : 'ArrowRight';
 		const backward = isRtl ? 'ArrowRight' : 'ArrowLeft';
 		const ctrl = event.ctrlKey || event.metaKey;
@@ -1628,27 +1702,46 @@
 			disabled={phase.kind !== 'ready'}
 			onclick={toggleBookmark}
 		/>
-		{#if illustrations?.packs.length}
-			<IconButton icon="photo_library" label="Illustrations" onclick={() => (layersOpen = true)} />
+		{#if compact}
+			<!-- On a phone the titles keep their room: the rest is under "More" (Phase 1.13). -->
+			<IconButton
+				icon="toc"
+				label="Contents and notes"
+				disabled={phase.kind !== 'ready'}
+				onclick={() => openContents('contents')}
+			/>
+			{#if phase.kind === 'ready'}
+				<Menu label="More reading options" items={moreItems} />
+			{:else}
+				<IconButton icon="more_vert" label="More reading options" disabled />
+			{/if}
+		{:else}
+			{#if illustrations?.packs.length}
+				<IconButton
+					icon="photo_library"
+					label="Illustrations"
+					onclick={() => (layersOpen = true)}
+				/>
+			{/if}
+			<IconButton
+				icon="search"
+				label="Search in this book"
+				disabled={phase.kind !== 'ready'}
+				onclick={() => void openSearch()}
+			/>
+			<IconButton
+				icon="toc"
+				label="Contents and notes"
+				disabled={phase.kind !== 'ready'}
+				onclick={() => openContents('contents')}
+			/>
+			<IconButton
+				icon="format_size"
+				label="Reading preferences"
+				disabled={phase.kind !== 'ready'}
+				onclick={() => (prefsOpen = true)}
+			/>
 		{/if}
-		<IconButton
-			icon="search"
-			label="Search in this book"
-			disabled={phase.kind !== 'ready'}
-			onclick={() => void openSearch()}
-		/>
-		<IconButton
-			icon="toc"
-			label="Contents and notes"
-			disabled={phase.kind !== 'ready'}
-			onclick={() => openContents('contents')}
-		/>
-		<IconButton
-			icon="format_size"
-			label="Reading preferences"
-			disabled={phase.kind !== 'ready'}
-			onclick={() => (prefsOpen = true)}
-		/>
 	</header>
 
 	<div
@@ -1755,6 +1848,7 @@
 					onchange={(patch) => change({ narration: patch })}
 					onrate={(rate) => change({ deviceVoice: { rate } })}
 					onvoice={chooseVoice}
+					onsleep={setSleep}
 					onclose={closeNarration}
 				/>
 			{:else if narration}
@@ -1765,6 +1859,7 @@
 					bind:expanded={playerExpanded}
 					onchange={(patch) => change({ narration: patch })}
 					onrate={(rate) => change({ narration: { rate } })}
+					onsleep={setSleep}
 					onclose={closeNarration}
 				/>
 			{/if}
@@ -2011,6 +2106,9 @@
 		onzoom={zoomInto}
 	/>
 	<Lightbox bind:open={lightboxOpen} current={lightbox} {illustrations} />
+{/if}
+{#if TableViewerView}
+	<TableViewerView bind:open={tableOpen} view={table} />
 {/if}
 
 <Dialog

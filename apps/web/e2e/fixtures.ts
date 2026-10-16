@@ -182,8 +182,25 @@ export async function settled(page: Page) {
 /** Opens the reading preferences sheet on a tab. */
 export async function openPreferences(page: Page, tab: 'Text' | 'Page' | 'Theme') {
 	await showChrome(page);
-	await page.getByRole('button', { name: 'Reading preferences' }).click();
+	await readerAction(page, 'Reading preferences');
 	await page.getByRole('tab', { name: tab }).click();
+}
+
+/**
+ * Presses one of the reader's top-bar buttons; on a phone (under 600 px) search, pictures and
+ * reading preferences are in the "More reading options" menu (Phase 1.13).
+ */
+export async function readerAction(
+	page: Page,
+	name: 'Reading preferences' | 'Illustrations' | 'Search in this book'
+) {
+	const more = page.getByRole('button', { name: 'More reading options' });
+	if (await more.isVisible()) {
+		await more.click();
+		await page.getByRole('menuitem', { name }).click();
+	} else {
+		await page.getByRole('button', { name, exact: true }).click();
+	}
 }
 
 /** Makes sure the reading controls are showing (they fade after a page turn). */

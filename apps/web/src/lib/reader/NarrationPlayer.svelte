@@ -1,7 +1,17 @@
 <script lang="ts">
-	import type { ReaderPreferences } from '@book/core';
-	import { Button, IconButton, Menu, SegmentedButton, Slider, Switch } from '@book/ui';
+	import type { ReaderPreferences, SleepTimerChoice } from '@book/core';
+	import {
+		Button,
+		Icon,
+		IconButton,
+		Menu,
+		SegmentedButton,
+		Slider,
+		Switch,
+		type MenuItem
+	} from '@book/ui';
 	import type { BookNarration } from './narration.svelte';
+	import { SLEEP_CHOICES, sleepChoiceLabel, sleepLeftLabel, sleepLeftSpoken } from './sleep-timer';
 	import type { BookSpeech } from './speech.svelte';
 
 	/**
@@ -12,6 +22,9 @@
 	 * The device voice (P1-LAY-08, Phase 1.11) uses the same player, headed "Device voice" with the
 	 * voice's name so it's never taken for a narrator's recording. A synthetic voice has no clock,
 	 * so its mini-player skips by sentence instead of 15 s, and it adds the choice of voice.
+	 *
+	 * The sleep timer (P1-LAY-09, Phase 1.13) is set in the full controls; while it runs, the
+	 * mini-player shows what's left beside its clock.
 	 */
 	type NarrationPrefs = ReaderPreferences['narration'];
 
@@ -34,6 +47,8 @@
 		onrate: (rate: number) => void;
 		/** The reader chose a voice (device voice only). */
 		onvoice?: (voiceId: string) => void;
+		/** The reader set the sleep timer, or turned it off (null). */
+		onsleep: (choice: SleepTimerChoice | null) => void;
 		onclose: () => void;
 	}
 
@@ -45,6 +60,7 @@
 		onchange,
 		onrate,
 		onvoice,
+		onsleep,
 		onclose
 	}: Props = $props();
 
@@ -78,8 +94,53 @@
 	);
 	/** The slider follows the audio, except while the reader is dragging it. */
 	let dragging = $state<number | null>(null);
+	/**
+	 * The position on the slider's 1 s steps. Bits UI snaps a value between steps and reports the
+	 * snap as a change, which would look like the reader dragging and freeze the slider there.
+	 */
+	const onStep = (ms: number) => Math.floor(ms / 1000) * 1000;
 
 	const toggle = () => void (narration ? narration.toggle() : speech?.toggle());
+
+	// ---- the sleep timer (P1-LAY-09) ----
+
+	const sleepChoice = $derived(player.sleepChoice);
+	/** The reader's last choice (Reader Preferences): marked in the menu while the timer is off. */
+	const lastSleep = $derived(sleepChoice === null ? prefs.sleepTimer : undefined);
+	/** The countdown lives in the platform; read it once a second while the timer runs. */
+	let tick = $state(0);
+	$effect(() => {
+		if (sleepChoice === null) return;
+		const timer = setInterval(() => tick++, 1000);
+		return () => clearInterval(timer);
+	});
+	const sleepLeft = $derived.by(() => {
+		void tick;
+		void player.playing;
+		return sleepChoice === null ? null : player.sleepLeft;
+	});
+	const sleepItems = $derived<(MenuItem | 'separator')[]>([
+		...SLEEP_CHOICES.map((choice) => ({
+			label:
+				choice === lastSleep
+					? `${sleepChoiceLabel(choice)}, as last time`
+					: sleepChoiceLabel(choice),
+			icon:
+				choice === sleepChoice
+					? ('check' as const)
+					: choice === lastSleep
+						? ('history' as const)
+						: undefined,
+			onselect: () => onsleep(choice)
+		})),
+		...(sleepChoice === null
+			? []
+			: [
+					'separator' as const,
+					{ label: 'Turn off', icon: 'bedtime_off' as const, onselect: () => onsleep(null) }
+				])
+	]);
+	const sleepStatus = $derived(sleepChoice === null ? 'Off' : sleepChoiceLabel(sleepChoice));
 </script>
 
 <section
@@ -94,7 +155,7 @@
 			{#if narration}
 				<Slider
 					label="Position in chapter"
-					value={dragging ?? Math.min(narration.positionMs, duration)}
+					value={dragging ?? onStep(Math.min(narration.positionMs, duration))}
 					min={0}
 					max={Math.max(1, duration)}
 					step={1000}
@@ -168,6 +229,10 @@
 					This voice doesn’t say where each word is, so its sentence is highlighted.
 				</p>
 			{/if}
+			<div class="sleep-row" data-testid="sleep-timer">
+				<span>Sleep timer: {sleepStatus}</span>
+				<Menu label={`Sleep timer, ${sleepStatus}`} icon="bedtime" align="end" items={sleepItems} />
+			</div>
 			<Switch
 				label={narration ? 'Turn pages with the narration' : 'Turn pages with the voice'}
 				checked={prefs.autoTurn}
@@ -202,15 +267,29 @@
 		<div class="titles">
 			{#if narration}
 				<span class="title">{title}</span>
-				<span class="clock" data-testid="narration-clock"
-					>{clock(narration.positionMs)} / {clock(duration)}</span
-				>
 			{:else}
 				<span class="title" data-testid="device-voice-label"
 					>Device voice{speech?.voice ? ` · ${speech.voice.name}` : ''}</span
 				>
-				<span class="clock">{title}</span>
 			{/if}
+			<span class={['sub', { sleeping: !!sleepLeft }]}>
+				{#if narration}
+					<span class="clock" data-testid="narration-clock"
+						>{clock(narration.positionMs)}<span class="duration">{` / ${clock(duration)}`}</span
+						></span
+					>
+				{:else}
+					<span class="clock">{title}</span>
+				{/if}
+				{#if sleepLeft}
+					<!-- What's left of the sleep timer; to the minute for screen readers. -->
+					<span class="sleep" data-testid="sleep-left" data-left-ms={sleepLeft.leftMs}
+						><Icon name="bedtime" size={16} /><span aria-hidden="true"
+							>{sleepLeftLabel(sleepLeft)}</span
+						><span class="visually-hidden">{sleepLeftSpoken(sleepLeft)}</span></span
+					>
+				{/if}
+			</span>
 		</div>
 		{#if narration}
 			<IconButton
@@ -293,6 +372,33 @@
 		white-space: nowrap;
 	}
 
+	/* The clock (or the Chapter) gives way to the sleep timer's time left. */
+	.sub {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		min-width: 0;
+	}
+
+	.sleep {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		gap: 2px;
+		color: var(--md-sys-color-primary);
+		font-size: var(--md-sys-typescale-body-small-size);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
 	.title {
 		font-size: var(--md-sys-typescale-label-large-size);
 		font-weight: var(--md-sys-typescale-weight-medium);
@@ -326,7 +432,8 @@
 		gap: var(--space-2);
 	}
 
-	.voice {
+	.voice,
+	.sleep-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -362,9 +469,10 @@
 		font-size: var(--md-sys-typescale-body-small-size);
 	}
 
-	/* On a phone the clock gives way to the controls. */
+	/* On a phone the clock gives way to the controls, and the Chapter's length to the sleep timer. */
 	@media (max-width: 380px) {
-		.rate {
+		.rate,
+		.sleeping .duration {
 			display: none;
 		}
 	}

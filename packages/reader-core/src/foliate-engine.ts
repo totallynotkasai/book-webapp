@@ -15,6 +15,7 @@ import {
 } from '@book/core';
 import { ChapterContent } from './content';
 import { BASE_CSS, MARGINS, themeCss, typographyCss } from './styles';
+import { isSqueezed, TABLE_ROW, tableOfRow, tableRow, tableView } from './tables';
 import type {
 	ChapterText,
 	Decoration,
@@ -115,12 +116,14 @@ export class FoliateEngine implements ReaderEngine {
 	#pageTurn: PageTurn = 'slide';
 	#decorations = new Map<string, Decoration[]>();
 	#figures: FigureInjection[] = [];
+	#tableButton: EngineOptions['tableButton'];
 	#listeners: Listeners = {
 		relocated: new Set(),
 		selection: new Set(),
 		wordActivated: new Set(),
 		contextMenu: new Set(),
 		figureActivated: new Set(),
+		tableActivated: new Set(),
 		tap: new Set(),
 		keydown: new Set(),
 		externalLink: new Set(),
@@ -188,6 +191,7 @@ export class FoliateEngine implements ReaderEngine {
 		this.#typography = opts.typography;
 		this.#theme = opts.theme;
 		this.#fontFaceCss = opts.fontFaceCss;
+		this.#tableButton = opts.tableButton;
 		this.#host = el;
 
 		const paginator = document.createElement('foliate-paginator') as Paginator;
@@ -237,6 +241,7 @@ export class FoliateEngine implements ReaderEngine {
 		const map = await this.#map(doc, index);
 		this.#paintDecorations(doc, map);
 		this.#placeFigures(doc, map);
+		this.#watchTables(doc);
 
 		// foliate-js scrolls to whatever gains focus, so Tab can reach a link on another page. A
 		// click into the book focuses its <body>, which would jump back to the Chapter's first page.
@@ -260,7 +265,7 @@ export class FoliateEngine implements ReaderEngine {
 		let dragFrom: [Node, number] | null = null;
 		doc.addEventListener('mousedown', (event) => {
 			if (event.button !== 0 || event.detail > 1 || pointer !== 'mouse') return;
-			if ((event.target as Element | null)?.closest?.('a[href]')) return;
+			if ((event.target as Element | null)?.closest?.(`a[href], [${TABLE_ROW}]`)) return;
 			const point = caretPoint(doc, event.clientX, event.clientY);
 			const selection = doc.getSelection();
 			if (!point || !selection) return;
@@ -448,6 +453,12 @@ export class FoliateEngine implements ReaderEngine {
 		const figure = target?.closest?.('figure[data-injected]');
 		if (figure) {
 			this.#emit('figureActivated', { id: figure.getAttribute('data-injected')! });
+			return;
+		}
+		const open = target?.closest?.(`[${TABLE_ROW}] button`);
+		if (open) {
+			const table = open.parentElement && tableOfRow(open.parentElement);
+			if (table) this.#emit('tableActivated', tableView(table, document));
 			return;
 		}
 		const link = target?.closest?.('a[href]');
@@ -694,6 +705,9 @@ export class FoliateEngine implements ReaderEngine {
 			await change();
 			await relocated;
 			await current?.doc.fonts?.ready;
+			// Bigger text can squeeze a table without changing its width (P1-RDR-12).
+			const now = this.#current();
+			if (now) this.#markTables(now.doc);
 			await this.#quiet();
 			// While another change is still laying out, the last one to finish checks.
 			if (this.#adjusting > 1) return;
@@ -869,6 +883,47 @@ export class FoliateEngine implements ReaderEngine {
 			// The paginator notices size changes itself; this makes sure it happens now.
 			this.#paginator?.render();
 		});
+	}
+
+	// ---- squeezed tables (P1-RDR-12) ----
+
+	/**
+	 * Marks the Chapter's squeezed tables now, once its fonts have loaded, and whenever a table's
+	 * size changes (the window, the margins, a panel opening). The row each gets changes the
+	 * layout, which foliate-js follows, keeping its place, as it does for a late image.
+	 */
+	#watchTables(doc: Document) {
+		if (!this.#tableButton || !doc.querySelector('table')) return;
+		this.#markTables(doc);
+		void doc.fonts?.ready.then(() => !this.#destroyed && this.#markTables(doc));
+		const win = doc.defaultView as (Window & typeof globalThis) | null;
+		if (!win?.ResizeObserver) return;
+		let frame = 0;
+		const observer = new win.ResizeObserver(() => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(() => {
+				if (doc.defaultView && !this.#destroyed) this.#markTables(doc);
+			});
+		});
+		for (const table of this.#tablesOf(doc)) observer.observe(table);
+	}
+
+	/** The Chapter's tables, but not those inside another (they open with it). */
+	#tablesOf(doc: Document): Element[] {
+		return [...doc.querySelectorAll('table')].filter((t) => !t.parentElement?.closest('table'));
+	}
+
+	/** Shows the "Open table" row above each squeezed table, and only those. */
+	#markTables(doc: Document) {
+		const button = this.#tableButton;
+		if (!button) return;
+		for (const table of this.#tablesOf(doc)) {
+			const before = table.previousElementSibling;
+			const row = before?.hasAttribute(TABLE_ROW) ? before : null;
+			const squeezed = isSqueezed(table);
+			if (squeezed && !row) table.before(tableRow(doc, button));
+			else if (!squeezed && row) row.remove();
+		}
 	}
 
 	#placeFigures(doc: Document, map: DocWordMap) {

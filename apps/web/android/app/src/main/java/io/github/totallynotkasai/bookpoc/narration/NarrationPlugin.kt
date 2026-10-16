@@ -159,11 +159,24 @@ class NarrationPlugin : Plugin() {
         call.resolve()
     }
 
+    /** Arms the sleep timer (P1-LAY-09): `time` with `ms` of playing, or `item`; no kind turns it off. */
+    @PluginMethod
+    fun setSleep(call: PluginCall) {
+        val kind = call.getString("kind")?.takeIf { it == "time" || it == "item" }
+        val ms = call.getDouble("ms", 0.0)?.toLong() ?: 0L
+        handler.post {
+            NarrationSleep.arm(kind, ms)
+            report()
+            call.resolve()
+        }
+    }
+
     /** Stops and lets the service go, which removes the notification and lock-screen controls. */
     @PluginMethod
     fun unload(call: PluginCall) {
         handler.post {
             handler.removeCallbacks(ticker)
+            NarrationSleep.arm(null, 0L)
             controller?.run {
                 stop()
                 clearMediaItems()
@@ -174,19 +187,32 @@ class NarrationPlugin : Plugin() {
         }
     }
 
+    private fun state(c: MediaController): JSObject {
+        val duration = c.duration
+        return JSObject()
+            .put("index", c.currentMediaItemIndex)
+            .put("positionMs", c.currentPosition)
+            .put("durationMs", if (duration == C.TIME_UNSET) 0 else duration)
+            .put("playing", playing(c))
+            .put("ended", c.playbackState == Player.STATE_ENDED)
+            .put("error", error ?: JSONObject.NULL)
+            .put("sleepKind", NarrationSleep.timer.kind ?: JSONObject.NULL)
+            .put("sleepLeftMs", NarrationSleep.leftMs() ?: JSONObject.NULL)
+            .put("slept", NarrationSleep.timer.fired)
+    }
+
     private fun report() {
         val c = controller ?: return
-        val duration = c.duration
-        notifyListeners(
-            "state",
-            JSObject()
-                .put("index", c.currentMediaItemIndex)
-                .put("positionMs", c.currentPosition)
-                .put("durationMs", if (duration == C.TIME_UNSET) 0 else duration)
-                .put("playing", playing(c))
-                .put("ended", c.playbackState == Player.STATE_ENDED)
-                .put("error", error ?: JSONObject.NULL)
-        )
+        notifyListeners("state", state(c))
+    }
+
+    /**
+     * The state now, for the WebView to catch up after sleeping (the screen locked): narration
+     * may have moved on, paused by the sleep timer, with no report it saw. Empty with no playlist.
+     */
+    @PluginMethod
+    fun getState(call: PluginCall) {
+        handler.post { call.resolve(controller?.let(::state) ?: JSObject()) }
     }
 
     /** The WebView's own origin is the packaged web app, in `assets/public`. */

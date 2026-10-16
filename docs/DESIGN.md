@@ -1,6 +1,6 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 16 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034. Front end first: phases 1.11–1.21 before any backend; D-035, OPEN-16. Phase 1.11: the device voice; D-036, ADR-006. Phase 1.12: search in the Book and focus mode)
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 16 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034. Front end first: phases 1.11–1.21 before any backend; D-035, OPEN-16. Phase 1.11: the device voice; D-036, ADR-006. Phase 1.12: search in the Book and focus mode. Phase 1.13: the table viewer, the sleep timer and the phone's top bar; D-037)
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
 > **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
@@ -809,6 +809,15 @@ export interface FigureInjection {
   height?: number;
 }
 
+export interface TableView {                         // a squeezed table, copied for the table viewer
+  table: HTMLTableElement;                           // rebuilt in the app's document from an allowlist
+  background: string; color: string;                 // the page's colours around it
+  caption: string | null;
+}
+
+// EngineOptions (besides layout, typography, theme, page turn, fonts, start):
+//   tableButton?: { label: string; icon: string }   // the "Open table" button's text and icon path (P1-RDR-12)
+
 export interface EngineEvents {
   relocated: VisibleRange;
   selection: {                                       // snapped to whole Words, once it settles
@@ -821,6 +830,7 @@ export interface EngineEvents {
     pointer: 'mouse' | 'touch' | 'pen'; preventDefault: () => void;
   };
   figureActivated: { id: string };
+  tableActivated: TableView;                         // "Open table" above a squeezed table (P1-RDR-12)
   tap: { x: number; y: number };                     // outside links and Words (tap zones, §9.2)
   keydown: KeyboardEvent;                            // keys pressed while focus is in the book
   externalLink: { href: string };                    // the app decides how to open it
@@ -858,6 +868,7 @@ export interface ReaderEngine {
 - `relocated` is the **single source of truth for position**. The illustration panel, narration player, progress saving and page indicator all subscribe to one shared reactive value fed by it.
 - Decorations should use the CSS Custom Highlight API where the engine allows it (supported in Chromium, Safari 17.2+ and Firefox 140+). It paints highlights without changing the DOM, so highlighting never triggers re-pagination.
 - The `focus` decoration (focus mode, P1-RDR-11) marks the paragraph to keep bright: the engine dims the Chapter's other innermost Blocks with opacity, set by attributes. Opacity never changes the layout, keeps the focused text's own colours (AA in every theme) and dims pictures too, which a highlight can't.
+- **Squeezed tables (P1-RDR-12, §4.10):** a table is squeezed when the page can't fit it without breaking its words (its narrowest layout with whole words is wider than the room it has). The engine checks each Chapter's tables after layout, when the fonts load, when a table's size changes and after a typography change, and puts an "Open table" row above each squeezed one (`data-injected`, so the word map skips it; foliate-js keeps the place as the layout changes). Pressing it emits `tableActivated` with a copy of the table for the app's viewer, rebuilt from an allowlist of elements and attributes with the computed look inlined, since Book content is untrusted (Invariant 10).
 
 ### 9.2 Layout and navigation
 
@@ -899,7 +910,10 @@ export interface ReaderPreferences {
   pageTurn: 'none' | 'slide' | 'fade';
   illustrations: 'popup' | 'per-page' | 'spread' | 'in-text' | 'off';
   focusMode: boolean;            // P1-RDR-11; off by default
-  narration: { rate: number; autoTurn: boolean; highlight: 'word' | 'sentence' | 'off' };
+  narration: {
+    rate: number; autoTurn: boolean; highlight: 'word' | 'sentence' | 'off';
+    sleepTimer?: 5 | 15 | 30 | 60 | 'chapter'; // P1-LAY-09: the last choice, marked in the player; never armed by itself
+  };
   deviceVoice: { rate: number; voices: Record<string, string> }; // P1-LAY-08: its own speed, a voice per language
   hintsSeen: string[];           // one-off hints dismissed ('illustrations', 'narration'), global only
 }
@@ -926,6 +940,8 @@ Web fiction, especially LitRPG, uses boxed blocks for status windows, system mes
 ### 9.7 Platform differences
 
 `apps/web/src/lib/platform/` exposes one interface per capability, each with a `web` and a `capacitor` implementation: `audio` (HTML audio + Media Session vs native plugin), `speech` (the Web Speech API vs our native plugin on Android's `TextToSpeech`, ADR-006), `files` (file picker / IndexedDB vs Capacitor Filesystem), `share`, `haptics`, `deepLinks`. Feature code imports the interface, never an implementation.
+
+The sleep timer (P1-LAY-09) is part of `audio` and `speech`, not the page: on Android the WebView's timers sleep with the screen locked, so the native plugins count, fade and stop by themselves (`SleepTimer.kt`, beside the player). It counts only playing time. A recording fades out over its last 6 s; "End of chapter" stops at the end of the item (ExoPlayer pauses there) ready at the start of the next. The device voice can't fade mid-sentence, so it finishes its sentence and stops before the next one.
 
 ### 9.8 Sandboxing
 
@@ -1070,7 +1086,7 @@ Button (filled, tonal, outlined, text), IconButton, Segmented button, Slider, Sw
 - M3 window size classes: compact < 600 px, medium 600–839 px, expanded ≥ 840 px.
 - App navigation: bottom navigation bar on compact; navigation rail on medium and expanded.
 - Main areas: Library, Store, Studio (Creators only) and You (profile, purchases, subscriptions, Bookmark Designs, Settings; Admin for moderators). In the PoC, Store, Studio and Admin run against the simulated backend (§5.6) and feature flags can hide them. The Reader is full screen, outside the app navigation.
-- The reader is full screen. Toolbars auto-hide and toggle with a centre tap or Esc.
+- The reader is full screen. Toolbars auto-hide and toggle with a centre tap or Esc. On compact screens its top bar keeps Back, the Book and Chapter titles, the bookmark and the contents; search, Illustrations and reading preferences go under "More reading options", so the titles stay readable (D-037).
 - Respect safe-area insets (`--safe-*` tokens) everywhere; nothing depends on hover.
 
 ### 11.6 UI copy
@@ -1624,6 +1640,7 @@ Starts after the front-end phases 1.10–1.21 (or those the owner keeps, D-035) 
 | D-034 | A Book with no Reading Progress opens at its text (P1-RDR-09, §9.5). Ingest records the EPUB 3 nav's `bodymatter` landmark and the EPUB 2 guide's `text` reference as Ordinals (an optional manifest field, left out when there are none, so Revisions without them are unchanged); `textStart` in `domain` decides from the manifest. Without either, a heuristic over the TOC, each step trusted only if it skips at most a tenth of the Book's Words: (a) the first entry headed like a chapter or part ("Chapter", "Prologue", "Part I", a bare number such as "1." or "IV:"); (b) the first Chapter with Words after the contents page; (c) the first entry not named like front matter (title page, copyright, contents, licence, Project Gutenberg, dedication…). Else the first Chapter with Words, as before. Like publishers' `bodymatter`, (a) skips an introduction or preface ahead of Chapter 1 | Accepted (owner decision, 16 Oct 2026) |
 | D-035 | **Front end first.** Every front-end feature worth building without a real backend comes before any backend work, as phases 1.11–1.21 after 1.10: from Phase 3, in-book search and the device-voice fallback; from Phase 6, focus mode, sleep timer, reading time left, stats, share quote, advanced custom colours, overview mode, tap-to-define and the page-curl skin; from the backlog, the table viewer (RDR-01) and `tools/align` for any Book (STU-01); and, simulated in `backend-local` as phases 1.6–1.8 were, recaps and glossary, serial release schedules, wishlists, reviews, paragraph comments and popular highlights, which become real in their original phases. Phase 2 starts only after these phases (or those the owner keeps after the PoC review) and the review's go decision. Left where they were, because they need a server or real readers: store SEO, offline downloads, author analytics, the cross-device prompt, AI narration and AI drafts, DOCX import; also covers as cosmetic Products (Phase 4), which would repeat Bookmark Designs; iOS still waits for a Mac (D-024); the Parked list (§13.8) is unchanged. Amends D-003's order only: still no backend before the PoC review | Accepted (owner decision, 16 Oct 2026) |
 | D-036 | **The device voice (P1-LAY-08, ADR-006):** only on-device voices are offered (the web's `localService` voices; Android voices that need no network), so the text being read never leaves the device (principle 6); online voices such as Chrome's "Google …" and Edge's "Online (Natural)" are never listed. The device voice is offered wherever the reader can't play a Book's narration: Chapters it doesn't cover, Books without it, **and narration the reader doesn't own**, where the player says the narration is in the store. An author's switch to turn the device voice off for their Book is BACKLOG STU-02 | Accepted (owner decision, 16 Oct 2026) |
+| D-037 | **Comfortable on a phone (Phase 1.13; P1-LAY-09, P1-RDR-12):** the sleep timer counts only listening time, so pausing freezes it; the reader's last choice is remembered in Reader Preferences and marked in the player's menu, but never turns the timer on by itself (Invariant 11's spirit: nothing audio-related acts on its own). On compact screens the reader's top bar moves reading preferences and Illustrations under a "More reading options" menu; search went there too, since without it a Book with no pictures would gain no room for its titles (proposed in the Phase 1.13 PR). Also chosen in the phase, not by the owner: only the "Open table" button opens the viewer (a tap on the table keeps its meaning: tap zones, tap to seek), and when its time is up the device voice finishes its sentence rather than fading | Accepted (owner decision, 16 Oct 2026; search under More proposed) |
 
 ---
 

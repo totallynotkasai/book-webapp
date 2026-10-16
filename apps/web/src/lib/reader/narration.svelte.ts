@@ -15,12 +15,14 @@ import {
 	type LayerSummaryDto,
 	type OpenTrackDto,
 	type RevisionManifest,
+	type SleepTimerChoice,
 	type SyncMap,
 	type WordId
 } from '@book/core';
 import { sentenceAt } from '@book/domain';
 import type { ChapterText } from '@book/reader-core';
-import type { AudioAdapter } from '$lib/platform';
+import type { AudioAdapter, SleepState } from '$lib/platform';
+import { sleepTimerOf } from './sleep-timer';
 import {
 	coverageLabel,
 	makeTiming,
@@ -58,6 +60,8 @@ export class BookNarration {
 	/** Off once the reader turns pages by hand; auto-turn waits until it's back on (§8.3). */
 	following = $state(true);
 	error = $state<string | null>(null);
+	/** The sleep timer the reader set (P1-LAY-09), until it stops the narration or is turned off. */
+	sleepChoice = $state<SleepTimerChoice | null>(null);
 
 	readonly #backend: Backend;
 	readonly #audio: AudioAdapter;
@@ -235,6 +239,12 @@ export class BookNarration {
 			audio.on('error', () => {
 				this.error = audio.error;
 				this.playing = audio.playing;
+			}),
+			audio.on('sleep', () => (this.sleepChoice = null)),
+			// Moved while paused (the lock screen, or the sleep timer while the app slept).
+			audio.on('seek', () => {
+				this.#entry = -1;
+				this.#update(true);
 			})
 		);
 		const visibility = () => {
@@ -347,9 +357,22 @@ export class BookNarration {
 		if (this.active) this.#audio.setRate(rate);
 	}
 
-	/** Closes the player: stops the audio and its lock-screen controls. */
+	/** Arms the sleep timer (P1-LAY-09), or turns it off with null. */
+	setSleep(choice: SleepTimerChoice | null) {
+		if (!this.active) return;
+		this.sleepChoice = choice;
+		this.#audio.setSleep(choice === null ? null : sleepTimerOf(choice));
+	}
+
+	/** The sleep timer's countdown, current whenever it's read (not reactive: poll it). */
+	get sleepLeft(): SleepState | null {
+		return this.active && this.sleepChoice !== null ? this.#audio.sleep : null;
+	}
+
+	/** Closes the player: stops the audio, its lock-screen controls and any sleep timer. */
 	stop() {
 		if (this.active) this.#audio.unload();
+		this.sleepChoice = null;
 		this.active = false;
 		this.playing = false;
 		this.word = null;
