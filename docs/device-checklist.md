@@ -36,6 +36,20 @@ The **Emulator** column has the results from 13 October 2026 (tester APK and own
 | Close the app (Home, then swipe it away) and open it again: the same Word | | ✓ (smoke; fixed in 1.9, see below) | ☐ |
 | Re-import an edited copy of an EPUB: notes survive | Library → Import EPUB from Files | Web E2E; file picker by hand in Phase 1.3 | ☐ |
 
+## The device voice (Phase 1.11, ADR-006)
+
+The **Emulator** column has the results from 16 October 2026 (owner build, `book_compact`).
+
+| Check | How | Emulator | Phone |
+|---|---|---|---|
+| Any Book read aloud: the player says "Device voice" and the voice's name; each Word lights up as it's said; pages turn by themselves | Open *Treasure Island* (add it from the store), Read aloud | ✓ (*Alice* as the Reader, who doesn't own its narration) | ☐ |
+| **The voice keeps speaking with the screen locked;** on unlocking, the page has moved on | Lock the phone for a few minutes while it reads | ✓ screen off for 20 s (no screen lock on the emulator) | ☐ (several minutes: Xiaomi's battery manager may stop it) |
+| The lock screen shows the Chapter, "Device voice" and the Book, with play/pause and previous/next sentence | Lock screen and notification shade | Media session seen (`dumpsys media_session`: PLAYING, the Chapter, Device voice, the Book) | ☐ |
+| The highlight keeps up with the voice: no Word lit noticeably before or after it's said | Listen with the screen on | — (muted) | ☐ |
+| Change the speed and the voice; the next sentence uses them | Speed menu; More controls → Voice | ✓ 9 on-device US English voices; the engine's network voices aren't offered (D-036) | ☐ (which voices does the phone have?) |
+| In *Alice* as the Author, chapters 1–3 play the recorded narration; Chapter IV offers the device voice | Listen in each | Web E2E | ☐ |
+| A phone call or another app's audio pauses it; unplugging headphones pauses it | | ☐ | ☐ |
+
 ## Android behaviour
 
 | Check | How | Emulator | Phone |

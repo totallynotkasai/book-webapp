@@ -1,6 +1,6 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 16 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034. Front end first: phases 1.11–1.21 before any backend; D-035, OPEN-16)
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 16 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034. Front end first: phases 1.11–1.21 before any backend; D-035, OPEN-16. Phase 1.11: the device voice; D-036, ADR-006)
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
 > **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
@@ -762,6 +762,7 @@ Injection happens at render time through `ReaderEngine.injectFigures()`, and onl
 - On mobile, background playback with lock-screen and Media Session controls is required.
 - Narration updates Reading Progress the same way manual reading does.
 - Pauses when the app is backgrounded only if narration isn't the thing playing.
+- **The device voice** (P1-LAY-08, ADR-006) follows the same rules with the device's own text-to-speech: a sentence at a time (`sentenceSpans`), its position from the voice's Word boundaries, the sentence highlighted when a voice reports none. Only on-device voices are offered, and it stands in wherever the reader can't play narration, including a narration they don't own (D-036). Labelled "Device voice", never as narration.
 
 ### 8.4 Ambient audio (Parked)
 
@@ -896,6 +897,7 @@ export interface ReaderPreferences {
   pageTurn: 'none' | 'slide' | 'fade';
   illustrations: 'popup' | 'per-page' | 'spread' | 'in-text' | 'off';
   narration: { rate: number; autoTurn: boolean; highlight: 'word' | 'sentence' | 'off' };
+  deviceVoice: { rate: number; voices: Record<string, string> }; // P1-LAY-08: its own speed, a voice per language
   hintsSeen: string[];           // one-off hints dismissed ('illustrations', 'narration'), global only
 }
 ```
@@ -920,7 +922,7 @@ Web fiction, especially LitRPG, uses boxed blocks for status windows, system mes
 
 ### 9.7 Platform differences
 
-`apps/web/src/lib/platform/` exposes one interface per capability, each with a `web` and a `capacitor` implementation: `audio` (HTML audio + Media Session vs native plugin), `files` (file picker / IndexedDB vs Capacitor Filesystem), `share`, `haptics`, `deepLinks`. Feature code imports the interface, never an implementation.
+`apps/web/src/lib/platform/` exposes one interface per capability, each with a `web` and a `capacitor` implementation: `audio` (HTML audio + Media Session vs native plugin), `speech` (the Web Speech API vs our native plugin on Android's `TextToSpeech`, ADR-006), `files` (file picker / IndexedDB vs Capacitor Filesystem), `share`, `haptics`, `deepLinks`. Feature code imports the interface, never an implementation.
 
 ### 9.8 Sandboxing
 
@@ -1618,6 +1620,7 @@ Starts after the front-end phases 1.10–1.21 (or those the owner keeps, D-035) 
 | D-033 | Phase 1.10 "PoC review fixes": small frontend fixes found while preparing or running the PoC review, picked up from `docs/BACKLOG.md` while Phase 2 waits for its go decision. They work against `backend-local`, so none waits on the backend. The first is P1-RDR-09 (was BACKLOG RDR-02). One branch and PR (`p1-10-poc-review-fixes`, D-025); later fixes may get a phase of their own | Accepted (owner decision, 16 Oct 2026) |
 | D-034 | A Book with no Reading Progress opens at its text (P1-RDR-09, §9.5). Ingest records the EPUB 3 nav's `bodymatter` landmark and the EPUB 2 guide's `text` reference as Ordinals (an optional manifest field, left out when there are none, so Revisions without them are unchanged); `textStart` in `domain` decides from the manifest. Without either, a heuristic over the TOC, each step trusted only if it skips at most a tenth of the Book's Words: (a) the first entry headed like a chapter or part ("Chapter", "Prologue", "Part I", a bare number such as "1." or "IV:"); (b) the first Chapter with Words after the contents page; (c) the first entry not named like front matter (title page, copyright, contents, licence, Project Gutenberg, dedication…). Else the first Chapter with Words, as before. Like publishers' `bodymatter`, (a) skips an introduction or preface ahead of Chapter 1 | Accepted (owner decision, 16 Oct 2026) |
 | D-035 | **Front end first.** Every front-end feature worth building without a real backend comes before any backend work, as phases 1.11–1.21 after 1.10: from Phase 3, in-book search and the device-voice fallback; from Phase 6, focus mode, sleep timer, reading time left, stats, share quote, advanced custom colours, overview mode, tap-to-define and the page-curl skin; from the backlog, the table viewer (RDR-01) and `tools/align` for any Book (STU-01); and, simulated in `backend-local` as phases 1.6–1.8 were, recaps and glossary, serial release schedules, wishlists, reviews, paragraph comments and popular highlights, which become real in their original phases. Phase 2 starts only after these phases (or those the owner keeps after the PoC review) and the review's go decision. Left where they were, because they need a server or real readers: store SEO, offline downloads, author analytics, the cross-device prompt, AI narration and AI drafts, DOCX import; also covers as cosmetic Products (Phase 4), which would repeat Bookmark Designs; iOS still waits for a Mac (D-024); the Parked list (§13.8) is unchanged. Amends D-003's order only: still no backend before the PoC review | Accepted (owner decision, 16 Oct 2026) |
+| D-036 | **The device voice (P1-LAY-08, ADR-006):** only on-device voices are offered (the web's `localService` voices; Android voices that need no network), so the text being read never leaves the device (principle 6); online voices such as Chrome's "Google …" and Edge's "Online (Natural)" are never listed. The device voice is offered wherever the reader can't play a Book's narration: Chapters it doesn't cover, Books without it, **and narration the reader doesn't own**, where the player says the narration is in the store. An author's switch to turn the device voice off for their Book is BACKLOG STU-02 | Accepted (owner decision, 16 Oct 2026) |
 
 ---
 
