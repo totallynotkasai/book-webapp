@@ -22,6 +22,12 @@ export const test = base.extend<{ welcomed: boolean; fixedClock: boolean }>({
 				aiDetectorVerdict: 'clean',
 				clockOffsetMs: 0
 			};
+			// No device voice unless a spec installs one (e2e/speech.ts): headless Chromium has
+			// the system's voices on Windows and none on CI's Linux (ADR-006).
+			Object.defineProperty(globalThis, 'speechSynthesis', {
+				value: undefined,
+				configurable: true
+			});
 		}, welcomed);
 		if (fixedClock) await page.clock.setFixedTime(E2E_NOW);
 		await use(page);

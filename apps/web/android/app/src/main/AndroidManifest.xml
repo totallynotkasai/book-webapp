@@ -43,6 +43,16 @@
             </intent-filter>
         </service>
 
+        <!-- The device voice (P1-LAY-08, ADR-006): TextToSpeech in the background with a media session. -->
+        <service
+            android:name=".speech.SpeechService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -56,8 +66,16 @@
 
     <!-- Permissions -->
 
+    <!-- Android 11+ hides other apps' services: this makes the speech engine visible (ADR-006). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Narration keeps playing with the screen off (Play Console: declare mediaPlayback). -->
+    <!-- Narration and the device voice keep playing with the screen off (Play Console: declare
+         mediaPlayback). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />

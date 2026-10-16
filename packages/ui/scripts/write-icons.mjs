@@ -86,6 +86,7 @@ const ICONS = [
 	'play_arrow',
 	'public',
 	'publish',
+	'record_voice_over',
 	'refresh',
 	'remove',
 	'reorder',

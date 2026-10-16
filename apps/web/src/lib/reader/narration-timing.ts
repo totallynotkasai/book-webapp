@@ -7,16 +7,20 @@ import type { SyncMap, WordId } from '@book/core';
 import { sentenceAt, sentenceSpans } from '@book/domain';
 import type { ChapterText } from '@book/reader-core';
 
-/** The narrated Word and its sentence, as Ordinals on the open Revision. */
-export interface NarratedWord {
+/** The Word being read aloud and its sentence, as Ordinals on the open Revision. */
+export interface ReadWord {
 	chapterId: string;
 	wordId: WordId;
 	ordinal: number;
 	text: string;
-	/** When the recording says it. */
-	startMs: number;
 	/** The sentence's first and last Words. */
 	sentence: { first: number; last: number; firstWordId: WordId; lastWordId: WordId };
+}
+
+/** The narrated Word: a ReadWord with its time in the recording. */
+export interface NarratedWord extends ReadWord {
+	/** When the recording says it. */
+	startMs: number;
 }
 
 /** A Chapter's Sync Map joined to its Words. */

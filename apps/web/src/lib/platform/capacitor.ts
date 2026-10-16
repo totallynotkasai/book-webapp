@@ -3,6 +3,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { nativeAudio } from './native-audio';
+import { nativeSpeech } from './native-speech';
 import { switchingAudio } from './switching-audio';
 import type {
 	DeepLinksAdapter,
@@ -11,7 +12,15 @@ import type {
 	Platform,
 	SystemBarsAdapter
 } from './types';
-import { webAudio, webFiles, webHaptics, webLifecycle, webShare, webSystemBars } from './web';
+import {
+	webAudio,
+	webFiles,
+	webHaptics,
+	webLifecycle,
+	webShare,
+	webSpeech,
+	webSystemBars
+} from './web';
 
 /**
  * Saving a file inside the WebView: a download link does nothing there, so the file is written to
@@ -141,6 +150,8 @@ export function capacitorPlatform(): Platform {
 		kind: ios ? 'ios' : 'android',
 		// Studio uploads are blob: URLs the native player can't open, so they play in the WebView.
 		audio: ios ? webAudio() : switchingAudio(nativeAudio(), webAudio()),
+		// The Android WebView has no Web Speech API (ADR-006); WKWebView does.
+		speech: ios ? webSpeech() : nativeSpeech(),
 		files: capacitorFiles,
 		share: webShare,
 		haptics: webHaptics,

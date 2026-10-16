@@ -8,8 +8,9 @@ import type {
 	SystemBarsAdapter
 } from './types';
 import { webAudio } from './web-audio';
+import { webSpeech } from './web-speech';
 
-export { webAudio };
+export { webAudio, webSpeech };
 
 export const webFiles: FilesAdapter = {
 	pickFiles({ accept, multiple = false }) {
@@ -100,6 +101,7 @@ export function webPlatform(): Platform {
 	return {
 		kind: 'web',
 		audio: webAudio(),
+		speech: webSpeech(),
 		files: webFiles,
 		share: webShare,
 		haptics: webHaptics,

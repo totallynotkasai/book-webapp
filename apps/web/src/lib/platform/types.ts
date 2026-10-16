@@ -58,6 +58,86 @@ export interface AudioAdapter {
 	on(event: AudioEvent, callback: () => void): () => void;
 }
 
+/** A voice the device speaks with. Only on-device voices are offered (D-036). */
+export interface SpeechVoice {
+	/** Stable from one launch to the next: the web's `voiceURI`, Android's voice name. */
+	id: string;
+	/** As the reader sees it. */
+	name: string;
+	/** BCP 47, e.g. `en-GB`. */
+	lang: string;
+	/** The platform's own choice for its language. */
+	default: boolean;
+}
+
+/** One sentence to say. Its `id` comes back in `current`, so the app knows where speech is. */
+export interface SpeechUtterance {
+	id: number;
+	text: string;
+}
+
+/** Where speech has reached: an utterance, and the start of the Word in it being said. */
+export interface SpeechPosition {
+	id: number;
+	/** UTF-16 offset into the utterance's text; 0 at its start. */
+	charIndex: number;
+}
+
+export interface SpeechOptions {
+	/** A voice from `voices()`; the platform's default for `lang` when absent or gone. */
+	voiceId?: string;
+	/** The Book's language. */
+	lang: string;
+	/** 0.5–3; 1 is the voice's natural pace. */
+	rate: number;
+}
+
+/**
+ * `progress`: `current` moved (a new utterance, or a Word in it). `play`/`pause`: speaking
+ * started or stopped, from the app or (Android) the lock screen. `end`: the queue ran out.
+ * `error`: `error` says why.
+ */
+export type SpeechEvent = 'progress' | 'play' | 'pause' | 'end' | 'error';
+
+/**
+ * The device's own text-to-speech (P1-LAY-08, ADR-006): the Web Speech API on the web; on
+ * Android our `Speech` plugin on `TextToSpeech`, in a foreground service with a media session,
+ * so it carries on with the screen locked. Utterances are queued natively, so speech goes on
+ * through a Chapter (and the next one, once `enqueue`d) while the page sleeps.
+ */
+export interface SpeechAdapter {
+	/** False where the device can't speak: no Web Speech (WebKit on Windows), no voice, no engine. */
+	available(): Promise<boolean>;
+	/** On-device voices only (D-036): none that sends the text to a server. */
+	voices(): Promise<SpeechVoice[]>;
+	/**
+	 * Replaces the queue and starts speaking, from `start` or its first utterance. Only ever called
+	 * when the reader presses play (Invariant 11).
+	 */
+	speak(
+		utterances: SpeechUtterance[],
+		options: SpeechOptions,
+		info: AudioTrackInfo & { title: string },
+		start?: SpeechPosition
+	): Promise<void>;
+	/** Adds to the end of the queue (the next Chapter), so speech carries on by itself. */
+	enqueue(utterances: SpeechUtterance[], title: string): void;
+	/** Moves within the queue: another sentence, or a Word in one. Keeps playing or paused. */
+	seek(position: SpeechPosition): void;
+	/** Stops speaking but keeps the place; `resume` goes on from the Word it had reached. */
+	pause(): void;
+	resume(): Promise<void>;
+	/** Empties the queue and removes the lock-screen controls. */
+	stop(): void;
+	/** Applies at once, from the Word being said. */
+	setRate(rate: number): void;
+	setVoice(voiceId: string): void;
+	readonly playing: boolean;
+	readonly current: SpeechPosition | null;
+	readonly error: string | null;
+	on(event: SpeechEvent, callback: () => void): () => void;
+}
+
 export interface PickFilesOptions {
 	/** MIME types or extensions, e.g. `['application/epub+zip', '.epub']`. */
 	accept: string[];
@@ -126,6 +206,7 @@ export interface SystemBarsAdapter {
 export interface Platform {
 	kind: 'web' | 'android' | 'ios';
 	audio: AudioAdapter;
+	speech: SpeechAdapter;
 	files: FilesAdapter;
 	share: ShareAdapter;
 	haptics: HapticsAdapter;
