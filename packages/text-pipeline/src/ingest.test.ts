@@ -255,6 +255,70 @@ describe('Blocks, Words and the TOC (§7.1 steps 3–6)', () => {
 		expect(result.report.warnings.map((w) => w.code)).toContain('no_toc');
 	});
 
+	describe('landmarks: where the text starts (P1-RDR-09)', () => {
+		const chapters = {
+			'front.xhtml': '<h1>Contents</h1><p>One</p>',
+			'one.xhtml': '<p>Before</p><h1 id="start">Chapter One</h1><p>It began</p>'
+		};
+		const nav = (landmarks: string) =>
+			`<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="front.xhtml">Contents</a></li><li><a href="one.xhtml">One</a></li></ol></nav>${landmarks}</body></html>`;
+		const landmarksOf = async (options: { nav?: string; guide?: string }) =>
+			json<RevisionManifest>(await ingestEpub(makeEpub({ chapters, ...options })), 'manifest.json')
+				.landmarks;
+
+		it('records the EPUB 3 bodymatter landmark, resolved to its first Word', async () => {
+			expect(
+				await landmarksOf({
+					nav: nav(
+						'<nav epub:type="landmarks"><ol><li><a epub:type="toc" href="front.xhtml">Contents</a></li><li><a epub:type="bodymatter chapter" href="one.xhtml#start">Start</a></li></ol></nav>'
+					)
+				})
+			).toEqual([{ type: 'bodymatter', chapterId: 'one.xhtml', fragment: 'start', ordinal: 3 }]);
+		});
+
+		it('records the EPUB 2 guide’s text reference, after any bodymatter landmark', async () => {
+			const guide =
+				'<guide><reference type="toc" href="front.xhtml"/><reference type="Text" title="Start" href="one.xhtml"/></guide>';
+			expect(await landmarksOf({ guide })).toEqual([
+				{ type: 'text', chapterId: 'one.xhtml', fragment: null, ordinal: 2 }
+			]);
+			expect(
+				await landmarksOf({
+					guide,
+					nav: nav(
+						'<nav epub:type="landmarks"><ol><li><a epub:type="bodymatter" href="one.xhtml#start">Start</a></li></ol></nav>'
+					)
+				})
+			).toEqual([
+				{ type: 'bodymatter', chapterId: 'one.xhtml', fragment: 'start', ordinal: 3 },
+				{ type: 'text', chapterId: 'one.xhtml', fragment: null, ordinal: 2 }
+			]);
+		});
+
+		it('leaves them out when the EPUB names none, so its Revision is unchanged', async () => {
+			expect(await landmarksOf({})).toBeUndefined();
+			// Project Gutenberg marks its page list as landmarks, with no bodymatter in it.
+			expect(
+				await landmarksOf({
+					nav: nav(
+						'<nav epub:type="landmarks" aria-label="Page List"><ol><li><a epub:type="frontmatter" href="front.xhtml">[iv]</a></li><li><a epub:type="normal" href="one.xhtml">[1]</a></li></ol></nav>'
+					),
+					guide: '<guide><reference type="title-page" href="front.xhtml"/></guide>'
+				})
+			).toBeUndefined();
+		});
+
+		it('ignores landmarks that point outside the Book’s chapters', async () => {
+			expect(
+				await landmarksOf({
+					nav: nav(
+						'<nav epub:type="landmarks"><ol><li><a epub:type="bodymatter" href="missing.xhtml">Start</a></li><li><a epub:type="bodymatter" href="https://example.com/">Web</a></li></ol></nav>'
+					)
+				})
+			).toBeUndefined();
+		});
+	});
+
 	it('uses dc:identifier as the Book ID, or asks for one', async () => {
 		const withId = await ingestEpub(
 			makeEpub({ identifier: 'urn:isbn:123', chapters: { 'a.xhtml': '<p>x</p>' } })

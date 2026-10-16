@@ -13,6 +13,7 @@ import {
 	type IngestReport,
 	type IngestWarning,
 	type IngestWarningCode,
+	type Landmark,
 	type ResourceRecord,
 	type RevisionManifest,
 	type TocEntry,
@@ -33,7 +34,7 @@ import {
 	XLINK_NS
 } from './dom';
 import { IngestError } from './errors';
-import { isEncrypted, readPackage, readToc, type ManifestItem } from './opf';
+import { isEncrypted, readLandmarks, readPackage, readToc, type ManifestItem } from './opf';
 import { relativeHref, relativeTo, resolveInArchive } from './paths';
 import type { RevisionWords } from './revision';
 import { sanitiseDocument, sanitiseSvg } from './sanitise';
@@ -353,20 +354,36 @@ export async function ingestEpub(
 		);
 	}
 
-	// ---- TOC entries resolved to the first Word at or after their target ----
+	// ---- TOC entries and landmarks resolved to the first Word at or after their target ----
+	const resolve = (path: string, fragment: string | null) => {
+		const chapter = chapters.find((c) => c.chapterId === rel(path));
+		if (!chapter) return null;
+		let offset = 0;
+		if (fragment) offset = idMaps.get(path)?.get(fragment) ?? 0;
+		const last = Math.max(chapter.firstOrdinal, chapter.lastOrdinal);
+		return { chapter, ordinal: Math.min(chapter.firstOrdinal + offset, last) };
+	};
 	let toc: TocEntry[] = [];
 	for (const entry of rawToc) {
-		const chapter = chapters.find((c) => c.chapterId === rel(entry.path));
-		if (!chapter) continue;
-		let offset = 0;
-		if (entry.fragment) offset = idMaps.get(entry.path)?.get(entry.fragment) ?? 0;
-		const last = Math.max(chapter.firstOrdinal, chapter.lastOrdinal);
+		const target = resolve(entry.path, entry.fragment);
+		if (!target) continue;
 		toc.push({
-			label: entry.label || chapter.title,
-			chapterId: chapter.chapterId,
+			label: entry.label || target.chapter.title,
+			chapterId: target.chapter.chapterId,
 			fragment: entry.fragment,
-			ordinal: Math.min(chapter.firstOrdinal + offset, last),
+			ordinal: target.ordinal,
 			depth: entry.depth
+		});
+	}
+	const landmarks: Landmark[] = [];
+	for (const landmark of readLandmarks(read, pkg)) {
+		const target = resolve(landmark.path, landmark.fragment);
+		if (!target) continue;
+		landmarks.push({
+			type: landmark.type,
+			chapterId: target.chapter.chapterId,
+			fragment: landmark.fragment,
+			ordinal: target.ordinal
 		});
 	}
 	if (toc.length === 0) {
@@ -399,6 +416,8 @@ export async function ingestEpub(
 		identifier: pkg.identifier,
 		chapters,
 		toc,
+		// Only when there are any, so Revisions of EPUBs without them are unchanged byte for byte.
+		...(landmarks.length ? { landmarks } : {}),
 		resources,
 		coverPath: pkg.coverPath && resourcePaths.has(pkg.coverPath) ? rel(pkg.coverPath) : null,
 		wordCount: ordinal,

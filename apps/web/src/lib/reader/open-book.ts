@@ -14,9 +14,13 @@ import {
 	BackendError,
 	isBackendError,
 	revisionManifestSchema,
+	revisionPaths,
+	wordIndexSchema,
 	type LockedChapterDto,
+	type PointAnchor,
 	type RevisionManifest
 } from '@book/core';
+import { textStart } from '@book/domain';
 import type { ContentLoader } from '@book/reader-core';
 import { getBackend, getStores } from '$lib/services';
 
@@ -47,7 +51,40 @@ function withoutLocked(manifest: RevisionManifest, locked: Set<string>): Revisio
 		...manifest,
 		chapters,
 		toc: manifest.toc.filter((t) => !locked.has(t.chapterId)),
+		...(manifest.landmarks
+			? { landmarks: manifest.landmarks.filter((l) => !locked.has(l.chapterId)) }
+			: {}),
 		wordCount: last ? last.lastOrdinal + 1 : 0
+	};
+}
+
+/**
+ * Where a Book opened for the first time starts (P1-RDR-09): the first Word of its text, past
+ * any front matter (`textStart` in `@book/domain`). Undefined leaves the engine's own default.
+ *
+ * Only a place to open at, never stored, so the quote stays empty: the engine reports the
+ * Anchor on screen, quote and all, as soon as it has laid the page out.
+ */
+export async function startOfText(book: OpenedBook): Promise<PointAnchor | undefined> {
+	const { manifest, loader } = book;
+	const start = textStart(manifest);
+	const chapter = start && manifest.chapters.find((c) => c.chapterId === start.chapterId);
+	if (!start || !chapter) return undefined;
+	let wordId = start.ordinal === chapter.firstOrdinal ? chapter.firstWordId : null;
+	if (wordId === null) {
+		// The start is inside the Chapter (a landmark or contents entry with a fragment).
+		const file = await loader.read(revisionPaths.wordIndex(chapter.chapterId));
+		const index = wordIndexSchema.parse(JSON.parse(await file.text()));
+		wordId = index.words[start.ordinal - index.firstOrdinal]?.[0] ?? null;
+	}
+	if (wordId === null) return undefined;
+	return {
+		kind: 'point',
+		bookId: manifest.bookId,
+		revisionId: manifest.revisionId,
+		wordId,
+		ordinal: start.ordinal,
+		quote: { exact: '', prefix: '', suffix: '' }
 	};
 }
 

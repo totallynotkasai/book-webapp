@@ -9,3 +9,4 @@ export * from './revenue';
 export * from './studio';
 export * from './community';
 export * from './flags';
+export * from './text-start';

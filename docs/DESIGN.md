@@ -1,6 +1,6 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 13 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15)
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 16 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034)
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
 > **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
@@ -168,6 +168,7 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 | Scrubber | Drag to any point. Shows chapter ticks, chapter name and percentage while dragging; jumps on release | 1 |
 | "Back" after a jump | Returns to the position before the last scrubber, TOC, search or link jump | 1 |
 | Table of contents | Drawer with chapter list and current chapter marked | 1 |
+| Open at the text | A Book opened for the first time starts where its text does, not at a licence or contents page (§9.5) | 1 |
 | Layout modes | Single page (narrow screens), two-page spread (≥ 1024 px wide), continuous scroll. `auto` picks for you | 1 |
 | Page indicator | "Page X of Y in this chapter", recomputed live, never stored | 1 |
 | Page-turn animation | None / slide / fade; forced to none under reduced motion | 1 |
@@ -661,7 +662,7 @@ EPUB 3 (and well-formed EPUB 2) only. Authors can export EPUB from Vellum, Attic
 3. **Mark Blocks:** give each block-level element a `data-b` index in reading order.
 4. **Tokenise:** walk text nodes in reading order and split them into Words with `text-pipeline`'s own deterministic, versioned word tokeniser (D-026, resolving OPEN-14): UAX #29-style word rules over Unicode properties, with no `Intl.Segmenter`, so every runtime (Chromium, WebKit, Node) gives the same Words and WordIds. Han, Hiragana, Katakana and Thai text is one Word per character until a later tokeniser version handles those scripts. The tokeniser version is recorded on each Revision. Never split a Word across element boundaries. Use the Book's `lang` from the OPF. Words are marked by Block offsets (ADR-002), not spans.
 5. **Assign WordIds and Ordinals** (§6.2).
-6. **Emit:** sanitised XHTML, the per-Chapter word index (for each Word in reading order: WordId, Block, text, and offsets if ADR-002 needs them), the engine manifest (ADR-001), TOC, and Chapter records with first/last WordId and Ordinal.
+6. **Emit:** sanitised XHTML, the per-Chapter word index (for each Word in reading order: WordId, Block, text, and offsets if ADR-002 needs them), the engine manifest (ADR-001), TOC, Chapter records with first/last WordId and Ordinal, and the landmarks that say where the text starts (EPUB 3 `bodymatter`, EPUB 2 guide `text`), resolved to Ordinals like TOC entries (P1-RDR-09).
 7. **Report:** word count, chapter count, warnings (CSS removed, images missing alt text, and so on). The author sees this before publishing.
 8. **Publish** (separate action, Phase 2): sets the current Revision, then queues `migrate-anchors` and re-alignment for changed Chapters.
 
@@ -904,6 +905,7 @@ Changes apply live without reloading the Chapter and keep position (§9.1). Defa
 
 - Save on `relocated`, debounced to 2 s, and when the app is backgrounded or closed.
 - Update the furthest position whenever the current one passes it.
+- A Book with no Reading Progress opens at its text, past any front matter (P1-RDR-09, D-034): the EPUB 3 `bodymatter` landmark, else the EPUB 2 guide's `text`, else a heuristic over the TOC, else the first Chapter with Words. The rule is `textStart` in `domain`; the reader opens at a PointAnchor on that Word.
 - Phase 2 conflict rule: last write wins by `updated_at`. If, on open, the server position differs from the local one by more than 1% progression and came from another device, ask: "You were further ahead on another device. Jump there?"
 
 ### 9.6 Styled blocks (LitRPG status windows and similar)
@@ -1159,7 +1161,7 @@ Phases are sequential. Each ends with an exit review: acceptance flows pass, ADR
 | 5 | Community | Community Layers with author permission, payouts, moderation |
 | 6 | Discovery and retention | Store SEO, reviews, recaps, glossary, offline, analytics for authors |
 
-**Phases 0, 1 and 2 are split into smaller phases**, each ending in a build the owner can try on desktop and on their Android phone. This section defines the tasks; `docs/IMPLEMENTATION-PLAN.md` gives their order, UX notes and Try-it checklists. Phases 1.4–1.5 (Layers track) and 1.6–1.8 (Platform track) can run in parallel, and so can Phase 2's Reader track (2.4–2.5), Author track (2.6–2.8) and Operations (2.12–2.13).
+**Phases 0, 1 and 2 are split into smaller phases**, each ending in a build the owner can try on desktop and on their Android phone. This section defines the tasks; `docs/IMPLEMENTATION-PLAN.md` gives their order, UX notes and Try-it checklists. Phases 1.4–1.5 (Layers track) and 1.6–1.8 (Platform track) can run in parallel, and so can Phase 2's Reader track (2.4–2.5), Author track (2.6–2.8) and Operations (2.12–2.13). Phase 1.10 holds small frontend fixes for the PoC review (D-033): it works against `backend-local`, so it waits on nothing in Phase 2.
 
 | Phase | Tasks |
 |---|---|
@@ -1174,6 +1176,7 @@ Phases are sequential. Each ends with an exit review: acceptance flows pass, ADR
 | 1.7 Creator Studio (simulated) | P1-STU-01 to P1-STU-04, P1-LAY-05 |
 | 1.8 Community and moderation (simulated) | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 |
 | 1.9 Android build and PoC readiness | P1-MOB-01, P1-QA-01 to P1-QA-03 |
+| 1.10 PoC review fixes (D-033) | P1-RDR-09 |
 | 2.1 Server foundations | P2-OPS-01 |
 | 2.2 The app on the real API | P2-APP-01 |
 | 2.3 Sign in | P2-AUTH-01 |
@@ -1333,6 +1336,7 @@ No backend. User data goes through `Stores`; server-authoritative operations go 
 | P1-RDR-06 | Selection toolbar, Annotations, notes panel, export (§9.3) | P1-RDR-01 | Works with mouse, keyboard and long-press; selections snap to whole Words; export is valid Markdown with chapter headings |
 | P1-RDR-07 | Placed Bookmarks with the default Bookmark Design | P1-RDR-06 | Unlimited bookmarks; drawn as ribbons; survive font changes |
 | P1-RDR-08 | Styled block theming (§9.6) | P1-RDR-04 | The status-window fixture meets AA contrast in light, dark and sepia |
+| P1-RDR-09 | Open a new Book at its text (§9.5; was BACKLOG RDR-02): ingest records the EPUB 3 `bodymatter` landmark and EPUB 2 guide `text`; `textStart` in `domain` picks the start, with a TOC heuristic when there's neither (D-034) | P1-RDR-05, P1-ING-01 | Every seeded Book, and an imported EPUB without landmarks, opens at its first chapter, at a PointAnchor; the heuristic never skips more than a tenth of a Book; a Book with Reading Progress resumes; the welcome's Start reading still opens *Alice* at Chapter I |
 
 **Layers demo**
 
@@ -1571,6 +1575,9 @@ Starts after the PoC review's go decision, which also confirms the backend stack
 | D-029 | Tester builds are hosted on GitHub Pages, deployed by a workflow run by hand (`.github/workflows/tester.yml`) with the built-in `GITHUB_TOKEN` only: no other tokens or secrets. The build stays host-agnostic: the folder it's served from comes from `BASE_PATH` at build time, and `404.html` is the SPA fallback most static hosts read, so moving host changes only the deploy job. The signed APK is served beside the app. GitHub Pages needs a public repository, or a paid plan for a private one | Accepted (owner decision, 13 Oct 2026); first deploy by the owner |
 | D-030 | The PoC's tester APK is signed with a key committed to the repository with a published password (`apps/web/android/app/poc-release.jks`), so CI and any checkout build the same installable APK without secrets. An explicit exception to §12.5's "no secrets committed", for the PoC app ID `io.github.totallynotkasai.bookpoc` only; the named product (OPEN-07) gets its own app ID and a private key. Testers install the APK directly rather than through Play Console internal testing (BACKLOG AND-01). Debug builds use the `.dev` app ID, so the owner's build and the tester APK install side by side | Accepted (owner decision, 13 Oct 2026) |
 | D-031 | One tester build for every PoC review session. A facilitator link turns on simulated areas on the device that opens it, which remembers them: `?areas=store,community` on the web, `bookpoc://open?areas=…` in the Android app, and `?areas=none` to go back to reading only. The dev panel can never be turned on this way. Amends P0-09, where only a build (`VITE_FLAGS`) could add areas | Accepted (owner decision, 13 Oct 2026) |
+| D-032 | Phase 2 is split into phases 2.1–2.13 in `docs/IMPLEMENTATION-PLAN.md`, each about one large or two medium tasks, roughly half a Phase 1 phase, because Phase 1's phases were too large for one working session. To fit, P2-ING-01's preview and publishing moved to P2-CAT-03 and P2-CAT-01; P2-CAT-01's catalogue and public pages became P2-CAT-04; P2-SYNC-01's first-sign-in upload became P2-SYNC-02; P2-MOD-01's review queue and action log became P2-MOD-02; P2-OPS-02's Sentry and analytics became P2-OPS-03; and P2-APP-01 adds `backend-http` and choosing the backend per build. Every Phase 2 task now has acceptance criteria (§13.4). D-025's one PR per phase still applies | Accepted (owner request, 13 Oct 2026) |
+| D-033 | Phase 1.10 "PoC review fixes": small frontend fixes found while preparing or running the PoC review, picked up from `docs/BACKLOG.md` while Phase 2 waits for its go decision. They work against `backend-local`, so none waits on the backend. The first is P1-RDR-09 (was BACKLOG RDR-02). One branch and PR (`p1-10-poc-review-fixes`, D-025); later fixes may get a phase of their own | Accepted (owner decision, 16 Oct 2026) |
+| D-034 | A Book with no Reading Progress opens at its text (P1-RDR-09, §9.5). Ingest records the EPUB 3 nav's `bodymatter` landmark and the EPUB 2 guide's `text` reference as Ordinals (an optional manifest field, left out when there are none, so Revisions without them are unchanged); `textStart` in `domain` decides from the manifest. Without either, a heuristic over the TOC, each step trusted only if it skips at most a tenth of the Book's Words: (a) the first entry headed like a chapter or part ("Chapter", "Prologue", "Part I", a bare number such as "1." or "IV:"); (b) the first Chapter with Words after the contents page; (c) the first entry not named like front matter (title page, copyright, contents, licence, Project Gutenberg, dedication…). Else the first Chapter with Words, as before. Like publishers' `bodymatter`, (a) skips an introduction or preface ahead of Chapter 1 | Accepted (owner decision, 16 Oct 2026) |
 
 ---
 
@@ -1592,6 +1599,7 @@ Starts after the PoC review's go decision, which also confirms the backend stack
 | OPEN-12 | Age policy and content-rating scheme. *The PoC uses placeholder ratings `all_ages`, `teen` and `mature` with free-text warnings (P1-STO-01)* | Before Phase 5 |
 | OPEN-13 | *Resolved by D-016 (ADR-002): Block indexes plus an offset word index.* | P0-05 |
 | OPEN-14 | *Resolved by D-026.* Deterministic tokenisation: `Intl.Segmenter` takes its word boundaries from each runtime's ICU data, and the P0-05/P0-06 spikes found WebKit and Chromium gave the same EPUB different WordIds, which would break Sync Maps and cross-device Annotations. `text-pipeline` now uses its own versioned tokeniser | P1-ING-01 |
+| OPEN-15 | Do a reader's imported Books sync between devices? Their notes, bookmarks and progress can sync cheaply, since the same file gives the same `bookId` and `revisionId` on every device (§6.3). Syncing the EPUB files themselves means storing readers' own files (storage cost, upload safety, rights). *Recommendation for Phase 2: sync the reader data for every Book, but keep an imported Book's file on the device that imported it; on another device the reader imports the same file and their notes appear* | Before P2-SYNC-01 |
 
 ---
 

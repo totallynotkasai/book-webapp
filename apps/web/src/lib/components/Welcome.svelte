@@ -8,8 +8,9 @@
 	// The first-run welcome (P1-QA-03, DESIGN.md §13.3): a tester with only a link reaches the
 	// first page of Alice in one tap. It says what this build is, without a tour.
 	const ALICE = 'book-alice';
-	// The seeded Alice opens on Project Gutenberg's front matter (its licence and contents), so a
-	// first visit starts at Chapter I. From Help, it opens wherever the reader got to.
+	// A first visit starts at Chapter I. A new Book opens at its text anyway (P1-RDR-09), but this
+	// Gutenberg Alice names no landmark, so the link doesn't rest on that rule's heuristic (D-034).
+	// From Help, it opens wherever the reader got to.
 	const CHAPTER_I = '8761230412384829988_11-h-1.htm.xhtml';
 
 	const points: [icon: IconName, text: string][] = [

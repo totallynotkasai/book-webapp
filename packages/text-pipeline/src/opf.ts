@@ -1,7 +1,7 @@
 /**
  * Reading an EPUB's structure (DESIGN.md §7.1 step 1): container.xml → the package document (OPF)
- * → metadata, manifest, spine, cover, and the table of contents from the EPUB 3 nav document or
- * the EPUB 2 NCX.
+ * → metadata, manifest, spine, cover, the table of contents from the EPUB 3 nav document or
+ * the EPUB 2 NCX, and where the text starts from the nav's landmarks or the EPUB 2 guide.
  */
 import { IngestError } from './errors';
 import {
@@ -46,6 +46,8 @@ export interface PackageInfo {
 	coverPath: string | null;
 	navPath: string | null;
 	ncxPath: string | null;
+	/** EPUB 2 `<guide>` references that mark where the text starts (`type="text"`). */
+	guide: RawLandmark[];
 }
 
 /** A TOC entry before it is resolved to a Word. */
@@ -54,6 +56,13 @@ export interface RawTocEntry {
 	path: string;
 	fragment: string | null;
 	depth: number;
+}
+
+/** A landmark before it is resolved to a Word: `bodymatter` (EPUB 3 nav) or `text` (EPUB 2 guide). */
+export interface RawLandmark {
+	type: 'bodymatter' | 'text';
+	path: string;
+	fragment: string | null;
 }
 
 export type ReadFile = (path: string) => Uint8Array | undefined;
@@ -147,6 +156,14 @@ export function readPackage(read: ReadFile): PackageInfo {
 	}
 	const ncxId = attr(spineEl, 'toc');
 
+	const guide: RawLandmark[] = [];
+	const guideEl = byLocalName(opf, 'guide')[0];
+	for (const ref of guideEl ? byLocalName(guideEl, 'reference') : []) {
+		if ((attr(ref, 'type') ?? '').trim().toLowerCase() !== 'text') continue;
+		const target = resolveInArchive(opfPath, attr(ref, 'href') ?? '');
+		if (target) guide.push({ type: 'text', path: target.path, fragment: target.fragment });
+	}
+
 	return {
 		opfPath,
 		root: dirname(opfPath),
@@ -162,8 +179,33 @@ export function readPackage(read: ReadFile): PackageInfo {
 		ncxPath:
 			(ncxId ? byId.get(ncxId)?.path : undefined) ??
 			manifest.find((m) => m.mediaType === 'application/x-dtbncx+xml')?.path ??
-			null
+			null,
+		guide
 	};
+}
+
+const epubTypes = (el: Element) =>
+	(attr(el, 'epub:type') ?? attr(el, 'type') ?? '').toLowerCase().split(/\s+/);
+
+/**
+ * Where the EPUB says its text starts, in reading order: the EPUB 3 nav's `landmarks` links
+ * marked `bodymatter`, then the EPUB 2 guide's `text` references.
+ */
+export function readLandmarks(read: ReadFile, pkg: PackageInfo): RawLandmark[] {
+	const landmarks: RawLandmark[] = [];
+	const text = pkg.navPath ? readText(read, pkg.navPath) : undefined;
+	if (text) {
+		const navs = byLocalName(parseMarkup(text), 'nav').filter((n) =>
+			epubTypes(n).includes('landmarks')
+		);
+		for (const a of navs.flatMap((nav) => byLocalName(nav, 'a'))) {
+			if (!epubTypes(a).includes('bodymatter')) continue;
+			const target = resolveInArchive(pkg.navPath!, attr(a, 'href') ?? '');
+			if (target)
+				landmarks.push({ type: 'bodymatter', path: target.path, fragment: target.fragment });
+		}
+	}
+	return [...landmarks, ...pkg.guide];
 }
 
 /** The table of contents: the EPUB 3 nav `toc`, else the NCX, else nothing. */

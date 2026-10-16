@@ -1,6 +1,6 @@
 # Implementation plan: from groundwork to a product you can try
 
-> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
+> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · v1.2 · 16 October 2026: Phase 1.10 PoC review fixes (D-033) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
 > **Purpose:** the order of work that takes the repo from today's groundwork to a build the owner can use on desktop and on their Android phone to try every area of the product (reading, Illustrations, narration, notes, store, Creator Studio, community and moderation) with **no backend**, built so a real backend later replaces the simulated one without rewriting the app. Then, in phases 2.1–2.13, the real backend: accounts, sync across devices, author publishing and a free library.
 > **How it fits with DESIGN.md:** DESIGN.md §13 defines every task (its dependencies and acceptance criteria). This plan splits DESIGN.md's Phases 0, 1 and 2 into smaller phases that each end in something to try, and adds the architecture detail, UX notes and Try-it checklists. Decisions D-021 to D-024 and D-032 (DESIGN.md §16) record what this plan changed. iOS work is in [BACKLOG.md](BACKLOG.md).
 
@@ -25,6 +25,7 @@
 | **1.7** Creator Studio (simulated) | Upload and publish a Book, publish a new Revision, build an Illustration Pack, add narration, set up plans | P1-STU-01 to 04, P1-LAY-05 | Done (13 Oct 2026; notes in §6) |
 | **1.8** Community and moderation (simulated) | Submit, approve, endorse and rate community Layers; Flags and the admin review queue | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 | Done (13 Oct 2026; notes in §6) |
 | **1.9** Android build and PoC readiness | The Android app, a tester build, the PoC review kit | P1-MOB-01, P1-QA-01 to 03 | Done (13 Oct 2026; notes in §6) |
+| **1.10** PoC review fixes | Any Book you open for the first time starts at its text, not its licence or contents page | P1-RDR-09 | Done (16 Oct 2026; notes in §6) |
 | **2.1** Server foundations | Postgres, object storage, the API and the worker running on your PC from one command | P2-OPS-01 | Not started |
 | **2.2** The app on the real API | The app talking to the API on your PC; what the API doesn't serve yet is hidden | P2-APP-01 | Not started |
 | **2.3** Sign in | Real accounts: an email link or Google, on desktop and in the Android app | P2-AUTH-01 | Not started |
@@ -39,7 +40,7 @@
 | **2.12** Staging | The app on the internet: `main` deploys to staging; your phone on mobile data | P2-OPS-02 | Not started |
 | **2.13** Errors and analytics | Errors reported without personal data; documented, cookie-less analytics | P2-OPS-03 | Not started |
 
-After phase 1.3 the work splits into two tracks that can run in parallel or in either order: the **Layers track** (1.4, 1.5) and the **Platform track** (1.6, 1.7, 1.8). After phase 2.3 it splits again: the **Reader track** (2.4, 2.5) and the **Author track** (2.6–2.8) meet in 2.9; **Moderation** (2.10, 2.11) follows the Author track; **Operations** (2.12, 2.13) can start any time after 2.1 once hosting is chosen. See §7.
+After phase 1.3 the work splits into two tracks that can run in parallel or in either order: the **Layers track** (1.4, 1.5) and the **Platform track** (1.6, 1.7, 1.8). Phase 1.10 collects small frontend fixes for the PoC review from [BACKLOG.md](BACKLOG.md) (D-033); it runs against the simulated backend, so it can go on while Phase 2 waits for its go decision. After phase 2.3 it splits again: the **Reader track** (2.4, 2.5) and the **Author track** (2.6–2.8) meet in 2.9; **Moderation** (2.10, 2.11) follows the Author track; **Operations** (2.12, 2.13) can start any time after 2.1 once hosting is chosen. See §7.
 
 **Phase 2's phases are smaller than Phase 1's.** Each Phase 1 phase was one working session of 4,000–10,000 changed lines, which proved too much for one session. Each Phase 2 phase is about one **L** task or two **M** tasks, roughly half that; if a phase still looks bigger when it starts, split it again before starting (D-032).
 
@@ -724,10 +725,36 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 
 *P1-QA-03 (tester build and review kit):*
 - **One tester build with facilitator links** (D-031) instead of building one per kind of session: `?areas=store,community` on the web, `bookpoc://open?areas=…` in the Android app; the device remembers them; `?areas=none` resets; never the dev panel. `apps/web/static/sessions.html` (not linked from the app) has a link of each kind per session, the Android ones as intent links Chrome follows.
-- **First-run welcome**, once per device: what the build is, and Start reading, which opens *Alice* at Chapter I. Project Gutenberg's front matter (its licence) came first otherwise; a general "open at the text" rule is BACKLOG RDR-02. The chapter leaves the address once used, so a reload resumes. You → Help → Show the welcome again.
+- **First-run welcome**, once per device: what the build is, and Start reading, which opens *Alice* at Chapter I. Project Gutenberg's front matter (its licence) came first otherwise; the general "open at the text" rule was BACKLOG RDR-02, now P1-RDR-09 (Phase 1.10). The chapter leaves the address once used, so a reload resumes. You → Help → Show the welcome again.
 - **Web deploy (D-029):** `.github/workflows/tester.yml`, run by hand, uses only the built-in `GITHUB_TOKEN`: it encodes the narration audio (ffmpeg; the committed transcripts mean no whisper), builds the APK and the web app with the Pages base path, and publishes both. The build is host-agnostic (`BASE_PATH`, `404.html`), marked `noindex`, and shows its date and commit in Help (`VITE_BUILD_ID`). **The owner turns Pages on and runs the first deploy;** Pages needs a public repository or a paid plan.
 - **Android: a signed APK (D-030),** not Play Console internal testing (BACKLOG AND-01). `npm run apk:tester -w @book/web` signs `build-tester` with the committed PoC key; CI builds it on every PR as an artifact (no narration audio there; the tester workflow's has it).
 - **`docs/poc-review.md`:** before the first session, preparing each one, a session script, the observation sheet, the §13.3 questions and what to record afterwards, and the limits testers may meet.
+
+### Phase 1.10 — PoC review fixes
+
+**Goal:** fix what testers would trip over in the PoC review, while Phase 2 waits for its go decision (D-033). Items come from [BACKLOG.md](BACKLOG.md) or from review sessions; each gets a task ID here when picked up. Everything runs against `backend-local`, so nothing waits on the backend.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-RDR-09 | Open a new Book at its text: record EPUB 3 `bodymatter` and EPUB 2 guide `text` at ingest; `textStart` in `domain`, with a table-of-contents heuristic when a Book has neither (D-034) | S |
+
+**UX notes**
+- **No new screen.** A Book with no Reading Progress opens on the first page of its text: Chapter I, not a licence, a contents page or a title page. The front matter is still there, a page back, and in Contents.
+- **Reading Progress wins.** A Book you've read before opens where you got to, as before. The welcome's Start reading still opens *Alice* at Chapter I (its own link, so it doesn't depend on the heuristic).
+- **The heuristic is a guess, so it's cautious:** it never skips more than a tenth of a Book. When nothing fits it opens where the reader always did, at the first page with text.
+
+**Try it**
+- Open *Alice* from the Library (not the welcome) on a fresh device: Chapter I, not Project Gutenberg's licence. Turn a few pages, go back to the Library, open it again: you're where you were.
+- Add *Treasure Island* from the store (free) and open it: Part I, not the title page, imprint or dedication.
+- Import an EPUB of your own with front matter, and the dev panel's Rackham *Alice*: each opens at its first chapter.
+
+**Done (16 October 2026): what was built and how it differs from the plan.** The Try-it items are Playwright specs in Chromium and WebKit (`apps/web/e2e/text-start.spec.ts`; `reimport.spec.ts` now expects Rackham's *Alice* to open at Chapter I). Unit tests cover the landmark, guide and each heuristic step (`packages/domain/src/text-start.test.ts`, the landmark cases in `ingest.test.ts`), and `tests/text-start.test.ts` checks every seeded Book opens at its first chapter, with landmarks and from its table of contents alone. Notes:
+
+- **Landmarks are recorded at ingest, the decision is made on opening.** The manifest gains an optional `landmarks` list (EPUB 3 `bodymatter`, EPUB 2 `text`), each resolved to the first Word at or after its target like a TOC entry. It's left out when an EPUB has none, so *Alice*'s Revision and the narration's Sync Maps are unchanged; the golden digests changed only for the EPUBs that have one. `textStart` reads only the manifest, so a heuristic change reaches every Book at once, and Revisions processed before this phase (the seeded Books cached on testers' devices) work too: every seeded Book's table of contents leads the heuristic to the same chapter as its landmark.
+- **No migration:** the field is optional and Revision folders are immutable, so older Revisions simply have no landmarks.
+- **The start is a PointAnchor** on the text's first Word: the Chapter's first WordId from the manifest, or from the Chapter's word index when a landmark points inside it. Its quote is left empty because it's only where to open, never stored; the engine reports the full Anchor once the page is laid out, and Reading Progress saves that.
+- **What the seeded Books show:** Gutenberg's *Alice* has no landmarks and its contents lists "CHAPTER I." (step a). Rackham's *Alice* lists only its plates, so it opens at the first Chapter after the contents page (step b). The Standard Ebooks titles and our own fixtures have `bodymatter`. Gutenberg also mislabels its page list as `landmarks`; it holds no `bodymatter`, so it's ignored.
+- **Bundle:** the reader route is 217.1 KB of its 250 KB budget (gzipped), up 1.4 KB.
 
 ### Phase 2: what applies to every phase
 
@@ -969,6 +996,7 @@ flowchart LR
   P15 -. "narration manager" .-> P17
   P15 --> P19["1.9 Android build and PoC readiness"]
   P18 --> P19
+  P19 --> P110["1.10 PoC review fixes"]
 ```
 
 - **Within 0.1–0.2:** P0-03, P0-06, P0-10 and P0-11 can start as soon as P0-01 lands; P0-08 runs alongside the spikes.

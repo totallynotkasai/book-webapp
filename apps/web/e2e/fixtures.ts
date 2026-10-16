@@ -131,6 +131,35 @@ export async function visibleWords(page: Page) {
 	};
 }
 
+/** Whether some text of the book is on the page showing now, in any of the reader's frames. */
+export async function textOnScreen(page: Page, text: string): Promise<boolean> {
+	for (const frame of page.frames().filter((f) => f.url().startsWith('blob:'))) {
+		const shown = await frame.evaluate((needle) => {
+			const host = window.frameElement?.getBoundingClientRect();
+			if (!host || !document.body) return false;
+			const has = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').includes(needle);
+			// The innermost elements holding the text, where it's laid out.
+			const holders = [...document.body.querySelectorAll('*')].filter(
+				(el) => has(el) && ![...el.children].some(has)
+			);
+			return holders.some((el) => {
+				const r = el.getBoundingClientRect();
+				const left = host.left + r.left;
+				const top = host.top + r.top;
+				return (
+					r.width > 0 &&
+					left + r.width > 0 &&
+					left < window.top!.innerWidth &&
+					top + r.height > 0 &&
+					top < window.top!.innerHeight
+				);
+			});
+		}, text);
+		if (shown) return true;
+	}
+	return false;
+}
+
 /** Waits for the reader to settle on a new position after an action. */
 export async function settled(page: Page) {
 	await page.waitForTimeout(250);
