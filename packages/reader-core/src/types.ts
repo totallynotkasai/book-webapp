@@ -66,7 +66,7 @@ export interface ChapterText {
 	/** A Word's Ordinal is this plus its position. */
 	firstOrdinal: number;
 	wordIds: WordId[];
-	/** Each Word as on the page, punctuation included. */
+	/** Each Word as on the page, with its punctuation: `“Well!”` (`DocWordMap.punctuatedTexts`). */
 	texts: string[];
 	/** Each Word's Block, so paragraphs and headings can be told apart. */
 	blocks: number[];

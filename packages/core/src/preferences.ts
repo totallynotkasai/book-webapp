@@ -48,6 +48,16 @@ const narrationSchema = z.object({
 	highlight: z.enum(['word', 'sentence', 'off']).catch('word')
 });
 
+/**
+ * The device voice (P1-LAY-08): its own speed, since a synthetic voice at 1× isn't a narrator's
+ * pace, and the reader's chosen voice for each language (by its primary subtag, `en`), so a
+ * French Book doesn't pick up an English voice. Highlighting and auto-turn are narration's.
+ */
+const deviceVoiceSchema = z.object({
+	rate: z.number().min(NARRATION_RATE.min).max(NARRATION_RATE.max).catch(1),
+	voices: z.record(z.string(), z.string().min(1)).catch({})
+});
+
 /** Validates and completes preferences: missing or invalid fields take their defaults. */
 export const readerPreferencesSchema = z.object({
 	layout: z.enum(['auto', ...layoutModes]).catch('auto'),
@@ -62,6 +72,7 @@ export const readerPreferencesSchema = z.object({
 	pageTurn: z.enum(['none', 'slide', 'fade']).catch('slide'),
 	illustrations: z.enum(illustrationModes).catch('popup'),
 	narration: z.preprocess(objectOrEmpty, narrationSchema),
+	deviceVoice: z.preprocess(objectOrEmpty, deviceVoiceSchema),
 	/** One-off hints the reader has dismissed (e.g. `illustrations`), kept with their settings. */
 	hintsSeen: z.array(z.string()).catch([]),
 	/** Hide AI-generated Books and Layers in the store, the Layers menu and community (§10.6). */
@@ -74,9 +85,10 @@ export type ReaderPreferences = z.infer<typeof readerPreferencesSchema>;
 
 /** What a store holds: any subset, including partial nested groups. */
 export type ReaderPreferencesPatch = Partial<
-	Omit<ReaderPreferences, 'theme' | 'narration'> & {
+	Omit<ReaderPreferences, 'theme' | 'narration' | 'deviceVoice'> & {
 		theme: Partial<ReaderPreferences['theme']>;
 		narration: Partial<ReaderPreferences['narration']>;
+		deviceVoice: Partial<ReaderPreferences['deviceVoice']>;
 	}
 >;
 

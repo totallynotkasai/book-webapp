@@ -39,6 +39,7 @@ Suggested order when picked up: IOS-01, IOS-02, IOS-04, IOS-05, then the rest.
 | IOS-12 | DESIGN.md §12.3 performance budgets on an iPhone | P1-QA-01 | |
 | IOS-13 | TestFlight distribution for testers | P1-QA-03 | Needs a paid Apple Developer Program membership |
 | IOS-14 | Sign in with Apple, and the App Store's rules on sign-in options | P2-AUTH-01 | Phase 2; DESIGN.md §5.2 already flags the App Store sign-in rules |
+| IOS-15 | The device voice on an iPhone: WKWebView's Web Speech API, its voices and Word boundaries, and whether it speaks with the screen locked; update ADR-006 | P1-LAY-08 | Needs a real iPhone. Playwright's WebKit on Windows has no Web Speech API, so CI uses a stand-in |
 
 Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 4).
 
@@ -49,6 +50,14 @@ Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 
 | ID | Item | Deferred from | Why deferred, and what brings it back |
 |---|---|---|---|
 | RDR-03 | **A lighter reader route:** validate the reader's few content schemas without Zod, about 32 KB of the reader route's 216 KB (gzipped) | P1-QA-01 | The route is within its 250 KB budget (docs/perf/p1-qa-01.md); Zod is how `@book/core` validates everything. Brought back when `npm run budget` gets close to the line |
+
+---
+
+## Creator Studio
+
+| ID | Item | Deferred from | Why deferred, and what brings it back |
+|---|---|---|---|
+| STU-02 | **Turn off the device voice for a Book:** a Book setting for authors who don't want it read aloud by a synthetic voice, as Kindle publishers can turn off text-to-speech | P1-LAY-08 | The owner chose to offer the device voice wherever a reader can't play a Book's narration, even one they don't own (D-036), treating reading aloud as an accessibility feature. Brought back if authors ask for it, or by Phase 4's paid narration |
 
 ---
 

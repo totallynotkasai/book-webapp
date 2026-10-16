@@ -227,7 +227,8 @@ test('outside chapters 1–3 the button says why it can’t play', async ({ page
 	await expect(player(page)).toHaveCount(0);
 });
 
-test('a reader without the narration is told so', async ({ page }) => {
+// With a voice on the device, the device voice reads it instead (D-036; device-voice.spec.ts).
+test('a reader without the narration, on a device with no voice, is told so', async ({ page }) => {
 	await silentNarration(page);
 	await switchPersona(page, 'Moderator');
 	await openReader(page, 'book-alice');

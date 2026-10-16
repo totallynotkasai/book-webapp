@@ -45,7 +45,8 @@
 	import { BookIllustrations, type Current } from './illustrations.svelte';
 	import LayersSheet from './LayersSheet.svelte';
 	import Lightbox from './Lightbox.svelte';
-	import { BookNarration, type NarratedWord } from './narration.svelte';
+	import { BookNarration } from './narration.svelte';
+	import type { ReadWord } from './narration-timing';
 	import NarrationPlayer from './NarrationPlayer.svelte';
 	import { BookNotes } from './notes.svelte';
 	import { exportFileName, notesMarkdown, notesPlainText } from './notes-export';
@@ -55,6 +56,8 @@
 	import { readingFontFaces } from './reading-fonts';
 	import Scrubber from './Scrubber.svelte';
 	import SelectionToolbar from './SelectionToolbar.svelte';
+	import { primaryLanguage } from './speech-text';
+	import type { BookSpeech } from './speech.svelte';
 	import { layoutOf, pageTurnOf, themeTokensOf, typographyOf } from './settings';
 	import ShortcutsDialog from './ShortcutsDialog.svelte';
 	import TextDialog from './TextDialog.svelte';
@@ -64,7 +67,8 @@
 	 * screen, calm: the chrome fades after the first page turn and comes back on a centre tap, Esc
 	 * or Tab. Position comes only from the engine's `relocated` event (§9.1), as Anchors.
 	 * Selecting text (mouse, long-press, or Shift+arrows) brings up the selection toolbar.
-	 * Pictures (§8.2) and narration (§8.3) come from the Book's Layers.
+	 * Pictures (§8.2) and narration (§8.3) come from the Book's Layers; any Book can also be read
+	 * aloud by the device's own voice (P1-LAY-08).
 	 */
 	/**
 	 * `sample`: "Read sample" for a Book the reader doesn't own (P1-STO-01). `preview`: a Creator
@@ -217,8 +221,25 @@
 		}
 	}
 
-	// ---- Narration (§8.3) ----
+	// ---- Narration (§8.3) and the device voice (P1-LAY-08) ----
 	let narration = $state.raw<BookNarration>();
+	let speech = $state.raw<BookSpeech>();
+	/** Whichever is reading aloud: narration, or the device voice. Never both. */
+	const reading = $derived(speech?.active ? speech : narration?.active ? narration : null);
+	/** The Book's narration, which the reader doesn't have yet: the device voice stands in. */
+	const narrationInStore = $derived(!!narration?.track && !narration.track.entitled);
+	/** What the play button starts here: narration where it covers this Chapter, else the voice. */
+	const playsNarration = $derived(!!narration?.available && narration.covers(visible?.chapterId));
+	/** The device voice would read this Chapter. */
+	const voiceHere = $derived(
+		!playsNarration && !!speech?.available && speech.covers(visible?.chapterId)
+	);
+	const listenLabel = $derived.by(() => {
+		const noun = reading === speech ? 'the device voice' : 'narration';
+		if (reading?.playing) return `Pause ${noun}`;
+		if (reading) return `Play ${noun}`;
+		return voiceHere ? 'Read aloud with the device voice' : 'Listen to the narration';
+	});
 	let playerExpanded = $state(false);
 	/** Set while narration turns the page itself, so the turn isn't taken for the reader's. */
 	let autoTurning = false;
@@ -317,7 +338,7 @@
 					)
 	);
 	/** The mini-player's room at the foot of the page, so it never covers the text. */
-	const playerRoom = $derived(narration?.active ? 72 : 0);
+	const playerRoom = $derived(reading ? 72 : 0);
 	/** The stage's offsets as applied (changes go through engine.relayout, keeping place). */
 	let stageLeft = $state(0);
 	let stageTop = $state(0);
@@ -385,6 +406,7 @@
 	onDestroy(() => {
 		illustrations?.destroy();
 		narration?.destroy();
+		speech?.destroy();
 		clearTimeout(backTimer);
 		clearTimeout(narrationHintTimer);
 		void saver?.close();
@@ -450,6 +472,7 @@
 			});
 			if (openAtChapter) await engine.goTo({ chapterId: openAtChapter });
 			void loadLayers(book);
+			void loadSpeech(book);
 			applied = {
 				typography: JSON.stringify(typographyOf(prefs)),
 				layout: layoutOf(prefs, windowWidth, windowHeight),
@@ -488,10 +511,10 @@
 				// pulls the reader back while paused either.
 				if (
 					!autoTurning &&
-					narration?.active &&
+					reading &&
 					(range.cause === 'turn' || range.cause === 'scroll' || range.cause === 'link')
 				) {
-					narration.following = false;
+					reading.following = false;
 				}
 				announce(range);
 			}),
@@ -520,11 +543,11 @@
 					tapConsumed = true;
 					return;
 				}
-				// Tap to seek (§8.3): while narration plays, a Word moves it there.
+				// Tap to seek (§8.3): while narration or the voice plays, a Word moves it there.
 				const tapped = manifest && chapterForOrdinal(manifest.chapters, anchor.ordinal);
-				if (narration?.playing && tapped && narration.covers(tapped.chapterId)) {
+				if (reading?.playing && tapped && reading.covers(tapped.chapterId)) {
 					tapConsumed = true;
-					void narration.seekToWord(tapped.chapterId, wordId);
+					void reading.seekToWord(tapped.chapterId, wordId);
 					dismissNarrationHint();
 					return;
 				}
@@ -604,8 +627,12 @@
 	// ---- Narration: the highlight, auto-turn, the hint (§8.3) ----
 
 	$effect(() => {
-		const word = narration?.active ? narration.word : null;
-		const mode = prefs.narration.highlight;
+		const word = reading?.word ?? null;
+		// A voice that doesn't report Words can only show its sentence (P1-LAY-08).
+		const mode =
+			reading === speech && speech && !speech.wordTiming && prefs.narration.highlight === 'word'
+				? 'sentence'
+				: prefs.narration.highlight;
 		if (phase.kind !== 'ready' || !engine || !manifest) return;
 		engine.setDecorations(
 			'narration',
@@ -615,7 +642,7 @@
 		);
 	});
 
-	function narratedRange(word: NarratedWord, mode: 'word' | 'sentence'): RangeAnchor {
+	function narratedRange(word: ReadWord, mode: 'word' | 'sentence'): RangeAnchor {
 		const sentence = mode === 'sentence';
 		return {
 			kind: 'range',
@@ -629,7 +656,7 @@
 		};
 	}
 
-	function onScreen(word: NarratedWord, range: VisibleRange | null): boolean {
+	function onScreen(word: ReadWord, range: VisibleRange | null): boolean {
 		return (
 			!!range &&
 			range.chapterId === word.chapterId &&
@@ -641,18 +668,18 @@
 	// Whenever the narrated Word or the page changes: keep the Word on screen while following,
 	// and start following again once the narration reaches what's on screen.
 	$effect(() => {
-		const active = narration?.active;
-		const word = active ? narration!.word : null;
-		const current = active ? narration!.current : undefined;
-		if (!active || phase.kind !== 'ready') return;
+		const source = reading;
+		const word = source?.word ?? null;
+		const chapterId = source === narration ? narration?.current?.chapterId : undefined;
+		if (!source || phase.kind !== 'ready') return;
 		if (word) void follow(word, visible);
 		// A new Chapter's recording starts with its own introduction: turn to it already.
-		else if (current) void followChapter(current.chapterId, visible);
+		else if (chapterId) void followChapter(chapterId, visible);
 	});
 
 	async function followChapter(chapterId: string, range: VisibleRange | null) {
-		if (!engine || !narration || !range || autoTurning || range.chapterId === chapterId) return;
-		if (!narration.following || !prefs.narration.autoTurn) return;
+		if (!engine || !reading || !range || autoTurning || range.chapterId === chapterId) return;
+		if (!reading.following || !prefs.narration.autoTurn) return;
 		autoTurning = true;
 		try {
 			await engine.goTo({ chapterId });
@@ -661,13 +688,14 @@
 		}
 	}
 
-	async function follow(word: NarratedWord, range: VisibleRange | null) {
-		if (!engine || !narration || !range || autoTurning) return;
+	async function follow(word: ReadWord, range: VisibleRange | null) {
+		const source = reading;
+		if (!engine || !source || !range || autoTurning) return;
 		if (onScreen(word, range)) {
-			narration.following = true;
+			source.following = true;
 			return;
 		}
-		if (!narration.following || !prefs.narration.autoTurn) return;
+		if (!source.following || !prefs.narration.autoTurn) return;
 		autoTurning = true;
 		try {
 			// Just past the page: turn it, as a reader would. Further: go straight there.
@@ -685,7 +713,7 @@
 		}
 	}
 
-	function pointOf(word: NarratedWord): PointAnchor {
+	function pointOf(word: ReadWord): PointAnchor {
 		return {
 			kind: 'point',
 			bookId: manifest!.bookId,
@@ -697,9 +725,10 @@
 	}
 
 	async function backToNarration() {
-		if (!narration) return;
-		narration.following = true;
-		const word = narration.word;
+		const source = reading;
+		if (!source) return;
+		source.following = true;
+		const word = source.word;
 		if (word && !onScreen(word, visible)) {
 			autoTurning = true;
 			try {
@@ -710,9 +739,42 @@
 		}
 	}
 
-	/** The play button: the first press starts narration from the first Word on the page. */
+	/**
+	 * The play button: the first press starts narration from the first Word on the page where the
+	 * reader has narration for this Chapter; otherwise the device voice reads it (P1-LAY-08),
+	 * including where the Book's narration is one the reader doesn't own (D-036).
+	 */
+	async function readAloud() {
+		if (reading) {
+			await (reading === speech ? speech.toggle() : narration?.toggle());
+			reportReadingError();
+			return;
+		}
+		if (playsNarration) await playNarration();
+		else if (speech?.available && speech.covers(visible?.chapterId)) await playDeviceVoice();
+		else await playNarration();
+	}
+
+	function reportReadingError() {
+		const error = reading?.error;
+		if (error) snackbars.show(error, { tone: 'error' });
+	}
+
+	async function playDeviceVoice() {
+		if (!speech) return;
+		narration?.stop();
+		await speech.toggle(
+			visible ? { chapterId: visible.chapterId, ordinal: visible.first.ordinal } : undefined
+		);
+		reportReadingError();
+		showReadAloudHint();
+	}
+
 	async function playNarration() {
-		if (!narration) return;
+		if (!narration) {
+			snackbars.show('This device has no voice to read this book aloud.');
+			return;
+		}
 		if (!narration.track?.entitled) {
 			const slug = opened?.slug;
 			snackbars.show('You don’t have the narration for this book yet.', {
@@ -729,17 +791,21 @@
 			snackbars.show(`Narration covers ${narration.coverage}.`);
 			return;
 		}
-		const first = !narration.active;
+		speech?.stop();
 		await narration.toggle(
 			visible ? { chapterId: visible.chapterId, ordinal: visible.first.ordinal } : undefined
 		);
 		if (narration.error) snackbars.show(narration.error, { tone: 'error' });
-		if (first && narration.playing && !preferences.current.hintsSeen.includes('narration')) {
-			narrationHint = true;
-			clearTimeout(narrationHintTimer);
-			// Seen once it has been up a while (the gesture is the same in every Book).
-			narrationHintTimer = setTimeout(dismissNarrationHint, 8000);
-		}
+		showReadAloudHint();
+	}
+
+	/** The first time anything reads aloud: tapping a Word moves it there. */
+	function showReadAloudHint() {
+		if (!reading?.playing || preferences.current.hintsSeen.includes('narration')) return;
+		narrationHint = true;
+		clearTimeout(narrationHintTimer);
+		// Seen once it has been up a while (the gesture is the same in every Book).
+		narrationHintTimer = setTimeout(dismissNarrationHint, 8000);
 	}
 
 	function dismissNarrationHint() {
@@ -751,6 +817,7 @@
 
 	function closeNarration() {
 		narration?.stop();
+		speech?.stop();
 		playerExpanded = false;
 		narrationHint = false;
 	}
@@ -758,6 +825,42 @@
 	$effect(() => {
 		narration?.setRate(prefs.narration.rate);
 	});
+
+	$effect(() => {
+		speech?.setRate(prefs.deviceVoice.rate);
+	});
+
+	/** The voice the reader chose for this Book's language (`deviceVoice.voices`). */
+	const chosenVoice = $derived(
+		manifest ? prefs.deviceVoice.voices[primaryLanguage(manifest.lang)] : undefined
+	);
+	$effect(() => {
+		speech?.setVoice(chosenVoice);
+	});
+
+	function chooseVoice(voiceId: string) {
+		if (!manifest) return;
+		change({ deviceVoice: { voices: { [primaryLanguage(manifest.lang)]: voiceId } } });
+	}
+
+	/** The device voice can read any Book, even offline or without Layers (P1-LAY-08). */
+	async function loadSpeech(book: OpenedBook) {
+		if (creatorPack) return;
+		try {
+			// Loaded after the Book opens, so the reader route's first load doesn't carry it (§12.3).
+			const { BookSpeech } = await import('./speech.svelte');
+			const voice = new BookSpeech({
+				speech: getPlatform().speech,
+				manifest: book.manifest,
+				textOf: (chapterId) => engine!.chapterText(chapterId)
+			});
+			await voice.load(chosenVoice);
+			voice.setRate(prefs.deviceVoice.rate);
+			speech = voice;
+		} catch (error) {
+			console.warn('The device voice didn’t load', error);
+		}
+	}
 
 	// ---- Illustrations: loading, the panels' room, and in-text figures ----
 
@@ -920,7 +1023,7 @@
 	/** A jump the reader may want to undo: TOC, scrubber, chapter start or end (§4.1 "Back"). */
 	async function jump(target: Parameters<ReaderEngine['goTo']>[0]) {
 		if (!engine) return;
-		if (narration?.active) narration.following = false;
+		if (reading) reading.following = false;
 		const from = visible?.first;
 		await engine.goTo(target);
 		if (from) showBack(from);
@@ -1268,9 +1371,9 @@
 	data-first={visible?.first.ordinal}
 	data-last={visible?.last.ordinal}
 	data-first-word={visible?.first.quote.exact}
-	data-narrated={narration?.active ? narration.word?.ordinal : undefined}
-	data-narrated-start={narration?.active ? narration.word?.startMs : undefined}
-	data-following={narration?.active ? narration.following : undefined}
+	data-narrated={reading?.word?.ordinal}
+	data-narrated-start={reading === narration ? narration?.word?.startMs : undefined}
+	data-following={reading?.following}
 >
 	<header class="bar top" inert={!chrome || undefined}>
 		<IconButton icon="arrow_back" label="Back to library" href={resolve('/library')} />
@@ -1379,33 +1482,50 @@
 	{/if}
 
 	<!-- The foot of the page: the Back chips, then the narration hint and mini-player (§8.3). -->
-	<div class={['dock', { player: narration?.active, lowered: !chrome }]}>
-		{#if back || (narration?.active && !narration.following)}
+	<div class={['dock', { player: !!reading, lowered: !chrome }]}>
+		{#if back || (reading && !reading.following)}
 			<div class="chips">
 				{#if back}
 					<Button variant="tonal" icon="undo" onclick={goBack}>Back</Button>
 				{/if}
-				{#if narration?.active && !narration.following}
+				{#if reading && !reading.following}
 					<Button variant="tonal" icon="headphones" onclick={() => void backToNarration()}
-						>Back to narration</Button
+						>{reading === speech ? 'Back to the voice' : 'Back to narration'}</Button
 					>
 				{/if}
 			</div>
 		{/if}
-		{#if narration?.active}
+		{#if reading}
 			{#if narrationHint}
 				<div class="narration-hint" role="status" data-testid="narration-hint">
-					<span>Tap any word to move the narration there.</span>
+					<span
+						>Tap any word to move {reading === speech ? 'the voice' : 'the narration'} there.</span
+					>
 					<IconButton icon="close" size="small" label="Got it" onclick={dismissNarrationHint} />
 				</div>
 			{/if}
-			<NarrationPlayer
-				{narration}
-				prefs={prefs.narration}
-				bind:expanded={playerExpanded}
-				onchange={(patch) => change({ narration: patch })}
-				onclose={closeNarration}
-			/>
+			{#if reading === speech}
+				<NarrationPlayer
+					source={{ kind: 'device', speech, storeHref: narrationInStore ? storeHref : null }}
+					prefs={prefs.narration}
+					rate={prefs.deviceVoice.rate}
+					bind:expanded={playerExpanded}
+					onchange={(patch) => change({ narration: patch })}
+					onrate={(rate) => change({ deviceVoice: { rate } })}
+					onvoice={chooseVoice}
+					onclose={closeNarration}
+				/>
+			{:else if narration}
+				<NarrationPlayer
+					source={{ kind: 'narration', narration }}
+					prefs={prefs.narration}
+					rate={prefs.narration.rate}
+					bind:expanded={playerExpanded}
+					onchange={(patch) => change({ narration: patch })}
+					onrate={(rate) => change({ narration: { rate } })}
+					onclose={closeNarration}
+				/>
+			{/if}
 		{/if}
 	</div>
 
@@ -1449,29 +1569,24 @@
 			disabled={phase.kind !== 'ready'}
 			onclick={() => turn(-1)}
 		/>
-		{#if narration?.track}
+		{#if narration?.track || speech?.available}
 			<!-- Unavailable here: it looks disabled but still says why when pressed. -->
 			<IconButton
-				icon={narration.playing ? 'pause' : narration.active ? 'play_arrow' : 'headphones'}
-				label={narration.playing
-					? 'Pause narration'
-					: narration.active
-						? 'Play narration'
-						: 'Listen to the narration'}
-				aria-disabled={!narration.active &&
-				!(narration.available && narration.covers(visible?.chapterId))
-					? 'true'
-					: undefined}
-				aria-describedby={!narration.active && !narration.covers(visible?.chapterId)
+				icon={reading?.playing ? 'pause' : reading ? 'play_arrow' : 'headphones'}
+				label={listenLabel}
+				aria-disabled={!reading && !playsNarration && !voiceHere ? 'true' : undefined}
+				aria-describedby={!reading && !playsNarration && !voiceHere
 					? 'narration-reason'
 					: undefined}
-				disabled={phase.kind !== 'ready' || narration.loading}
-				onclick={() => void playNarration()}
+				disabled={phase.kind !== 'ready' || !!narration?.loading || !!speech?.loading}
+				onclick={() => void readAloud()}
 			/>
 			<span id="narration-reason" class="visually-hidden"
-				>{narration.track.entitled
-					? `Narration covers ${narration.coverage}.`
-					: 'You don’t have the narration for this book yet.'}</span
+				>{!narration?.track
+					? 'There’s nothing to read aloud on this page.'
+					: narration.track.entitled
+						? `Narration covers ${narration.coverage}.`
+						: 'You don’t have the narration for this book yet.'}</span
 			>
 		{/if}
 		<Scrubber

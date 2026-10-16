@@ -21,6 +21,7 @@ describe('defaultReaderPreferences (§9.4)', () => {
 			pageTurn: 'slide',
 			illustrations: 'popup',
 			narration: { rate: 1, autoTurn: true, highlight: 'word' },
+			deviceVoice: { rate: 1, voices: {} },
 			hintsSeen: [],
 			hideAiGenerated: false
 		});
@@ -59,6 +60,21 @@ describe('resolvePreferences', () => {
 		expect(resolved.layout).toBe('auto');
 		expect(resolved.narration).toEqual(defaultReaderPreferences.narration);
 		expect(resolved).not.toHaveProperty('unknownField');
+	});
+
+	it('keeps a device voice per language, merged across layers (P1-LAY-08)', () => {
+		const resolved = resolvePreferences(
+			{ deviceVoice: { voices: { en: 'Microsoft George' }, rate: 1.5 } },
+			{ deviceVoice: { voices: { fr: 'Amélie' } } }
+		);
+		expect(resolved.deviceVoice).toEqual({
+			rate: 1.5,
+			voices: { en: 'Microsoft George', fr: 'Amélie' }
+		});
+		expect(resolvePreferences({ deviceVoice: { rate: 9, voices: 'x' } }).deviceVoice).toEqual({
+			rate: 1,
+			voices: {}
+		});
 	});
 
 	it('keeps a valid seed colour', () => {

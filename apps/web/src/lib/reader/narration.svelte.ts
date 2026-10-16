@@ -250,13 +250,13 @@ export class BookNarration {
 
 	/**
 	 * Every frame while playing; and a timer as well, since frames stop when the window is hidden
-	 * or covered, and position and auto-turn should be current when the reader looks again.
+	 * or covered, and position and auto-turn should be current when the reader looks again. The
+	 * timer runs until the player closes: playing can resume without a `play` event (WebKit).
 	 */
 	#loop() {
 		if (this.#destroyed) return;
 		this.#timer ??= setInterval(() => {
 			if (this.playing) this.#update(false);
-			else this.#stopLoop();
 		}, 250);
 		if (this.#frame) return;
 		const tick = () => {
@@ -265,12 +265,6 @@ export class BookNarration {
 			if (this.playing && !this.#destroyed) this.#frame = requestAnimationFrame(tick);
 		};
 		this.#frame = requestAnimationFrame(tick);
-	}
-
-	#stopLoop() {
-		this.#stopLoop();
-		clearInterval(this.#timer);
-		this.#timer = undefined;
 	}
 
 	/** Time → Word (§8.3: binary search on the Sync Map). */
@@ -362,6 +356,8 @@ export class BookNarration {
 		this.#entry = -1;
 		cancelAnimationFrame(this.#frame);
 		this.#frame = 0;
+		clearInterval(this.#timer);
+		this.#timer = undefined;
 	}
 
 	destroy() {
