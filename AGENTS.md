@@ -4,6 +4,7 @@ Read docs/DESIGN.md §0–§3 before any task. Glossary terms and Invariants are
 Find your task ID in docs/DESIGN.md §13; check its dependencies and any OPEN items it touches.
 Its phase, UX notes and Try-it checklist are in docs/IMPLEMENTATION-PLAN.md.
 Current stage: local-first proof of concept. No backend: user data goes through `Stores` and server-side operations through `Backend` (simulated in the browser by `backend-local`), both in `@book/core`.
+Front-end first (D-035): phases 1.10–1.21 come before any backend work; Phase 2 starts only after them and the PoC review's go decision.
 Targets web and Android (tested on the owner's phone). iOS is deferred: see docs/BACKLOG.md.
 
 ## Commands

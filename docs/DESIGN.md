@@ -1,6 +1,6 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 16 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034)
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 16 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034. Front end first: phases 1.11–1.21 before any backend; D-035, OPEN-16)
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
 > **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
@@ -27,7 +27,7 @@ This is the source of truth for product scope, architecture, terminology and bui
 - If you change a decision, update §16 Decision log in the same PR.
 - A task is done only when it meets §12.5 Definition of Done **and** its own acceptance criteria.
 
-**Current stage:** Phase 0/1 — local-first proof of concept. There is **no backend**. The server-side areas (store, Creator Studio, community, moderation) are built against a simulated backend that runs in the browser (§5.6), so the owner can try them before any hosting exists. The PoC targets web and Android; iOS is in `docs/BACKLOG.md` (D-024). Anything in this document marked *Proposed* (mainly the server stack) is a plan to confirm at the PoC review (§13.3), not a decision.
+**Current stage:** Phase 0/1 — local-first proof of concept. There is **no backend**. The server-side areas (store, Creator Studio, community, moderation) are built against a simulated backend that runs in the browser (§5.6), so the owner can try them before any hosting exists. The PoC targets web and Android; iOS is in `docs/BACKLOG.md` (D-024). **Front-end first (D-035):** every front-end feature worth building without a real backend comes before any backend work, as phases 1.10–1.21; Phase 2 starts only after them and the PoC review's go decision. Anything in this document marked *Proposed* (mainly the server stack) is a plan to confirm at the PoC review (§13.3), not a decision.
 
 ---
 
@@ -172,9 +172,9 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 | Layout modes | Single page (narrow screens), two-page spread (≥ 1024 px wide), continuous scroll. `auto` picks for you | 1 |
 | Page indicator | "Page X of Y in this chapter", recomputed live, never stored | 1 |
 | Page-turn animation | None / slide / fade; forced to none under reduced motion | 1 |
-| Page-curl animation | Realistic curl as an optional skin. Later because it depends on the engine (ADR-001) and is costly on low-end phones | 6 |
+| Page-curl animation | Realistic curl as an optional skin. Last of the front-end phases because it depends on the engine (ADR-001) and is costly on low-end phones | 1.21 |
 | Text zoom | Pinch on the reading surface and Ctrl +/− change font scale and re-lay out, keeping the first visible Word on screen | 1 |
-| Overview mode | 4-up page thumbnails for scanning. A navigation mode, not a reading mode: reflowable text is too cramped in four columns | 6 |
+| Overview mode | 4-up page thumbnails for scanning. A navigation mode, not a reading mode: reflowable text is too cramped in four columns | 1.19 |
 | Fixed-layout books | Picture books, comics, illustrated editions, with true zoom and pan | Parked |
 
 ### 4.2 Customisation
@@ -184,7 +184,7 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 | Fonts | Curated, self-hosted reading fonts plus "Publisher default" (§11.3) | 1 |
 | Typography | Font size, line height, paragraph spacing, margins, justification, hyphenation | 1 |
 | Themes | Light, sepia, dark; standard / medium / high contrast; system mode | 1 |
-| Custom colours | Choose a seed colour (theme generated from it); advanced: custom page and text colours with a live contrast check | 1 (seed), 6 (advanced) |
+| Custom colours | Choose a seed colour (theme generated from it); advanced: custom page and text colours with a live contrast check | 1 (seed), 1.17 (advanced) |
 | Live apply | Every change re-lays out immediately, keeping position and all attached content | 1 |
 | Per-Book overrides | Any preference can be overridden for one Book | 1 |
 | Sync across devices | | 2 |
@@ -211,16 +211,16 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 | Tap to seek | Tapping a Word while narration plays jumps the audio there | 1 (demo), 3 |
 | Playback controls | Play/pause, ±15 s, previous/next sentence, speed 0.5×–3× | 1 (demo), 3 |
 | Background playback | Lock-screen and Media Session controls on iOS, Android and web | 1 (spike), 3 |
-| Device text-to-speech | Fallback when a Book has no narration, using the same highlighting | 3 (stretch) |
+| Device text-to-speech | Fallback when a Book has no narration, using the same highlighting | 1.11 |
 | AI narration | Cloud text-to-speech generated once per Revision, as a creator option. Depends on OPEN-09 | 4+ |
-| Sleep timer | | 6 |
+| Sleep timer | Stops narration or the device voice after a time, or at the end of the Chapter | 1.13 |
 
 ### 4.5 Notes, highlights and bookmarks
 
 | Feature | Detail | Phase |
 |---|---|---|
 | Selection toolbar | Highlight (5 colours), Add note, Copy, Remove highlight. Right-click opens the same actions on desktop; long-press on touch | 1 |
-| Share quote | Image or text card of a passage with title and author | 6 |
+| Share quote | Image or text card of a passage with title and author | 1.17 |
 | Notes panel | All notes and highlights for the Book, grouped by chapter, filterable by colour, jump to, edit, delete | 1 |
 | Export | Markdown (with chapter headings) and plain text | 1 |
 | Placed Bookmarks | Free and unlimited; optional label; shown as a ribbon on the page edge; listed with notes; `B` shortcut | 1 |
@@ -244,7 +244,7 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 | New Revisions | Edit or append chapters; reader data migrates automatically (§6.2) | 1 (simulated), 2 |
 | Illustration placement tool | Select text in Creator mode → "Attach illustration" → image, placement, alt text | 1 (simulated Studio pack builder), 3 |
 | Narration upload and review | Per-chapter audio, automatic alignment, review screen for low-confidence parts | 1 (simulated; Sync Maps from `tools/align`), 3 |
-| Serial publishing | Scheduled chapter releases with follower notifications | 6 |
+| Serial publishing | Scheduled chapter releases with follower notifications | 1.15 (simulated), 6 |
 | Author analytics | Reads, completion, drop-off by chapter, Layer usage | 6 |
 | Monetisation | Paid Books, Bundles, early-access chapters, Tips, Creator Subscriptions, revenue share on Layers and cosmetics linked to their Books (§6.5) | 1 (simulated), 4 |
 | Curation tools | Review queue for the author's own Books: approve, hide or remove community Layers; see flags and reports (§10.6) | 1 (simulated), 2 (own uploads), 5 (community) |
@@ -257,23 +257,23 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 | Community Layers | Packs and narration by other creators, subject to the author's policy (§6.6) | 1 (simulated), 5 |
 | Per-Book hub | Browse, rate and enable community Layers, free or paid; "Author-endorsed" badge; top-rated first | 1 (simulated), 5 |
 | Creator profiles | Portfolio across Books, follow, tip, subscribe | 1 (simulated), 5 |
-| Paragraph comments | Comments on passages, hidden by default behind a count indicator | 6 |
-| Popular highlights | Optionally show passages many readers highlighted | 6 |
-| Reviews | Showing how far the reviewer read; wishlists and sale alerts | 6 |
+| Paragraph comments | Comments on passages, hidden by default behind a count indicator | 1.20 (simulated), 6 |
+| Popular highlights | Optionally show passages many readers highlighted | 1.20 (simulated), 6 |
+| Reviews | Showing how far the reviewer read; wishlists and sale alerts | 1.18 (simulated), 6 |
 | Reading groups | Shared progress and discussion for a small group | Parked |
 
 ### 4.9 Reading support and retention
 
 | Feature | Detail | Phase |
 |---|---|---|
-| In-book search | Uses the word index; results jump and highlight | 3 (stretch) |
-| Reading time left | In chapter and Book, from the reader's own pace | 6 |
-| Spoiler-safe recap | "Story so far" built only from chapters the reader has passed | 6 |
-| Spoiler-safe glossary | Characters and places, shown only after their first appearance | 6 |
-| Tap-to-define | Dictionary lookup on a Word | 6 |
-| Focus mode | Dims everything except the current paragraph | 6 |
+| In-book search | Uses the word index; results jump and highlight | 1.12 |
+| Reading time left | In chapter and Book, from the reader's own pace | 1.16 |
+| Spoiler-safe recap | "Story so far" built only from chapters the reader has passed; written by the author per Chapter, with AI drafts later (§7.4) | 1.14 (simulated), 6 |
+| Spoiler-safe glossary | Characters and places, shown only after their first appearance; entries written by the author | 1.14 (simulated), 6 |
+| Tap-to-define | Dictionary lookup on a Word; the dictionary is OPEN-16 | 1.19 |
+| Focus mode | Dims everything except the current paragraph | 1.12 |
 | Cross-device prompt | "You were further ahead on another device. Jump there?" | 2 |
-| Stats, streaks, achievements | Optional and easy to switch off | 6 |
+| Stats, streaks, achievements | Optional and easy to switch off | 1.16 (on this device) |
 | Guided reading aids | Bionic-style emphasis and similar, opt-in | Parked |
 
 ### 4.10 Rich content
@@ -281,6 +281,7 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 | Feature | Detail | Phase |
 |---|---|---|
 | Styled blocks ★ | LitRPG status windows, system messages and tables that stay readable in every theme and size (§9.6) | 1 |
+| Table viewer | Tap a table squeezed by a narrow page or large text to open it full screen, where it pans and zooms like an image | 1.13 |
 | Character art cards | Tap a character's name to see their portrait from the active pack | Parked |
 | Maps | Interactive map whose locations link to passages | Parked |
 
@@ -1153,15 +1154,15 @@ Phases are sequential. Each ends with an exit review: acceptance flows pass, ADR
 | Phase | Goal | Outcome |
 |---|---|---|
 | 0 | Foundations and spikes | Groundwork aligned with this document; the technical unknowns de-risked |
-| 1 | Local-first proof of concept | The full reading experience, with demo illustrations and synced narration, plus simulated store, Creator Studio, community and moderation, on web and Android, with no backend (iOS in the backlog) |
+| 1 | Local-first proof of concept | The full reading experience, with demo illustrations and synced narration, plus simulated store, Creator Studio, community and moderation, on web and Android, with no backend (iOS in the backlog). Then, before any backend, every front-end feature worth building without one (phases 1.10–1.21, D-035) |
 | PoC review | Test the core bet | Go/no-go on the platform, and on hosting |
 | 2 | Platform | Accounts, sync across devices, author publishing, free library |
 | 3 | Official Layers | Authors add their own illustrations and narration |
 | 4 | Commerce | Paid Products, Bundles, cosmetics |
 | 5 | Community | Community Layers with author permission, payouts, moderation |
-| 6 | Discovery and retention | Store SEO, reviews, recaps, glossary, offline, analytics for authors |
+| 6 | Discovery and retention | Store SEO, offline, analytics for authors, and the server side of what phases 1.14–1.20 simulate (reviews, recaps, glossary, comments) |
 
-**Phases 0, 1 and 2 are split into smaller phases**, each ending in a build the owner can try on desktop and on their Android phone. This section defines the tasks; `docs/IMPLEMENTATION-PLAN.md` gives their order, UX notes and Try-it checklists. Phases 1.4–1.5 (Layers track) and 1.6–1.8 (Platform track) can run in parallel, and so can Phase 2's Reader track (2.4–2.5), Author track (2.6–2.8) and Operations (2.12–2.13). Phase 1.10 holds small frontend fixes for the PoC review (D-033): it works against `backend-local`, so it waits on nothing in Phase 2.
+**Phases 0, 1 and 2 are split into smaller phases**, each ending in a build the owner can try on desktop and on their Android phone. This section defines the tasks; `docs/IMPLEMENTATION-PLAN.md` gives their order, UX notes and Try-it checklists. Phases 1.4–1.5 (Layers track) and 1.6–1.8 (Platform track) can run in parallel, and so can Phase 2's Reader track (2.4–2.5), Author track (2.6–2.8) and Operations (2.12–2.13). Phase 1.10 holds small frontend fixes for the PoC review (D-033). **Phases 1.11–1.21 bring forward every front-end feature worth building before the backend (D-035)**, from Phases 3 and 6 and the backlog; they work against `backend-local`, so they wait on nothing in Phase 2, and the Reader track (1.11–1.13, 1.16, 1.17, 1.19, 1.21) and Platform track (1.14, 1.15, 1.18, 1.20) can run in parallel. The owner may reorder or drop any of them after the PoC review.
 
 | Phase | Tasks |
 |---|---|
@@ -1177,6 +1178,17 @@ Phases are sequential. Each ends with an exit review: acceptance flows pass, ADR
 | 1.8 Community and moderation (simulated) | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 |
 | 1.9 Android build and PoC readiness | P1-MOB-01, P1-QA-01 to P1-QA-03 |
 | 1.10 PoC review fixes (D-033) | P1-RDR-09 |
+| 1.11 Any Book read aloud ★ | P1-LAY-08 |
+| 1.12 Search and focus | P1-RDR-10, P1-RDR-11 |
+| 1.13 Comfortable on a phone | P1-RDR-12, P1-LAY-09 |
+| 1.14 The story so far (simulated) | P1-STU-05, P1-RDR-13 |
+| 1.15 Serials (simulated) | P1-STU-06, P1-STU-07 |
+| 1.16 Your reading | P1-RDR-14, P1-RDR-15 |
+| 1.17 Share and colour | P1-RDR-16, P1-UI-04 |
+| 1.18 Wishlists and reviews (simulated) | P1-STO-06, P1-STO-07 |
+| 1.19 Overview and look-up | P1-RDR-17, P1-RDR-18 |
+| 1.20 Readers together (simulated) | P1-COM-03, P1-COM-04 |
+| 1.21 Page curl | P1-RDR-19 |
 | 2.1 Server foundations | P2-OPS-01 |
 | 2.2 The app on the real API | P2-APP-01 |
 | 2.3 Sign in | P2-AUTH-01 |
@@ -1404,6 +1416,33 @@ No backend. User data goes through `Stores`; server-authoritative operations go 
 | P1-QA-02 | Accessibility pass: axe on every route in Playwright; TalkBack and desktop screen-reader walkthroughs of the reader; keyboard map in Help; reduced-motion audit | P1-LAY-04, plus the last task of each of phases 1.6–1.8 kept in scope | No axe violations at WCAG 2.2 AA; walkthrough notes are in the device checklist |
 | P1-QA-03 | Tester build and PoC review kit: the `tester` profile; a first-run welcome; a static deploy of the web build; Android internal testing or an APK; `docs/poc-review.md` (session script, observation sheet, §13.3 questions) | P1-MOB-01 | A tester with only a link or an invite reaches the first page of *Alice* within a minute, unaided |
 
+**Front-end phases 1.11–1.21 (D-035)**
+
+Brought forward from Phases 3 and 6 and from `docs/BACKLOG.md` so the front end is complete before any backend work. Each works against `backend-local`. "(simulated)" means the data lives in `backend-local` as in phases 1.6–1.8, until the feature's original phase serves it from the API. Placeholder rules are marked `// SIMULATION:` and listed in their PR.
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| P1-LAY-08 | **Device voice** (§4.4): any Book read aloud by the device's own text-to-speech when it has no narration, with the narration player's highlighting, auto-turn, tap-to-seek and speed. Starts with a spike on Chromium, WebKit and the Android WebView (voices, word-boundary events, background speech), recorded in ADR-006; a `speech` adapter in `lib/platform` (Web Speech API on the web; on Android our own small plugin on `TextToSpeech`, as D-027 did for audio). Labelled "Device voice", never as narration | P1-LAY-04, ADR-004 | Off until the reader starts it (Invariant 11); the highlight follows the spoken Word or sentence in every seeded Book and an imported one; pages turn with it; a Chapter with narration offers the narration first; ADR-006 records whether it keeps speaking with the screen locked on Android |
+| P1-RDR-10 | **Search in the Book** (§4.9): over the word indexes, Words not characters; results by Chapter with their context; jump, and the match painted with the `search` decoration | P1-RDR-02, P1-ING-01 | Finds every occurrence in *Alice* of a word and of a phrase across a line break or inline markup, ignoring case and accents; results jump to the right Word in every layout; "Back" returns from a result; searching a 150 000-word Book stays within the §12.3 interaction budget |
+| P1-RDR-11 | **Focus mode** (§4.9): dims everything but the current paragraph; next and previous move it | P1-RDR-04 | Works in every layout and theme with AA contrast on the focused text; the keyboard moves it; reduced motion removes the transition |
+| P1-RDR-12 | **Table viewer** (§4.10; was BACKLOG RDR-01): tap a squeezed table to open it full screen, where it pans and zooms like the image lightbox | P1-RDR-08, P1-LAY-02 | The status-window fixture's stat table at 200% on a 360 px phone opens in the viewer, unwrapped and readable; page swipes still turn pages outside the viewer; Esc and Back close it |
+| P1-LAY-09 | **Sleep timer** (§4.4): stop narration or the device voice after 5–60 minutes or at the end of the Chapter, fading out | P1-LAY-04, P1-LAY-08 | Stops on time on the web and with the screen locked on Android; the player shows the time left; the last choice is remembered |
+| P1-STU-05 | **Recaps and glossary in the Studio** (simulated; §7.4 without the AI drafts): an author writes a recap per Chapter and glossary entries (name, description, optional picture); each entry's first appearance is found in the text and stored as an Anchor; published with the Book | P1-STU-01 | First appearances re-anchor when a new Revision is published (§6.2); an entry whose name isn't in the text can't be published; AI-written text needs the AI-use answer (§10.6) |
+| P1-RDR-13 | **The story so far** (§4.9): the reader's recap of the Chapters before their furthest position, and a glossary of the entries first seen at or before it, in the Contents sheet | P1-STU-05, P1-RDR-05 | Invariant 6: nothing from ahead of the furthest position, tested at a Chapter boundary; works offline once the Book has been opened; empty states say why |
+| P1-STU-06 | **Serial release schedules** (simulated; §4.7): an author schedules Chapters of a Revision; followers get an inbox message when one comes out; the dev clock releases them | P1-STO-04, P1-COM-02, P1-ADM-02 | A scheduled Chapter is locked until its time on the dev clock, then readable and announced once to each follower; early-access rules (P1-STO-04) still apply |
+| P1-STU-07 | **`tools/align` for any Book** (was BACKLOG STU-01): `npm run narration -- --epub … --audio … --chapter …` writes the Sync Map the narration manager imports | P1-STU-03 | Aligning the status-window fixture against a recording made for it gives coverage ≥ 0.95; the Studio imports the result |
+| P1-RDR-14 | **Reading time left** (§4.9): in the Chapter and the Book, from the reader's own pace (Words per minute while reading, ignoring pauses and jumps) | P1-RDR-05 | Starts from a stated default pace and converges on a scripted reader's pace within 10%; never shows while narration sets the pace |
+| P1-RDR-15 | **Stats, streaks and achievements** (§4.9): time read, Words, Books finished, a daily streak, a few achievements; on this device through a new `Stores` record (with its IndexedDB upgrade); off with one switch, which also stops collecting | P1-RDR-05, P1-APP-04 | Turning it off hides and stops it; the export includes the records; the contract suite covers the new store; nothing leaves the device |
+| P1-RDR-16 | **Share quote** (§4.5): from the selection toolbar, a text or image card of the passage with title and author, in the reader's theme, through the share adapter | P1-RDR-06 | The card shows the snapped Words exactly; the image has alt text; long passages are shortened with an ellipsis; works on the web and through the Android share sheet |
+| P1-UI-04 | **Advanced custom colours** (§4.2, §11.2): the reader's own page and text colours, with a live contrast check | P1-UI-01, P1-RDR-04 | A pair below AA can't be saved without a clear warning and the nearest passing colour offered; styled blocks stay readable (§9.6) |
+| P1-STO-06 | **Wishlists and sale alerts** (simulated): add a Book to a wishlist from its page; an inbox message when its simulated price drops | P1-STO-02, P1-ADM-02 | A price change in the Studio alerts each wishlisting reader once; owning the Book removes it from the wishlist |
+| P1-STO-07 | **Reviews** (simulated; §13.7): rate and review a Book you own, showing how far you'd read when you wrote it; other readers' reviews come from seed data | P1-STO-01, P1-RDR-05 | One review per reader per Book; it shows the reviewer's furthest progression; it can be reported into the moderation queue (P1-ADM-02) |
+| P1-RDR-17 | **Overview mode** (§4.1): 4-up page thumbnails of the current Chapter to scan and jump from | P1-RDR-03 | Jumping from a thumbnail lands on that page's first Word; keyboard-operable; it never lays out more than the current and next Chapter (§9.2) |
+| P1-RDR-18 | **Tap-to-define** (§4.9): look up a Word from the selection toolbar. Starts by proposing OPEN-16 | P1-RDR-06, OPEN-16 | Works offline if OPEN-16 chooses an offline dictionary; the looked-up Word never leaves the device unless the owner chose an online source and the reader is told |
+| P1-COM-03 | **Paragraph comments** (simulated; §4.8): comments on passages, hidden by default behind a count; reply and report | P1-COM-02, P1-ADM-02, P1-RDR-06 | Comments attach with RangeAnchors and survive a new Revision; off by default; reports reach the moderation queue; seeded comments come from other Personas |
+| P1-COM-04 | **Popular highlights** (simulated; §4.8): opt-in, shows passages many readers highlighted | P1-RDR-06 | Off by default; shown only above a minimum number of readers (placeholder, `// SIMULATION:`); counts come from seed data; never names a reader |
+| P1-RDR-19 | **Page-curl skin** (§4.1, D-013): a realistic page curl as an optional page turn | P1-RDR-03, ADR-001 | Meets the §12.3 page-turn budget on the reference phone class; forced to `none` under reduced motion; the curl never shows a page ahead of the one turning to |
+
 **Phase 1 exit (automated on web, manual on the owner's Android phone):**
 A reader opens *Alice*, changes font size and layout (position kept), opens Illustrations from the pop-up button and tries the other modes, turns on narration, listens through a chapter with the screen locked while pages turn, highlights a sentence with a note, places three bookmarks, closes the app and resumes at the same Word. Re-importing an edited copy of the EPUB keeps their notes.
 
@@ -1419,7 +1458,7 @@ Put the PoC in front of 5–10 readers from the launch audience, including some 
 
 ### 13.4 Phase 2 — Platform
 
-Starts after the PoC review's go decision, which also confirms the backend stack (D-004). Split into phases 2.1–2.13 (D-032); `docs/IMPLEMENTATION-PLAN.md` §6 gives their order, UX notes and Try-it lists. Each task adds its module to `apps/api` and `backend-http` (or its records to `storage-remote`) with contract cases run against the Docker API, so the simulated and the real backend stay interchangeable (§5.6). Phase 2 is a free library: prices stay at zero until Phase 4. Sign in with Apple and the other iOS work stay in `docs/BACKLOG.md` (D-024).
+Starts after the front-end phases 1.10–1.21 (or those the owner keeps, D-035) and the PoC review's go decision, which also confirms the backend stack (D-004). Split into phases 2.1–2.13 (D-032); `docs/IMPLEMENTATION-PLAN.md` §6 gives their order, UX notes and Try-it lists. Each task adds its module to `apps/api` and `backend-http` (or its records to `storage-remote`) with contract cases run against the Docker API, so the simulated and the real backend stay interchangeable (§5.6). Phase 2 is a free library: prices stay at zero until Phase 4. Sign in with Apple and the other iOS work stay in `docs/BACKLOG.md` (D-024).
 
 **Foundations**
 
@@ -1470,7 +1509,7 @@ Starts after the PoC review's go decision, which also confirms the backend stack
 - Illustration Packs: upload, `process-image`, the placement tool from P1-LAY-05 in Creator mode, rendering through content tokens.
 - Narration: per-Chapter audio upload, `transcode-audio`, `align-narration` with the creator review screen, re-alignment when a Revision is published (`stale` → `ready`).
 - Layer selection UI with official Layers on by default; several packs in priority order.
-- Stretch: in-book search; device text-to-speech fallback; DOCX/Markdown import via Pandoc.
+- Stretch: DOCX/Markdown import via Pandoc. (In-book search and the device-voice fallback moved to phases 1.12 and 1.11, D-035.)
 
 **Exit:** the launch title has an official Illustration Pack and official narration for at least three Chapters, toggleable on web, iOS and Android.
 
@@ -1492,7 +1531,7 @@ Starts after the PoC review's go decision, which also confirms the backend stack
 
 **Phase 5:** community creator onboarding and payouts with an earnings ledger; author settings for `community_policy` and `community_ai`; community Pack and Track submission (free or paid) → author approval (if required) → moderation → listing; author curation tools for community content (§10.6); image moderation API; takedowns; revenue splits (OPEN-08); "Author-endorsed" badge; per-Book hub with ratings; creator profiles.
 
-**Phase 6:** server-rendered store pages; reviews showing how far the reviewer read; wishlists and sale alerts; author analytics (drop-off by Chapter, Layer usage); serial release schedules and follower notifications; spoiler-safe recap and glossary; paragraph comments; popular highlights; share quote; reading time estimates; focus mode; tap-to-define; stats and achievements; offline downloads; overview mode; page-curl skin; sleep timer; advanced custom colours.
+**Phase 6:** server-rendered store pages; author analytics (drop-off by Chapter, Layer usage); offline downloads; and the server side of what phases 1.14–1.20 simulate: reviews, wishlists and sale alerts, serial release schedules and follower notifications, recaps and glossary (with AI drafts, §7.4), paragraph comments and popular highlights. The reader-side features once listed here (share quote, reading time, focus mode, tap-to-define, stats and achievements, overview mode, page curl, sleep timer, advanced custom colours) moved to phases 1.12–1.21 (D-035).
 
 ### 13.8 Parked (do not build without explicit approval)
 
@@ -1578,6 +1617,7 @@ Starts after the PoC review's go decision, which also confirms the backend stack
 | D-032 | Phase 2 is split into phases 2.1–2.13 in `docs/IMPLEMENTATION-PLAN.md`, each about one large or two medium tasks, roughly half a Phase 1 phase, because Phase 1's phases were too large for one working session. To fit, P2-ING-01's preview and publishing moved to P2-CAT-03 and P2-CAT-01; P2-CAT-01's catalogue and public pages became P2-CAT-04; P2-SYNC-01's first-sign-in upload became P2-SYNC-02; P2-MOD-01's review queue and action log became P2-MOD-02; P2-OPS-02's Sentry and analytics became P2-OPS-03; and P2-APP-01 adds `backend-http` and choosing the backend per build. Every Phase 2 task now has acceptance criteria (§13.4). D-025's one PR per phase still applies | Accepted (owner request, 13 Oct 2026) |
 | D-033 | Phase 1.10 "PoC review fixes": small frontend fixes found while preparing or running the PoC review, picked up from `docs/BACKLOG.md` while Phase 2 waits for its go decision. They work against `backend-local`, so none waits on the backend. The first is P1-RDR-09 (was BACKLOG RDR-02). One branch and PR (`p1-10-poc-review-fixes`, D-025); later fixes may get a phase of their own | Accepted (owner decision, 16 Oct 2026) |
 | D-034 | A Book with no Reading Progress opens at its text (P1-RDR-09, §9.5). Ingest records the EPUB 3 nav's `bodymatter` landmark and the EPUB 2 guide's `text` reference as Ordinals (an optional manifest field, left out when there are none, so Revisions without them are unchanged); `textStart` in `domain` decides from the manifest. Without either, a heuristic over the TOC, each step trusted only if it skips at most a tenth of the Book's Words: (a) the first entry headed like a chapter or part ("Chapter", "Prologue", "Part I", a bare number such as "1." or "IV:"); (b) the first Chapter with Words after the contents page; (c) the first entry not named like front matter (title page, copyright, contents, licence, Project Gutenberg, dedication…). Else the first Chapter with Words, as before. Like publishers' `bodymatter`, (a) skips an introduction or preface ahead of Chapter 1 | Accepted (owner decision, 16 Oct 2026) |
+| D-035 | **Front end first.** Every front-end feature worth building without a real backend comes before any backend work, as phases 1.11–1.21 after 1.10: from Phase 3, in-book search and the device-voice fallback; from Phase 6, focus mode, sleep timer, reading time left, stats, share quote, advanced custom colours, overview mode, tap-to-define and the page-curl skin; from the backlog, the table viewer (RDR-01) and `tools/align` for any Book (STU-01); and, simulated in `backend-local` as phases 1.6–1.8 were, recaps and glossary, serial release schedules, wishlists, reviews, paragraph comments and popular highlights, which become real in their original phases. Phase 2 starts only after these phases (or those the owner keeps after the PoC review) and the review's go decision. Left where they were, because they need a server or real readers: store SEO, offline downloads, author analytics, the cross-device prompt, AI narration and AI drafts, DOCX import; also covers as cosmetic Products (Phase 4), which would repeat Bookmark Designs; iOS still waits for a Mac (D-024); the Parked list (§13.8) is unchanged. Amends D-003's order only: still no backend before the PoC review | Accepted (owner decision, 16 Oct 2026) |
 
 ---
 
@@ -1600,6 +1640,7 @@ Starts after the PoC review's go decision, which also confirms the backend stack
 | OPEN-13 | *Resolved by D-016 (ADR-002): Block indexes plus an offset word index.* | P0-05 |
 | OPEN-14 | *Resolved by D-026.* Deterministic tokenisation: `Intl.Segmenter` takes its word boundaries from each runtime's ICU data, and the P0-05/P0-06 spikes found WebKit and Chromium gave the same EPUB different WordIds, which would break Sync Maps and cross-device Annotations. `text-pipeline` now uses its own versioned tokeniser | P1-ING-01 |
 | OPEN-15 | Do a reader's imported Books sync between devices? Their notes, bookmarks and progress can sync cheaply, since the same file gives the same `bookId` and `revisionId` on every device (§6.3). Syncing the EPUB files themselves means storing readers' own files (storage cost, upload safety, rights). *Recommendation for Phase 2: sync the reader data for every Book, but keep an imported Book's file on the device that imported it; on another device the reader imports the same file and their notes appear* | Before P2-SYNC-01 |
+| OPEN-16 | Which dictionary does tap-to-define use? An offline word list shipped with the app (download size; licence and attribution, e.g. WordNet or Wiktionary's CC BY-SA), an online dictionary service (it would learn which words a reader looks up, against principle 6, §1.7), or the device's own where one exists (Android offers "Define" in its text menu; the web has none). P1-RDR-18 starts with a proposal | Before P1-RDR-18 |
 
 ---
 
@@ -1675,6 +1716,7 @@ Read docs/DESIGN.md §0–§3 before any task. Glossary terms and Invariants are
 Find your task ID in docs/DESIGN.md §13; check its dependencies and any OPEN items it touches.
 Its phase, UX notes and Try-it checklist are in docs/IMPLEMENTATION-PLAN.md.
 Current stage: local-first proof of concept. No backend: user data goes through Stores and server-side operations through Backend (simulated in the browser by backend-local), both in @book/core.
+Front-end first (D-035): phases 1.10–1.21 come before any backend work; Phase 2 starts only after them and the PoC review's go decision.
 Targets web and Android (tested on the owner's phone). iOS is deferred: see docs/BACKLOG.md.
 
 ## Commands

@@ -48,16 +48,7 @@ Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 
 
 | ID | Item | Deferred from | Why deferred, and what brings it back |
 |---|---|---|---|
-| RDR-01 | **Table viewer:** tap a table that's squeezed (wider than its page at the current text size) to open it full screen, where it can be panned and zoomed, as images already are | P1-RDR-08 | Tables that don't fit now wrap their cells (hyphenating first, then breaking anywhere), so nothing is cut off, but a four-column stat table on a 360 px phone at 200% wraps a letter or two per line. A viewer is a feature of its own (and nested scrolling fights foliate-js's page swipes). Brought back by tester feedback on stat-heavy books, or with the launch title (Phase 2) |
 | RDR-03 | **A lighter reader route:** validate the reader's few content schemas without Zod, about 32 KB of the reader route's 216 KB (gzipped) | P1-QA-01 | The route is within its 250 KB budget (docs/perf/p1-qa-01.md); Zod is how `@book/core` validates everything. Brought back when `npm run budget` gets close to the line |
-
----
-
-## Creator Studio
-
-| ID | Item | Deferred from | Why deferred, and what brings it back |
-|---|---|---|---|
-| STU-01 | **`tools/align` for any Book:** align a Creator's own recordings to their own EPUB (`npm run narration -- --epub book.epub --audio chapter-1.mp3 --chapter 1`), writing the Sync Map the Studio's narration manager imports | P1-STU-03 | `tools/align` aligns only the LibriVox *Alice* (its paths and WordIds are fixed), so the Phase 1.7 Try-it uses the dev panel's synthetic narration test kit. For a Book's first version the WordIds are the same wherever text-pipeline runs (D-026), so this is mostly argument handling; a later version also needs that version's processed files. Brought back when the owner wants to narrate their own novel in the PoC, and in any case by Phase 3's `align-narration` job, which does the same on the server |
 
 ---
 
