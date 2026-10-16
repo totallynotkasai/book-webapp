@@ -8,6 +8,8 @@ export function makeEpub(options: {
 	extra?: Record<string, string | Uint8Array>;
 	nav?: string | null;
 	opfManifest?: string;
+	/** An EPUB 2 `<guide>` element, after the spine. */
+	guide?: string;
 	encryption?: string;
 }): Uint8Array {
 	const ids = Object.keys(options.chapters);
@@ -39,7 +41,7 @@ export function makeEpub(options: {
 				.map((id, i) => `<item id="c${i}" href="${id}" media-type="application/xhtml+xml"/>`)
 				.join('')}${options.opfManifest ?? ''}</manifest><spine>${ids
 				.map((_, i) => `<itemref idref="c${i}"/>`)
-				.join('')}</spine></package>`
+				.join('')}</spine>${options.guide ?? ''}</package>`
 		)
 	};
 	if (nav !== null) files['OEBPS/nav.xhtml'] = strToU8(nav);

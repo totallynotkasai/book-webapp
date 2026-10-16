@@ -49,7 +49,7 @@
 	import NarrationPlayer from './NarrationPlayer.svelte';
 	import { BookNotes } from './notes.svelte';
 	import { exportFileName, notesMarkdown, notesPlainText } from './notes-export';
-	import { openBook, type OpenedBook } from './open-book';
+	import { openBook, startOfText, type OpenedBook } from './open-book';
 	import PreferencesSheet from './PreferencesSheet.svelte';
 	import { ProgressSaver } from './progress';
 	import { readingFontFaces } from './reading-fonts';
@@ -430,12 +430,16 @@
 			const fontFaceCss = await fontsLoading;
 			engine = await engineLoading;
 			listen(engine);
+			// Where the reader left off; a Book opened for the first time starts at its text, past
+			// the front matter (P1-RDR-09), unless ?chapter= says where.
 			const start =
 				progress && progress.current.revisionId === book.manifest.revisionId
 					? progress.current
 					: progress
 						? { progression: progress.progression }
-						: undefined;
+						: openAtChapter
+							? undefined
+							: await startOfText(book);
 			await engine.mount(host!, book, {
 				layout: layoutOf(prefs, windowWidth, windowHeight),
 				typography: typographyOf(prefs),

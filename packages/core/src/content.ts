@@ -115,6 +115,20 @@ export const tocEntrySchema = z.object({
 });
 export type TocEntry = z.infer<typeof tocEntrySchema>;
 
+/**
+ * A place the EPUB itself names, resolved like a TOC entry (P1-RDR-09). Ingest records where the
+ * text starts: `bodymatter` from the EPUB 3 nav's `landmarks`, `text` from the EPUB 2 `<guide>`.
+ * The type is a plain string so a later ingest can record more kinds without breaking readers.
+ */
+export const landmarkSchema = z.object({
+	type: z.string().min(1),
+	chapterId: z.string().min(1),
+	fragment: z.string().nullable(),
+	/** First Word at or after the target, as for TOC entries. */
+	ordinal: nonNegative
+});
+export type Landmark = z.infer<typeof landmarkSchema>;
+
 export const resourceSchema = z.object({
 	/** Path inside the EPUB (relative to the OPF folder), as chapters reference it. */
 	path: z.string().min(1),
@@ -138,6 +152,8 @@ export const revisionManifestSchema = z.object({
 	identifier: z.string().nullable(),
 	chapters: z.array(chapterRecordSchema),
 	toc: z.array(tocEntrySchema),
+	/** In reading order. Absent when the EPUB names none, and on Revisions processed before them. */
+	landmarks: z.array(landmarkSchema).optional(),
 	resources: z.array(resourceSchema),
 	/** Path of the cover image under `res/`, if the EPUB names one. */
 	coverPath: z.string().nullable(),

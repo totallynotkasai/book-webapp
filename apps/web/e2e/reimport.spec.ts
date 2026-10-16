@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, openDevPanel, settled, storedRecords, test } from './fixtures';
+import { expect, openDevPanel, settled, storedRecords, test, textOnScreen } from './fixtures';
 
 // Phase 1.3 Try-it (IMPLEMENTATION-PLAN.md §6) and P1-ING-03 acceptance: re-import an edited copy
 // of Alice (one paragraph changed, one deleted). Notes elsewhere keep their WordIds; the note on
@@ -69,12 +69,11 @@ test('re-importing an edited copy keeps notes on their Words and orphans the del
 	await expect(page.getByTestId('reader')).toHaveAttribute('data-ready', 'true', {
 		timeout: 30_000
 	});
-	// This Gutenberg file's Contents lists no chapters: End goes to the end of the front matter,
-	// and the next page is Chapter I.
-	await page.keyboard.press('End');
+	// It opens at Chapter I (P1-RDR-09): this Gutenberg file names no landmark and its Contents
+	// lists no chapters, so the text starts at the first Chapter after the contents page.
 	await settled(page);
-	await page.keyboard.press('ArrowRight');
-	await settled(page);
+	expect(await textOnScreen(page, 'Down the Rabbit-Hole')).toBe(true);
+	expect(await textOnScreen(page, 'LIST OF THE PLATES')).toBe(false);
 	await highlightIn(page, 'So she was considering', 'green');
 	await highlightIn(page, 'There was nothing so', 'pink');
 	await expect
