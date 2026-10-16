@@ -261,8 +261,13 @@
 		return voiceHere ? 'Read aloud with the device voice' : 'Listen to the narration';
 	});
 	let playerExpanded = $state(false);
-	/** Set while narration turns the page itself, so the turn isn't taken for the reader's. */
-	let autoTurning = false;
+	/**
+	 * Set while narration turns the page itself, so the turn isn't taken for the reader's. Reactive,
+	 * so following looks again once a turn ends: with the screen off a turn can't finish until it
+	 * comes back on, and narration may have stopped at the next Chapter in the meantime (the sleep
+	 * timer), leaving nothing else to move the page there.
+	 */
+	let autoTurning = $state(false);
 	let narrationHint = $state(false);
 	let narrationHintTimer: ReturnType<typeof setTimeout> | undefined;
 

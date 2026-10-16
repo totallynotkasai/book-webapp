@@ -45,9 +45,10 @@ export const SLEEP_FADE_MS = 6000;
  * `play`/`pause`: playing started or stopped, from the app or the lock screen. `item`: another
  * item became current (the last one ended, or "next" on the lock screen). `ended`: the last item
  * finished. `error`: an item couldn't be played; `error` says why. `sleep`: the sleep timer
- * stopped playing (after fading out) and is off again.
+ * stopped playing (after fading out) and is off again. `seek`: the position jumped while paused
+ * (the lock screen moved it, or the app caught up after the screen was locked).
  */
-export type AudioEvent = 'play' | 'pause' | 'item' | 'ended' | 'error' | 'sleep';
+export type AudioEvent = 'play' | 'pause' | 'item' | 'ended' | 'error' | 'sleep' | 'seek';
 
 /**
  * Narration playback as a playlist, with lock-screen and Media Session controls where the

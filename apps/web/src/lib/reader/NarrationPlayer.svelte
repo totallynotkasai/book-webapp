@@ -94,6 +94,11 @@
 	);
 	/** The slider follows the audio, except while the reader is dragging it. */
 	let dragging = $state<number | null>(null);
+	/**
+	 * The position on the slider's 1 s steps. Bits UI snaps a value between steps and reports the
+	 * snap as a change, which would look like the reader dragging and freeze the slider there.
+	 */
+	const onStep = (ms: number) => Math.floor(ms / 1000) * 1000;
 
 	const toggle = () => void (narration ? narration.toggle() : speech?.toggle());
 
@@ -150,7 +155,7 @@
 			{#if narration}
 				<Slider
 					label="Position in chapter"
-					value={dragging ?? Math.min(narration.positionMs, duration)}
+					value={dragging ?? onStep(Math.min(narration.positionMs, duration))}
 					min={0}
 					max={Math.max(1, duration)}
 					step={1000}

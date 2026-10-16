@@ -240,7 +240,12 @@ export class BookNarration {
 				this.error = audio.error;
 				this.playing = audio.playing;
 			}),
-			audio.on('sleep', () => (this.sleepChoice = null))
+			audio.on('sleep', () => (this.sleepChoice = null)),
+			// Moved while paused (the lock screen, or the sleep timer while the app slept).
+			audio.on('seek', () => {
+				this.#entry = -1;
+				this.#update(true);
+			})
 		);
 		const visibility = () => {
 			if (document.visibilityState === 'visible') {

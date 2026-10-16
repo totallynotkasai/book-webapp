@@ -104,7 +104,10 @@ export function webAudio(): AudioAdapter {
 		emit('pause');
 	});
 	element.addEventListener('ratechange', positionState);
-	element.addEventListener('seeked', positionState);
+	element.addEventListener('seeked', () => {
+		positionState();
+		if (element.paused) emit('seek');
+	});
 	element.addEventListener('ended', () => {
 		// "End of chapter": stop here, ready at the start of the next one.
 		const asleep = sleep?.kind === 'item';

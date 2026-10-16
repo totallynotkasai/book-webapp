@@ -11,7 +11,15 @@ export function switchingAudio(native: AudioAdapter, web: AudioAdapter): AudioAd
 	const listeners = new Map<AudioEvent, Set<() => void>>();
 	// Each adapter reports to the same listeners, but only while it's the one playing.
 	for (const adapter of [native, web]) {
-		for (const event of ['item', 'play', 'pause', 'ended', 'error', 'sleep'] as AudioEvent[]) {
+		for (const event of [
+			'item',
+			'play',
+			'pause',
+			'ended',
+			'error',
+			'sleep',
+			'seek'
+		] as AudioEvent[]) {
 			adapter.on(event, () => {
 				if (adapter !== current) return;
 				for (const callback of listeners.get(event) ?? []) callback();

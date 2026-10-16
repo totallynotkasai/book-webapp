@@ -354,6 +354,9 @@ test.describe('the sleep timer', () => {
 		// Stopped, and ready at the start of Chapter II: play goes on from there.
 		await expect(player(page)).toContainText('CHAPTER II. The Pool of Tears');
 		await expect(player(page).getByTestId('narration-clock')).toContainText(/^0:00 \//);
+		// The page goes there too, and the position slider shows where it is.
+		await expect(page.getByTestId('chapter-title')).toHaveText('CHAPTER II. The Pool of Tears');
+		await expect(position).toHaveAttribute('aria-valuenow', '0');
 		await expect(page.getByTestId('sleep-timer')).toContainText('Sleep timer: Off');
 		await page.waitForTimeout(1000);
 		await expect(player(page)).not.toHaveAttribute('data-playing', 'true');

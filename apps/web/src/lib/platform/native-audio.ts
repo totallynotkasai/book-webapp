@@ -43,6 +43,8 @@ interface NarrationPlugin {
 	setRate(options: { rate: number }): Promise<void>;
 	setSleep(options: { kind: SleepTimer['kind'] | null; ms?: number }): Promise<void>;
 	unload(): Promise<void>;
+	/** The state now; empty with no playlist loaded. */
+	getState(): Promise<Partial<NativeState>>;
 	addListener(
 		event: 'state',
 		callback: (state: NativeState) => void
@@ -75,6 +77,9 @@ export function nativeAudio(): AudioAdapter {
 		state = next;
 		at = performance.now();
 		if (next.index !== before.index) emit('item');
+		else if (!next.playing && Math.abs(next.positionMs - before.positionMs) > 1000) {
+			emit('seek');
+		}
 		if (next.playing !== before.playing) emit(next.playing ? 'play' : 'pause');
 		if (next.ended && !before.ended) emit('ended');
 		if (next.error && next.error !== before.error) emit('error');
@@ -92,10 +97,24 @@ export function nativeAudio(): AudioAdapter {
 		return state.durationMs ? Math.min(ms, state.durationMs) : ms;
 	}
 
+	/** Subscribes once; after the WebView slept (screen locked), catches up with the player. */
+	function subscribe() {
+		if (!subscribed) {
+			subscribed = Narration.addListener('state', receive);
+			document.addEventListener('visibilitychange', () => {
+				if (document.visibilityState !== 'visible') return;
+				void Narration.getState().then(
+					(now) => typeof now.index === 'number' && receive(now as NativeState),
+					() => {}
+				);
+			});
+		}
+		return subscribed;
+	}
+
 	return {
 		async load(items, info, start) {
-			subscribed ??= Narration.addListener('state', receive);
-			await subscribed;
+			await subscribe();
 			assume({ index: start.index, positionMs: start.positionMs, ended: false, error: null });
 			await Narration.load({
 				// The app's own files are packaged with it; the plugin reads them from its assets.
