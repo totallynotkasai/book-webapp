@@ -50,6 +50,20 @@ The **Emulator** column has the results from 16 October 2026 (owner build, `book
 | In *Alice* as the Author, chapters 1–3 play the recorded narration; Chapter IV offers the device voice | Listen in each | Web E2E | ☐ |
 | A phone call or another app's audio pauses it; unplugging headphones pauses it | | ☐ | ☐ |
 
+## Comfortable on a phone (Phase 1.13)
+
+The **Emulator** column has the results from 16 October 2026 (owner build, `book_compact`, the screen turned off with `adb shell input keyevent 223`: the emulator has no screen lock).
+
+| Check | How | Emulator | Phone |
+|---|---|---|---|
+| **The sleep timer stops narration on time with the screen locked,** fading out over its last few seconds; on unlocking the player says "Sleep timer: Off" | *Alice* as the Author, Chapter I: Listen, More controls → Sleep timer → 5 minutes; lock the phone | ✓ (paused 5:02 into the Chapter, set 2 s after play; muted, so the fade wasn't heard) | ☐ (listen for the fade) |
+| **"End of chapter" with the screen locked:** narration stops at the Chapter's end; unlocked, it's paused at the start of the next Chapter, and play goes on from there | Set it, drag the position near the Chapter's end, lock the phone | ✓ (media session paused at 0:00 of Chapter II; on waking, the page at Chapter II) | ☐ |
+| The sleep timer stops the device voice at the end of a sentence (minutes) or before the next Chapter (End of chapter), with the screen locked | *Alice* as the Reader, Chapter IV | ✓ End of chapter (stopped before Chapter V) | ☐ |
+| Pausing freezes the timer's countdown; the menu marks the last choice ("…, as last time") | Pause from the lock screen, then look at the player | Web E2E | ☐ |
+| **The table viewer:** the status window's stat table at 200% has "Open table"; it opens full screen at the same text size; pinch zooms, a finger pans, Back closes it | Dev panel → Import the status-window fixture; Text size 200% | ☐ | ☐ |
+| A swipe across the squeezed table on the page still turns the page | Swipe on the table | Web E2E (Chromium touch) | ☐ |
+| The reader's top bar on the phone: the titles are readable; search, Illustrations and reading preferences are under ⋮ | Open any Book | Web E2E (360 px) | ☐ |
+
 ## Android behaviour
 
 | Check | How | Emulator | Phone |
