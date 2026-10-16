@@ -159,11 +159,24 @@ class NarrationPlugin : Plugin() {
         call.resolve()
     }
 
+    /** Arms the sleep timer (P1-LAY-09): `time` with `ms` of playing, or `item`; no kind turns it off. */
+    @PluginMethod
+    fun setSleep(call: PluginCall) {
+        val kind = call.getString("kind")?.takeIf { it == "time" || it == "item" }
+        val ms = call.getDouble("ms", 0.0)?.toLong() ?: 0L
+        handler.post {
+            NarrationSleep.arm(kind, ms)
+            report()
+            call.resolve()
+        }
+    }
+
     /** Stops and lets the service go, which removes the notification and lock-screen controls. */
     @PluginMethod
     fun unload(call: PluginCall) {
         handler.post {
             handler.removeCallbacks(ticker)
+            NarrationSleep.arm(null, 0L)
             controller?.run {
                 stop()
                 clearMediaItems()
@@ -186,6 +199,9 @@ class NarrationPlugin : Plugin() {
                 .put("playing", playing(c))
                 .put("ended", c.playbackState == Player.STATE_ENDED)
                 .put("error", error ?: JSONObject.NULL)
+                .put("sleepKind", NarrationSleep.timer.kind ?: JSONObject.NULL)
+                .put("sleepLeftMs", NarrationSleep.leftMs() ?: JSONObject.NULL)
+                .put("slept", NarrationSleep.timer.fired)
         )
     }
 
