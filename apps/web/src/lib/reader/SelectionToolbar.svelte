@@ -28,6 +28,8 @@
 		onremove: () => void;
 		/** Creator mode (P1-LAY-05): attach an Illustration to the selection. */
 		onattach?: () => void;
+		/** The selection is a glossary name the reader has met (P1-RDR-13): show its entry. */
+		onglossary?: () => void;
 		onclose: () => void;
 	}
 
@@ -44,6 +46,7 @@
 		oncopy,
 		onremove,
 		onattach,
+		onglossary,
 		onclose
 	}: Props = $props();
 
@@ -149,6 +152,9 @@
 	<span class="divider" aria-hidden="true"></span>
 	<IconButton icon="edit_note" label={hasNote ? 'Edit note' : 'Add note'} onclick={onnote} />
 	<IconButton icon="content_copy" label="Copy" onclick={oncopy} />
+	{#if onglossary}
+		<IconButton icon="menu_book" label="In the glossary" onclick={onglossary} />
+	{/if}
 	{#if onattach}
 		<IconButton icon="add_photo_alternate" label="Attach picture" onclick={onattach} />
 	{/if}

@@ -4,6 +4,7 @@ import {
 	expect,
 	expectNoViolations,
 	openReader,
+	selectPhrase,
 	settled,
 	showChrome,
 	switchPersona,
@@ -110,6 +111,28 @@ for (const scheme of ['light', 'dark'] as const) {
 			await expectNoViolations(page);
 		});
 
+		test('the story so far and the glossary card have no axe violations (P1-RDR-13)', async ({
+			page
+		}) => {
+			// The Author holds the Ledger, which has a seeded story so far.
+			await switchPersona(page, 'Author');
+			await openReader(page, 'book-lamplighters-ledger');
+			await showChrome(page);
+			await page.getByRole('button', { name: 'Contents and notes' }).click();
+			await page.getByRole('button', { name: /^3\. Murk on Saltgate Bridge/ }).click();
+			await settled(page);
+			await showChrome(page);
+			await page.getByRole('button', { name: 'Contents and notes' }).click();
+			await page.getByRole('tab', { name: 'Story so far' }).click();
+			await expect(page.getByTestId('story-recap').first()).toBeVisible();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			await selectPhrase(page, 'Saltgate Bridge');
+			await page.getByRole('button', { name: 'In the glossary' }).click();
+			await expect(page.getByTestId('glossary-card')).toBeVisible();
+			await expectNoViolations(page);
+		});
+
 		test('/studio and /admin have no axe violations', async ({ page }) => {
 			await switchPersona(page, 'Author');
 			await page.goto('/studio');
@@ -138,11 +161,18 @@ for (const scheme of ['light', 'dark'] as const) {
 			await switchPersona(page, 'Author');
 			await page.goto('/studio/books/book-lamplighters-ledger');
 			await expect(page.getByRole('heading', { name: "The Lamplighter's Ledger" })).toBeVisible();
-			for (const tab of ['Versions', 'Details', 'Illustrations', 'Narration']) {
+			for (const tab of ['Versions', 'Details', 'Illustrations', 'Narration', 'Story so far']) {
 				await page.getByRole('tab', { name: tab }).click();
 				await page.waitForLoadState('networkidle');
 				await expectNoViolations(page);
 			}
+			// The story so far's entry dialog (P1-STU-05).
+			await expect(page.getByTestId('glossary-entry').first()).toBeVisible();
+			await page.getByRole('button', { name: 'Add an entry' }).click();
+			await expect(page.getByTestId('glossary-entry-dialog')).toBeVisible();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			await page.getByRole('tab', { name: 'Narration' }).click();
 			await page.getByRole('button', { name: 'New narration' }).click();
 			await expectNoViolations(page);
 			await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();

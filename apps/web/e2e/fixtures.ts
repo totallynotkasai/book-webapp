@@ -235,3 +235,35 @@ export async function expectNoViolations(page: Page) {
 	);
 	expect(summary).toEqual([]);
 }
+
+/** Drags across a phrase in a paragraph on screen, so the reader selects its Words. */
+export async function selectPhrase(page: Page, phrase: string) {
+	// A sheet or dialog still closing would take the drag.
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+	const frame = page.frames().find((f) => f.url().startsWith('blob:'))!;
+	const points = await frame.evaluate((text) => {
+		const host = window.frameElement!.getBoundingClientRect();
+		const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+		for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text) {
+			const at = node.data.indexOf(text);
+			if (at < 0) continue;
+			const point = (offset: number) => {
+				const range = document.createRange();
+				range.setStart(node!, offset);
+				range.setEnd(node!, offset + 1);
+				const r = range.getBoundingClientRect();
+				return { x: host.left + r.left + r.width / 2, y: host.top + r.top + r.height / 2 };
+			};
+			const a = point(at + 1);
+			const b = point(at + text.length - 2);
+			if (a.x < 0 || a.x > window.top!.innerWidth || a.y < 0) continue;
+			return { a, b };
+		}
+		throw new Error(`“${text}” isn’t on screen`);
+	}, phrase);
+	await page.mouse.move(points.a.x, points.a.y);
+	await page.mouse.down();
+	await page.mouse.move(points.b.x, points.b.y, { steps: 4 });
+	await page.mouse.up();
+	await expect(page.getByRole('toolbar', { name: 'Selection' })).toBeVisible();
+}
