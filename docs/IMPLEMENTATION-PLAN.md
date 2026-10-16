@@ -1,6 +1,6 @@
 # Implementation plan: from groundwork to a product you can try
 
-> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · v1.2 · 16 October 2026: Phase 1.10 PoC review fixes (D-033) · v1.3 · 16 October 2026: front end first, phases 1.11–1.21 before any backend (D-035) · v1.4 · 16 October 2026: Phase 1.11 done; the device voice (D-036, ADR-006) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
+> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · v1.2 · 16 October 2026: Phase 1.10 PoC review fixes (D-033) · v1.3 · 16 October 2026: front end first, phases 1.11–1.21 before any backend (D-035) · v1.4 · 16 October 2026: Phase 1.11 done; the device voice (D-036, ADR-006) · v1.5 · 16 October 2026: Phase 1.12 done; search and focus mode · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
 > **Purpose:** the order of work that takes the repo from today's groundwork to a build the owner can use on desktop and on their Android phone to try every area of the product (reading, Illustrations, narration, notes, store, Creator Studio, community and moderation) with **no backend**, built so a real backend later replaces the simulated one without rewriting the app. Then, in phases 2.1–2.13, the real backend: accounts, sync across devices, author publishing and a free library.
 > **How it fits with DESIGN.md:** DESIGN.md §13 defines every task (its dependencies and acceptance criteria). This plan splits DESIGN.md's Phases 0, 1 and 2 into smaller phases that each end in something to try, and adds the architecture detail, UX notes and Try-it checklists. Decisions D-021 to D-024 and D-032 (DESIGN.md §16) record what this plan changed. iOS work is in [BACKLOG.md](BACKLOG.md).
 
@@ -27,7 +27,7 @@
 | **1.9** Android build and PoC readiness | The Android app, a tester build, the PoC review kit | P1-MOB-01, P1-QA-01 to 03 | Done (13 Oct 2026; notes in §6) |
 | **1.10** PoC review fixes | Any Book you open for the first time starts at its text, not its licence or contents page | P1-RDR-09 | Done (16 Oct 2026; notes in §6) |
 | **1.11** Any Book read aloud ★ | Every Book read aloud by the device’s own voice, with the narration’s highlighting and page turns | P1-LAY-08 | Done (16 Oct 2026; notes in §6) |
-| **1.12** Search and focus | Search inside a Book and jump to a result; focus mode | P1-RDR-10, P1-RDR-11 | Not started |
+| **1.12** Search and focus | Search inside a Book and jump to a result; focus mode | P1-RDR-10, P1-RDR-11 | Done (16 Oct 2026; notes in §6) |
 | **1.13** Comfortable on a phone | Squeezed tables open full screen; a sleep timer for listening | P1-RDR-12, P1-LAY-09 | Not started |
 | **1.14** The story so far (simulated) | Authors write recaps and a glossary; readers see only what they’ve reached | P1-STU-05, P1-RDR-13 | Not started |
 | **1.15** Serials (simulated) | Scheduled Chapter releases with follower messages; align your own narration | P1-STU-06, P1-STU-07 | Not started |
@@ -827,6 +827,27 @@ Every front-end feature worth building without a real backend, before any backen
 **Try it**
 - Search *Alice* for "Cheshire": every result, by Chapter; jump to one, then Back.
 - Turn on focus mode and read a page a paragraph at a time, in light and dark.
+
+**Done (16 October 2026): what was built and how it differs from the plan.** The Try-it items are Playwright specs in Chromium and WebKit (`apps/web/e2e/search-focus.spec.ts`); axe checks the search sheet with the reader's other panels; unit tests cover folding, matching, context and focus's steps (`search.test.ts`, `focus.test.ts`). P1-RDR-10's budget is measured at phone speed in the perf suite (`phone.perf.ts`, `npm run test:perf`): at 4× CPU, typing a search into the 150 000-word test Book, keystrokes reach the next frame in 56 ms at p95 (72 ms at worst) against the 100 ms budget, and every result is in 0.36 s after the last keystroke. Notes and deviations:
+
+*P1-RDR-10 (search):*
+- **Over Words, from what the reader already has.** Each Chapter's Words come from the engine's `chapterText` (the word index plus the Chapter's text), folded once (capitals, accents, curly apostrophes) and kept for the session; no new stored index, so nothing to migrate. A phrase is a run of Words, so it's found across a line break (`crocodile<br/> Improve`) or inline markup (`fall <i>never</i> come`).
+- **Read on the page's thread, a Chapter at a time,** with a pause between Chapters, from when the sheet first opens; not in a Web Worker as the import is: a Chapter's text comes from parsing its XHTML, which a Worker can't do without text-pipeline's own parser in another bundle. The numbers above show it doesn't need one.
+- **Matching:** whole Words, plus a Word's possessive ("Alice" finds "Alice's"); the query's last Word also matches the start of a Word, so results come while typing ("cat" also finds "Caterpillar"). Phrases don't overlap.
+- **The sheet:** results by Chapter with a count, each with up to seven Words of context either side from its own paragraph; 200 at a time with "Show more"; Enter goes to the first result; ↓ and ↑ move through the results. It says "Searching…" from the first keystroke, never "No results" for a search that hasn't run.
+- **Jump and Back:** the result is painted with the `search` decoration until the reader turns the page or goes Back. **Back returns to where the reader was before searching,** not to the previous result, however many results they visit; its chip stays a minute rather than the usual 10 seconds.
+- **Loads on first use:** the search code is its own chunk, loaded when search first opens.
+
+*P1-RDR-11 (focus mode):*
+- **A switch under Reading preferences → Page** (and Settings → Reading defaults, which share it), `focusMode` in Reader Preferences (merged over defaults: no migration).
+- **Deviation: it dims with opacity, not with narration's sentence highlight** as the UX notes suggested. A highlight can only recolour text, so it can't dim pictures, and dimming by colour would fight each theme's colours; opacity on the other paragraphs leaves the focused one exactly as it was, so its AA contrast holds in every theme (checked in light, dark and sepia). The engine gains a `focus` decoration style (DESIGN.md §9.1); opacity never changes the layout. It fades over 200 ms, not at all under reduced motion.
+- **A paragraph is a run of Words in one Block,** so a heading, a list item or a table cell is one too. →, ↓ and Space move to the next (←, ↑, Shift+Space back), and so do the side tap zones; when the next paragraph isn't on the page the page turns. Page Down, Page Up and swipes still turn pages, and the focus moves to the first paragraph on the new page. While narration or the device voice reads, the paragraph being read is the bright one.
+- **Bundle:** the reader route is 222.6 KB, up 1.9 KB from Phase 1.11: the search button and focus mode's steps and keys; search itself loads when it's first opened of its 250 KB budget (gzipped).
+
+*Also:*
+- **Words are joined as on the page** in search contexts and in what the device voice says: no space after a hyphen or dash that joined two Words ("Rabbit-Hole", "mine—a").
+- **For Phase 1.13 (Comfortable on a phone):** with Search added, the reader's top bar has six buttons, and on a 360 px phone the Book and Chapter titles shrink to a few letters. Moving some buttons into an overflow menu on compact screens belongs with that phase's phone work.
+- **Testing on this PC:** the same three WebKit narration specs fail here on `main` too (see 1.11).
 
 ### Phase 1.13 — Comfortable on a phone
 
