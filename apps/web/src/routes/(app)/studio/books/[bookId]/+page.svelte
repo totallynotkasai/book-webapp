@@ -24,6 +24,7 @@
 	import { parsePrice, priceText } from '$lib/studio/price';
 	import PublishDialog from '$lib/studio/PublishDialog.svelte';
 	import CurationPanel from '$lib/studio/CurationPanel.svelte';
+	import StoryPanel from '$lib/studio/StoryPanel.svelte';
 	import {
 		changeSummary,
 		listingStateLabels,
@@ -32,14 +33,15 @@
 	} from '$lib/studio/summaries';
 	import UploadDialog from '$lib/studio/UploadDialog.svelte';
 
-	// A Book in the Studio (P1-STU-01, P1-STU-02, P1-LAY-05, P1-STU-03): its versions with their
-	// ingest reports, its settings, and its Illustration Packs and narration.
+	// A Book in the Studio (P1-STU-01, P1-STU-02, P1-LAY-05, P1-STU-03, P1-STU-05): its versions
+	// with their ingest reports, its settings, its Illustration Packs and narration, and its story
+	// so far.
 	const bookId = $derived(page.params.bookId ?? '');
 	const book = resource(async () => (await getBackend()).studio.getBook(bookId), {
 		topics: ['studio']
 	});
 
-	type Tab = 'versions' | 'details' | 'illustrations' | 'narration' | 'community';
+	type Tab = 'versions' | 'details' | 'illustrations' | 'narration' | 'story' | 'community';
 	let tab = $state<Tab>('versions');
 	let uploadOpen = $state(false);
 	let publishOpen = $state(false);
@@ -207,6 +209,7 @@
 					{ value: 'details', label: 'Details' },
 					{ value: 'illustrations', label: 'Illustrations' },
 					{ value: 'narration', label: 'Narration' },
+					{ value: 'story', label: 'Story so far' },
 					{ value: 'community', label: 'Community' }
 				]}
 			>
@@ -468,6 +471,16 @@
 								{/each}
 							</ul>
 						</div>
+					{:else if value === 'story'}
+						{#if detail.revisions.some((r) => r.state === 'published' || r.state === 'ready')}
+							<StoryPanel bookId={detail.id} />
+						{:else}
+							<div class="section">
+								<p class="muted">
+									Upload the book first; recaps follow its chapters and the glossary its words.
+								</p>
+							</div>
+						{/if}
 					{:else}
 						<CurationPanel bookId={detail.id} />
 					{/if}
