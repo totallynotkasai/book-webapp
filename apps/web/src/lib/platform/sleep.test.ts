@@ -254,6 +254,16 @@ describe('the device voice in a browser', () => {
 		expect(events.at(-1)).toBe('sleep');
 	});
 
+	it('the same speed or voice again doesn’t restart the sentence being said', async () => {
+		const { synth, speech } = await voice();
+		speech.setRate(1);
+		speech.setVoice('v');
+		speech.setVoice('v');
+		expect(synth.said).toEqual(['One.']);
+		speech.setRate(1.5);
+		expect(synth.said).toEqual(['One.', 'One.']);
+	});
+
 	it('counts only speaking time, and a pause in its last sentence ends it', async () => {
 		const { synth, speech } = await voice();
 		speech.setSleep({ kind: 'time', ms: 1000 });

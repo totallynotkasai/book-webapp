@@ -320,6 +320,8 @@ export class BookSpeech {
 	}
 
 	setRate(rate: number) {
+		// Any preference change re-runs the reader's effect; only a new speed restarts the Word.
+		if (rate === this.#rate) return;
 		this.#rate = rate;
 		if (this.active) this.#speech.setRate(rate);
 	}

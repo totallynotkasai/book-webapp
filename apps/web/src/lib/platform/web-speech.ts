@@ -239,10 +239,12 @@ export function webSpeech(): SpeechAdapter {
 				: { kind: 'item', leftMs: null };
 		},
 		setRate(rate) {
+			if (rate === options.rate) return;
 			options = { ...options, rate };
 			if (playing && current && position(current)) say();
 		},
 		setVoice(voiceId) {
+			if (voiceId === options.voiceId) return;
 			options = { ...options, voiceId };
 			void voiceFor(options).then((v) => {
 				voice = v;

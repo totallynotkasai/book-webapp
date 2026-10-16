@@ -380,7 +380,8 @@ test.describe('the sleep timer', () => {
 
 	test('the device voice stops after its minutes, at the end of a sentence', async ({ page }) => {
 		await page.clock.install({ time: E2E_NOW });
-		await fakeSpeech(page, { wordMs: 120 });
+		// Slow enough that a sentence outlasts the test's own steps, in real time.
+		await fakeSpeech(page, { wordMs: 400 });
 		await voiceInChapterFour(page, 'start');
 		await expect(player(page)).toHaveAttribute('data-playing', 'true');
 		const menu = await sleepMenu(page);
@@ -390,7 +391,7 @@ test.describe('the sleep timer', () => {
 		await page.clock.fastForward('15:01');
 		await expect(player(page)).not.toHaveAttribute('data-playing', 'true', { timeout: 15_000 });
 		await expect(page.getByTestId('sleep-timer')).toContainText('Sleep timer: Off');
-		// It finished the sentence it was saying (unit-tested in web-speech.test.ts), and no more.
+		// It finished the sentence it was saying (unit-tested in platform/sleep.test.ts), no more.
 		const said = (await spoken(page)).length;
 		expect(said).toBeLessThanOrEqual(before + 1);
 		await page.waitForTimeout(1000);
