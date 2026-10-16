@@ -1,6 +1,6 @@
 # Implementation plan: from groundwork to a product you can try
 
-> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · v1.2 · 16 October 2026: Phase 1.10 PoC review fixes (D-033) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
+> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · v1.2 · 16 October 2026: Phase 1.10 PoC review fixes (D-033) · v1.3 · 16 October 2026: front end first, phases 1.11–1.21 before any backend (D-035) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
 > **Purpose:** the order of work that takes the repo from today's groundwork to a build the owner can use on desktop and on their Android phone to try every area of the product (reading, Illustrations, narration, notes, store, Creator Studio, community and moderation) with **no backend**, built so a real backend later replaces the simulated one without rewriting the app. Then, in phases 2.1–2.13, the real backend: accounts, sync across devices, author publishing and a free library.
 > **How it fits with DESIGN.md:** DESIGN.md §13 defines every task (its dependencies and acceptance criteria). This plan splits DESIGN.md's Phases 0, 1 and 2 into smaller phases that each end in something to try, and adds the architecture detail, UX notes and Try-it checklists. Decisions D-021 to D-024 and D-032 (DESIGN.md §16) record what this plan changed. iOS work is in [BACKLOG.md](BACKLOG.md).
 
@@ -26,6 +26,17 @@
 | **1.8** Community and moderation (simulated) | Submit, approve, endorse and rate community Layers; Flags and the admin review queue | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 | Done (13 Oct 2026; notes in §6) |
 | **1.9** Android build and PoC readiness | The Android app, a tester build, the PoC review kit | P1-MOB-01, P1-QA-01 to 03 | Done (13 Oct 2026; notes in §6) |
 | **1.10** PoC review fixes | Any Book you open for the first time starts at its text, not its licence or contents page | P1-RDR-09 | Done (16 Oct 2026; notes in §6) |
+| **1.11** Any Book read aloud ★ | Every Book read aloud by the device’s own voice, with the narration’s highlighting and page turns | P1-LAY-08 | Not started |
+| **1.12** Search and focus | Search inside a Book and jump to a result; focus mode | P1-RDR-10, P1-RDR-11 | Not started |
+| **1.13** Comfortable on a phone | Squeezed tables open full screen; a sleep timer for listening | P1-RDR-12, P1-LAY-09 | Not started |
+| **1.14** The story so far (simulated) | Authors write recaps and a glossary; readers see only what they’ve reached | P1-STU-05, P1-RDR-13 | Not started |
+| **1.15** Serials (simulated) | Scheduled Chapter releases with follower messages; align your own narration | P1-STU-06, P1-STU-07 | Not started |
+| **1.16** Your reading | Time left in the Chapter and the Book; stats and streaks you can switch off | P1-RDR-14, P1-RDR-15 | Not started |
+| **1.17** Share and colour | Share a quote as a card; your own page and text colours | P1-RDR-16, P1-UI-04 | Not started |
+| **1.18** Wishlists and reviews (simulated) | A wishlist with sale alerts; reviews that show how far the reviewer read | P1-STO-06, P1-STO-07 | Not started |
+| **1.19** Overview and look-up | Page thumbnails to scan a Chapter; look up a Word | P1-RDR-17, P1-RDR-18 | Not started |
+| **1.20** Readers together (simulated) | Paragraph comments and popular highlights, both off by default | P1-COM-03, P1-COM-04 | Not started |
+| **1.21** Page curl | A realistic page curl as an optional page turn | P1-RDR-19 | Not started |
 | **2.1** Server foundations | Postgres, object storage, the API and the worker running on your PC from one command | P2-OPS-01 | Not started |
 | **2.2** The app on the real API | The app talking to the API on your PC; what the API doesn't serve yet is hidden | P2-APP-01 | Not started |
 | **2.3** Sign in | Real accounts: an email link or Google, on desktop and in the Android app | P2-AUTH-01 | Not started |
@@ -40,7 +51,7 @@
 | **2.12** Staging | The app on the internet: `main` deploys to staging; your phone on mobile data | P2-OPS-02 | Not started |
 | **2.13** Errors and analytics | Errors reported without personal data; documented, cookie-less analytics | P2-OPS-03 | Not started |
 
-After phase 1.3 the work splits into two tracks that can run in parallel or in either order: the **Layers track** (1.4, 1.5) and the **Platform track** (1.6, 1.7, 1.8). Phase 1.10 collects small frontend fixes for the PoC review from [BACKLOG.md](BACKLOG.md) (D-033); it runs against the simulated backend, so it can go on while Phase 2 waits for its go decision. After phase 2.3 it splits again: the **Reader track** (2.4, 2.5) and the **Author track** (2.6–2.8) meet in 2.9; **Moderation** (2.10, 2.11) follows the Author track; **Operations** (2.12, 2.13) can start any time after 2.1 once hosting is chosen. See §7.
+After phase 1.3 the work splits into two tracks that can run in parallel or in either order: the **Layers track** (1.4, 1.5) and the **Platform track** (1.6, 1.7, 1.8). Phase 1.10 collects small frontend fixes for the PoC review from [BACKLOG.md](BACKLOG.md) (D-033); it runs against the simulated backend, so it can go on while Phase 2 waits for its go decision. **Then the front end comes first (D-035):** phases 1.11–1.21 bring forward every front-end feature worth building without a real backend, and Phase 2 starts only after them (or those the owner keeps after the PoC review) and the review’s go decision. They split into a **Reader track** (1.11–1.13, 1.16, 1.17, 1.19, 1.21) and a **Platform track** (1.14, 1.15, 1.18, 1.20) that can run in parallel. After phase 2.3 it splits again: the **Reader track** (2.4, 2.5) and the **Author track** (2.6–2.8) meet in 2.9; **Moderation** (2.10, 2.11) follows the Author track; **Operations** (2.12, 2.13) can start any time after 2.1 once hosting is chosen. See §7.
 
 **Phase 2's phases are smaller than Phase 1's.** Each Phase 1 phase was one working session of 4,000–10,000 changed lines, which proved too much for one session. Each Phase 2 phase is about one **L** task or two **M** tasks, roughly half that; if a phase still looks bigger when it starts, split it again before starting (D-032).
 
@@ -232,6 +243,8 @@ Pure, unit-tested functions that decide outcomes, imported by `backend-local` no
 | Moderation | Flag rules, queue, actions, action log | AI detection and image moderation are stubs driven from the dev panel |
 | Other people | — | Ratings, followers and other readers' purchases come from seed data |
 | Notifications | An in-app inbox | No email or push |
+| Device voice, search, focus, stats and the other reader features of 1.11–1.21 | All of it | Stats stay on the device until a later phase syncs them |
+| Recaps and glossary, serial schedules, wishlists, reviews, comments, popular highlights (1.14–1.20) | The reader and Studio screens and their rules | Stored in `backend-local`; other readers’ reviews, comments and highlights come from seed data, until Phase 6 serves them |
 
 ### 4.8 Phase 2: how the backend plugs in
 
@@ -756,11 +769,207 @@ Every task follows AGENTS.md: one task ID per branch, DESIGN.md §12.5 Definitio
 - **What the seeded Books show:** Gutenberg's *Alice* has no landmarks and its contents lists "CHAPTER I." (step a). Rackham's *Alice* lists only its plates, so it opens at the first Chapter after the contents page (step b). The Standard Ebooks titles and our own fixtures have `bodymatter`. Gutenberg also mislabels its page list as `landmarks`; it holds no `bodymatter`, so it's ignored.
 - **Bundle:** the reader route is 217.1 KB of its 250 KB budget (gzipped), up 1.4 KB.
 
+### Phases 1.11–1.21: front end first (D-035)
+
+Every front-end feature worth building without a real backend, before any backend work: from DESIGN.md's Phases 3 and 6 and from [BACKLOG.md](BACKLOG.md). Throughout:
+
+- **Against `backend-local`.** Reader features are real. Phases marked *(simulated)* keep their data in `backend-local`, with `Backend` schemas and contract cases, as phases 1.6–1.8 did; they become real in their original phase (DESIGN.md §13.7), not in Phase 2.
+- **Two tracks** that can run in parallel: Reader (1.11–1.13, 1.16, 1.17, 1.19, 1.21) and Platform (1.14, 1.15, 1.18, 1.20). The numbers give the suggested order within each track.
+- **The PoC review can happen at any point.** Each review round uses one tester build; new phases reach testers when the owner redeploys between rounds. The review's findings may reorder or drop phases.
+- **New reader features load on first use,** so the reader route stays within its 250 KB budget (`npm run budget`).
+- One branch and PR per phase (`p1-11-device-voice`, D-025), with a "Done" note here when each finishes.
+
+### Phase 1.11 — Any Book read aloud ★
+
+**Goal:** narration's highlighting and page turns for every Book, not only *Alice*'s chapters 1–3, using the device's own voice. It tests the core bet on any Book a tester brings.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-LAY-08 | Device voice: a spike on Chromium, WebKit and the Android WebView (ADR-006), a `speech` platform adapter (Web Speech API; our own Android plugin on `TextToSpeech`), and the narration player driving it | L |
+
+**UX notes**
+- **The same player as narration,** headed "Device voice" with the voice's name, so it's never mistaken for a narrator's recording. Speed, voice choice and Word or sentence highlighting; tap a Word to move there.
+- **Narration first:** where a Chapter has narration, the play button plays it; the device voice is offered for the other Chapters and Books.
+- **Never starts by itself** (Invariant 11); off until the reader presses play.
+
+**Try it**
+- Open *Treasure Island* and press play: each Word lights up as it's spoken and the page turns by itself. Change speed and voice.
+- In *Alice*, chapters 1–3 play the LibriVox narration and Chapter 4 offers the device voice.
+- On your phone, lock the screen while it speaks (ADR-006 says whether it carries on).
+
+### Phase 1.12 — Search and focus
+
+**Goal:** find anything in a Book; read one paragraph at a time.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-RDR-10 | Search in the Book over the word indexes; results by Chapter; jump and highlight | M |
+| P1-RDR-11 | Focus mode: dim everything but the current paragraph | S |
+
+**UX notes**
+- **Search** opens from the top bar and `/`, as a sheet with results grouped by Chapter, each with its line of context; Enter jumps to the first. "Back" returns to where the reader was.
+- **Focus mode** is a switch in reading preferences; arrow keys or taps move the focus a paragraph at a time. It reuses the narration's sentence highlight, so it stays calm.
+
+**Try it**
+- Search *Alice* for "Cheshire": every result, by Chapter; jump to one, then Back.
+- Turn on focus mode and read a page a paragraph at a time, in light and dark.
+
+### Phase 1.13 — Comfortable on a phone
+
+**Goal:** the two things that bother phone readers: squeezed tables and falling asleep to narration.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-RDR-12 | Table viewer: tap a squeezed table to open it full screen, pan and zoom (was BACKLOG RDR-01) | M |
+| P1-LAY-09 | Sleep timer for narration and the device voice: minutes or end of Chapter | S |
+
+**UX notes**
+- A squeezed table shows a small "Open table" button at its corner; the viewer is the image lightbox's, so gestures match.
+- The sleep timer lives in the player: 5, 15, 30, 60 minutes or "End of chapter"; the player shows what's left; audio fades out over a few seconds.
+
+**Try it**
+- The status-window fixture at 200% on your phone: open its stat table and read it whole.
+- Start narration, set "End of chapter", lock the screen: it stops at the chapter's end.
+
+### Phase 1.14 — The story so far (simulated)
+
+**Goal:** readers coming back after a break catch up without spoilers. Authors write the recap and glossary; AI drafts come later (DESIGN.md §7.4).
+
+| ID | Task | Size |
+|---|---|---|
+| P1-STU-05 | Recaps per Chapter and glossary entries in the Studio; first appearances found in the text and stored as Anchors | M |
+| P1-RDR-13 | The story so far in the reader: recap and glossary up to the furthest position (Invariant 6) | M |
+
+**UX notes**
+- **Studio:** a "Story so far" tab on the Book: a recap box per Chapter; glossary entries with name, description and an optional picture, showing where each first appears.
+- **Reader:** "Story so far" in the Contents sheet: the recap of every Chapter passed, then the glossary entries met so far. Selecting a glossary name in the text adds "In the glossary" to the selection toolbar, only once the name has appeared.
+- Seeded: a recap and glossary for *The Lamplighter's Ledger*, written by its Author Persona.
+
+**Try it**
+- As the Author, write a recap for Chapter 2 and a glossary entry; publish.
+- As the Reader, open the Ledger at Chapter 3: the recaps of 1–2 and only the names met so far.
+
+### Phase 1.15 — Serials (simulated)
+
+**Goal:** what the web-serial authors of the launch audience need: chapters that come out on a schedule, and readers who hear about them; and narration for an author's own Book.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-STU-06 | Scheduled Chapter releases; an inbox message to followers on release; the dev clock moves time | M |
+| P1-STU-07 | `tools/align` for any Book (was BACKLOG STU-01) | S |
+
+**UX notes**
+- In the Studio's Revision view, each unreleased Chapter gets a release date; the Book page shows "Next chapter: Friday".
+- Followers get one inbox message per release, linking to the Chapter.
+
+**Try it**
+- As the Author, upload a new version of the Ledger with a seventh Chapter and schedule it for tomorrow; as the Reader, follow the Author; move the dev clock a day: the message arrives and the Chapter opens.
+- Narrate a chapter of your own novel, align it with `npm run narration`, import it in the Studio.
+
+### Phase 1.16 — Your reading
+
+**Goal:** a sense of progress that helps people keep going, and is easy to turn off.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-RDR-14 | Reading time left in the Chapter and the Book, from the reader's own pace | S |
+| P1-RDR-15 | Stats, a daily streak and a few achievements, on this device, with one switch to turn them off | M |
+
+**UX notes**
+- **Time left** sits beside the page indicator ("8 min left in chapter") and in the scrubber's tooltip for the Book; it starts from a typical pace and learns the reader's own.
+- **Stats** are in You: time read this week, Words, Books finished, the streak. Achievements are a handful of quiet badges, no pop-ups while reading. One switch hides it all and stops collecting.
+
+**Try it**
+- Read for ten minutes: time left settles to your pace.
+- Look at You → Your reading; turn it off; it's gone, and the export has no new records.
+
+### Phase 1.17 — Share and colour
+
+**Goal:** passages that travel (word of mouth) and a page in exactly the colours a reader needs.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-RDR-16 | Share quote: a text or image card of the selection, with title and author | M |
+| P1-UI-04 | Advanced custom colours: own page and text colours, with a live contrast check | M |
+
+**UX notes**
+- **Share** is in the selection toolbar: a preview of the card in the reader's theme, then the share sheet on Android or a copy and download on the web.
+- **Custom colours** sit under Theme → Custom: two colour pickers and the contrast ratio, which turns into a warning with a "Use nearest readable colour" fix below AA.
+
+**Try it**
+- Select a sentence in *Alice* and share it as an image to yourself on your phone.
+- Set a dark green page with cream text; try a pair that fails AA.
+
+### Phase 1.18 — Wishlists and reviews (simulated)
+
+**Goal:** the store's last reader-facing pieces: saving Books for later and reading other readers' opinions.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-STO-06 | Wishlists and sale alerts in the inbox | M |
+| P1-STO-07 | Reviews showing how far the reviewer read; seeded reviews; report | M |
+
+**UX notes**
+- A heart on every Book page and store card; the wishlist is in You. A simulated price drop (the Author's Book settings) sends one inbox message.
+- Reviews on the Book page: stars, text, and "Read 45% when reviewing". Write one from the Book page once you own it.
+
+**Try it**
+- Wishlist *Treasure Island*; as its Author, lower its price; as the Reader, see the alert.
+- Review *Alice* halfway through; see your progress on the review.
+
+### Phase 1.19 — Overview and look-up
+
+**Goal:** scan a Chapter at a glance; look up a word without leaving the Book.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-RDR-17 | Overview mode: 4-up page thumbnails of the current Chapter | M |
+| P1-RDR-18 | Tap-to-define, after the owner decides OPEN-16 (which dictionary) | M |
+
+**UX notes**
+- **Overview** opens from the page indicator: the Chapter's pages as thumbnails; tap one to go there. It's for finding a place, not for reading.
+- **Define** is in the selection toolbar for a single Word: a small card with the definition and where it came from.
+
+**Try it**
+- Open the overview in a long Chapter and jump to a page.
+- Look up "antipathies" in Chapter I of *Alice*, with the phone offline.
+
+### Phase 1.20 — Readers together (simulated)
+
+**Goal:** the social layer, quiet by default: other readers' comments and highlights.
+
+| ID | Task | Size |
+|---|---|---|
+| P1-COM-03 | Paragraph comments behind a count, with replies and reports | M |
+| P1-COM-04 | Popular highlights, opt-in, above a minimum number of readers | M |
+
+**UX notes**
+- Both are off by default, switched on per Book in its reading preferences. Comments show as a small count beside a paragraph; tap it to read and reply. Popular highlights are a faint underline with "12 readers highlighted this".
+- Seeded comments and highlights come from other Personas; reports go to the moderation queue.
+
+**Try it**
+- Turn on comments in *Alice*, read the seeded ones in Chapter I, reply, and report one; as the Moderator, see it in the queue.
+- Turn on popular highlights and find the most highlighted line.
+
+### Phase 1.21 — Page curl
+
+**Goal:** a realistic page curl as an optional page turn, last because it's costly on cheap phones and depends on the engine (ADR-001).
+
+| ID | Task | Size |
+|---|---|---|
+| P1-RDR-19 | Page-curl skin, within the page-turn budget, off under reduced motion | L |
+
+**UX notes**
+- A fourth choice under Page → Page turn; the curl follows a finger on touch screens and plays through on a tap or key.
+
+**Try it**
+- Turn pages with the curl on your phone, at 200% text, in spread mode on a tablet; turn on reduced motion: the curl is gone.
+
 ### Phase 2: what applies to every phase
 
 DESIGN.md's Phase 2 (§13.4) is split into phases 2.1–2.13 (D-032). Throughout:
 
-- **It starts after the PoC review** (DESIGN.md §13.3): its go decision, and confirming the backend stack (D-004). Hosting (OPEN-06) is needed only by 2.12; until then everything runs on the owner's PC in Docker.
+- **It starts after the front-end phases 1.10–1.21** (or those the owner keeps, D-035) **and the PoC review** (DESIGN.md §13.3): its go decision, and confirming the backend stack (D-004). Hosting (OPEN-06) is needed only by 2.12; until then everything runs on the owner's PC in Docker.
 - **Two backends side by side.** A build setting chooses `backend-local` (simulated) or `backend-http` (the API). Each phase adds its modules to `apps/api` and `backend-http` and runs their contract cases against the Docker API. `backend-local` keeps passing every case, so the areas the API serves only from Phases 3–5 stay tryable in simulated builds.
 - **Each phase's Try-it list is Playwright specs against the Docker API**, in Chromium and WebKit, in a CI job of its own beside the simulated-backend specs. API modules also get integration tests (Vitest with Docker Postgres and MinIO, DESIGN.md §12.1).
 - **On Android** the app reaches the API on the PC over Wi-Fi or `adb reverse`, as it reaches the dev server now; from 2.12, staging over mobile data.
@@ -999,6 +1208,26 @@ flowchart LR
   P19 --> P110["1.10 PoC review fixes"]
 ```
 
+**Front end first (D-035)**
+
+```mermaid
+flowchart LR
+  P110["1.10 PoC review fixes"] --> P111
+  P110 --> P114
+
+  subgraph ReaderFE["Reader track"]
+    P111["1.11 Any Book read aloud ★"] --> P112["1.12 Search and focus"] --> P113["1.13 Comfortable on a phone"] --> P116["1.16 Your reading"] --> P117["1.17 Share and colour"] --> P119["1.19 Overview and look-up"] --> P121["1.21 Page curl"]
+  end
+  subgraph PlatformFE["Platform track (simulated)"]
+    P114["1.14 The story so far"] --> P115["1.15 Serials"] --> P118["1.18 Wishlists and reviews"] --> P120["1.20 Readers together"]
+  end
+
+  P111 -. "sleep timer" .-> P113
+  P121 --> Phase2["Phase 2 (after the PoC review's go)"]
+  P120 --> Phase2
+```
+
+- **Front-end phases:** the order within each track is a suggestion; only the dotted link is a real dependency (the sleep timer, P1-LAY-09, also stops the device voice from 1.11). P1-RDR-18 waits for the owner's answer to OPEN-16. The PoC review can run at any point; its findings may reorder or drop phases, and Phase 2 waits for both tracks and the go decision.
 - **Within 0.1–0.2:** P0-03, P0-06, P0-10 and P0-11 can start as soon as P0-01 lands; P0-08 runs alongside the spikes.
 - **Within 0.2–1.1:** the design-system work (P1-UI-01, P1-APP-02) needs no spike result except P0-10, so the app shell grows while the reader is being de-risked.
 - **After 1.3:** the dotted links hold back single tasks, not whole phases. Phase 1.6 can start before 1.4; its Book pages show Illustration previews once 1.4 lands. Phase 1.7 can start before 1.4 and 1.5 too, but its pack builder (P1-LAY-05) waits for P1-LAY-02 and its narration manager (P1-STU-03) waits for P1-LAY-04.
@@ -1083,6 +1312,9 @@ E2E tests run `backend-local` with zero latency, no injected failures and a fixe
 | Phase 2's phases grow back to Phase 1's size | About one L or two M tasks per phase; a phase that looks bigger is split again before it starts (D-032) |
 | Builds on the API and simulated builds drift apart, or the owner can't tell which one they're using | Every module the API serves runs the same contract cases against both; the dev panel names the backend; areas the API doesn't serve yet stay in simulated builds |
 | Sign-in on Android (the email link or Google returning to the app) breaks late | Checked in the Android app in 2.3, the phase that adds it |
+| The front-end phases (D-035) put off the real backend for months | Each is one session; the owner reorders or drops any after the PoC review; the Reader and Platform tracks run in parallel |
+| Features simulated in 1.14–1.20 grow the server work of Phases 2–6 | Each simulated module has `Backend` schemas and contract cases from the start, as in 1.6–1.8, so its API module is a port, not a redesign; none of them joins Phase 2’s scope |
+| The reader route outgrows its 250 KB budget as features are added | New reader features load on first use, not with the route; `npm run budget` in CI; BACKLOG RDR-03 comes back when it gets close |
 
 ---
 
