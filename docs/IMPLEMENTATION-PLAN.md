@@ -1,6 +1,6 @@
 # Implementation plan: from groundwork to a product you can try
 
-> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · v1.2 · 16 October 2026: Phase 1.10 PoC review fixes (D-033, proposed) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
+> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · v1.2 · 16 October 2026: Phase 1.10 PoC review fixes (D-033) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
 > **Purpose:** the order of work that takes the repo from today's groundwork to a build the owner can use on desktop and on their Android phone to try every area of the product (reading, Illustrations, narration, notes, store, Creator Studio, community and moderation) with **no backend**, built so a real backend later replaces the simulated one without rewriting the app. Then, in phases 2.1–2.13, the real backend: accounts, sync across devices, author publishing and a free library.
 > **How it fits with DESIGN.md:** DESIGN.md §13 defines every task (its dependencies and acceptance criteria). This plan splits DESIGN.md's Phases 0, 1 and 2 into smaller phases that each end in something to try, and adds the architecture detail, UX notes and Try-it checklists. Decisions D-021 to D-024 and D-032 (DESIGN.md §16) record what this plan changed. iOS work is in [BACKLOG.md](BACKLOG.md).
 
@@ -25,7 +25,7 @@
 | **1.7** Creator Studio (simulated) | Upload and publish a Book, publish a new Revision, build an Illustration Pack, add narration, set up plans | P1-STU-01 to 04, P1-LAY-05 | Done (13 Oct 2026; notes in §6) |
 | **1.8** Community and moderation (simulated) | Submit, approve, endorse and rate community Layers; Flags and the admin review queue | P1-COM-01, P1-COM-02, P1-ADM-01, P1-ADM-02 | Done (13 Oct 2026; notes in §6) |
 | **1.9** Android build and PoC readiness | The Android app, a tester build, the PoC review kit | P1-MOB-01, P1-QA-01 to 03 | Done (13 Oct 2026; notes in §6) |
-| **1.10** PoC review fixes | Any Book you open for the first time starts at its text, not its licence or contents page | P1-RDR-09 | Done (16 Oct 2026; notes in §6); the heuristic awaits the owner (D-034) |
+| **1.10** PoC review fixes | Any Book you open for the first time starts at its text, not its licence or contents page | P1-RDR-09 | Done (16 Oct 2026; notes in §6) |
 | **2.1** Server foundations | Postgres, object storage, the API and the worker running on your PC from one command | P2-OPS-01 | Not started |
 | **2.2** The app on the real API | The app talking to the API on your PC; what the API doesn't serve yet is hidden | P2-APP-01 | Not started |
 | **2.3** Sign in | Real accounts: an email link or Google, on desktop and in the Android app | P2-AUTH-01 | Not started |

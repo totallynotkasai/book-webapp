@@ -7,7 +7,7 @@
  * In order:
  * 1. The EPUB's own word for it: the EPUB 3 nav's `bodymatter` landmark, else the EPUB 2 guide's
  *    `text` reference.
- * 2. Otherwise a heuristic over the table of contents (proposed in the Phase 1.10 PR, D-034). Each
+ * 2. Otherwise a heuristic over the table of contents (D-034). Each
  *    step counts only if what it skips is front-matter-sized: at most a tenth of the Book's Words.
  *    a. The first entry headed like a chapter or part: "Chapter …", "Prologue", "Part I", "Book
  *       the First", or a number on its own ("1. Dusk Shift", "IV: The Sea-Chest").
