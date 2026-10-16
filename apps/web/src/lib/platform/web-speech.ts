@@ -1,4 +1,7 @@
+import { SleepClock } from './sleep-clock';
 import type {
+	SleepState,
+	SleepTimer,
 	SpeechAdapter,
 	SpeechEvent,
 	SpeechOptions,
@@ -16,10 +19,16 @@ import type {
  * Pausing cancels and remembers the Word reached; resuming speaks the rest of the sentence from
  * that Word. `speechSynthesis.pause()` isn't used: it's unreliable across browsers (on Android
  * Chrome it ends the utterance rather than pausing it).
+ *
+ * The sleep timer (P1-LAY-09) is checked as each sentence ends: speaking stops there once the
+ * time is up, or before the next Chapter's first sentence.
  */
 export function webSpeech(): SpeechAdapter {
 	const synth = typeof speechSynthesis === 'undefined' ? null : speechSynthesis;
 	let queue: SpeechUtterance[] = [];
+	/** Where each Chapter (each `speak` or `enqueue`) starts in the queue. */
+	let chapterStarts = new Set<number>();
+	let sleep: { kind: 'time'; clock: SleepClock } | { kind: 'item' } | null = null;
 	let index = 0;
 	/** Where the sentence being spoken was cut from (resuming mid-sentence). */
 	let from = 0;
@@ -67,13 +76,26 @@ export function webSpeech(): SpeechAdapter {
 
 	let voice: SpeechSynthesisVoice | null = null;
 
+	/** Whether the sleep timer stops speech before the sentence at `i`. */
+	function sleepsBefore(i: number): boolean {
+		if (!sleep || i >= queue.length) return false;
+		return sleep.kind === 'item' ? chapterStarts.has(i) : sleep.clock.leftMs <= 0;
+	}
+
+	/** Playing started or stopped: the sleep timer counts only playing time. */
+	function setPlaying(on: boolean) {
+		playing = on;
+		if (sleep?.kind === 'time') sleep.clock.playing(on);
+	}
+
 	function say() {
 		if (!synth) return;
 		const run = ++generation;
 		synth.cancel();
 		const item = queue[index];
 		if (!item) {
-			playing = false;
+			setPlaying(false);
+			sleep = null;
 			emit('end');
 			return;
 		}
@@ -94,13 +116,23 @@ export function webSpeech(): SpeechAdapter {
 			if (run !== generation) return;
 			index++;
 			from = 0;
+			if (sleepsBefore(index)) {
+				// The sleep timer: stop here, ready to go on from this sentence.
+				setPlaying(false);
+				sleep = null;
+				if (queue[index]) current = { id: queue[index]!.id, charIndex: 0 };
+				emit('progress');
+				emit('pause');
+				emit('sleep');
+				return;
+			}
 			say();
 		};
 		utterance.onerror = (event) => {
 			if (run !== generation) return;
 			// A cancel from our own pause or seek, not a failure.
 			if (event.error === 'interrupted' || event.error === 'canceled') return;
-			playing = false;
+			setPlaying(false);
 			error =
 				event.error === 'not-allowed'
 					? 'Your browser blocked the device voice. Press play again.'
@@ -136,15 +168,17 @@ export function webSpeech(): SpeechAdapter {
 			options = next;
 			voice = await voiceFor(next);
 			queue = utterances;
+			chapterStarts = new Set([0]);
 			index = 0;
 			from = 0;
 			error = null;
 			if (start) position(start);
-			playing = true;
+			setPlaying(true);
 			emit('play');
 			say();
 		},
 		enqueue(utterances) {
+			chapterStarts.add(queue.length);
 			queue = [...queue, ...utterances];
 		},
 		seek(target) {
@@ -157,7 +191,9 @@ export function webSpeech(): SpeechAdapter {
 		},
 		pause() {
 			if (!playing) return;
-			playing = false;
+			setPlaying(false);
+			// Paused while finishing its last sentence: the timer has done its job.
+			if (sleep?.kind === 'time' && sleep.clock.leftMs <= 0) sleep = null;
 			generation++;
 			synth?.cancel();
 			if (current) position(current);
@@ -170,7 +206,7 @@ export function webSpeech(): SpeechAdapter {
 				from = 0;
 			}
 			error = null;
-			playing = true;
+			setPlaying(true);
 			emit('play');
 			say();
 		},
@@ -178,13 +214,29 @@ export function webSpeech(): SpeechAdapter {
 			generation++;
 			synth?.cancel();
 			queue = [];
+			chapterStarts = new Set();
+			sleep = null;
 			index = 0;
 			from = 0;
 			current = null;
 			if (playing) {
-				playing = false;
+				setPlaying(false);
 				emit('pause');
 			}
+		},
+		setSleep(timer: SleepTimer | null) {
+			sleep =
+				timer?.kind === 'time'
+					? { kind: 'time', clock: new SleepClock(timer.ms, playing) }
+					: timer?.kind === 'item'
+						? { kind: 'item' }
+						: null;
+		},
+		get sleep(): SleepState | null {
+			if (!sleep) return null;
+			return sleep.kind === 'time'
+				? { kind: 'time', leftMs: sleep.clock.leftMs }
+				: { kind: 'item', leftMs: null };
 		},
 		setRate(rate) {
 			options = { ...options, rate };

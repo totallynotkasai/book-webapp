@@ -1,4 +1,13 @@
-import type { AudioAdapter, AudioEvent, AudioItem, AudioTrackInfo } from './types';
+import { SleepClock } from './sleep-clock';
+import {
+	SLEEP_FADE_MS,
+	type AudioAdapter,
+	type AudioEvent,
+	type AudioItem,
+	type AudioTrackInfo,
+	type SleepState,
+	type SleepTimer
+} from './types';
 
 /** What the lock screen's skip buttons move by when they don't say (§8.3: ±15 s). */
 const SKIP_MS = 15_000;
@@ -8,6 +17,9 @@ const SKIP_MS = 15_000;
  * Session metadata and actions (play, pause, ±15 s, previous and next Chapter, seek), so the
  * browser's and the OS's media controls work. Whether it keeps playing in the background is up
  * to the browser; on Android the app uses the native adapter instead (ADR-004).
+ *
+ * The sleep timer (P1-LAY-09) checks four times a second (once a second in a background tab),
+ * turning the volume down over its last seconds.
  */
 export function webAudio(): AudioAdapter {
 	const element = new Audio();
@@ -19,9 +31,54 @@ export function webAudio(): AudioAdapter {
 	/** A position asked for before the item's metadata arrived (WebKit ignores it until then). */
 	let pending: number | null = null;
 	const listeners = new Map<AudioEvent, Set<() => void>>();
+	let sleep: { kind: 'time'; clock: SleepClock } | { kind: 'item' } | null = null;
+	let sleepTimer: ReturnType<typeof setInterval> | undefined;
 
 	function emit(event: AudioEvent) {
 		for (const callback of listeners.get(event) ?? []) callback();
+	}
+
+	// ---- the sleep timer ----
+
+	function sleepState(): SleepState | null {
+		if (!sleep) return null;
+		if (sleep.kind === 'time') return { kind: 'time', leftMs: sleep.clock.leftMs };
+		const duration = element.duration;
+		return {
+			kind: 'item',
+			leftMs: Number.isFinite(duration)
+				? Math.max(0, ((duration - element.currentTime) * 1000) / (element.playbackRate || 1))
+				: null
+		};
+	}
+
+	function sleepTick() {
+		const state = sleepState();
+		if (!state) return;
+		element.volume = state.leftMs === null ? 1 : Math.min(1, state.leftMs / SLEEP_FADE_MS);
+		if (state.kind === 'time' && state.leftMs !== null && state.leftMs <= 0) {
+			element.pause();
+			sleepEnded();
+		}
+	}
+
+	function setSleep(next: SleepTimer | null) {
+		clearInterval(sleepTimer);
+		sleepTimer = undefined;
+		element.volume = 1;
+		sleep =
+			next?.kind === 'time'
+				? { kind: 'time', clock: new SleepClock(next.ms, !element.paused) }
+				: next?.kind === 'item'
+					? { kind: 'item' }
+					: null;
+		if (sleep) sleepTimer = setInterval(sleepTick, 250);
+	}
+
+	/** The timer stopped playing: it's off again, at full volume for next time. */
+	function sleepEnded() {
+		setSleep(null);
+		emit('sleep');
 	}
 
 	function open(i: number, positionMs: number) {
@@ -38,16 +95,25 @@ export function webAudio(): AudioAdapter {
 		pending = null;
 		positionState();
 	});
-	element.addEventListener('play', () => emit('play'));
-	element.addEventListener('pause', () => emit('pause'));
+	element.addEventListener('play', () => {
+		if (sleep?.kind === 'time') sleep.clock.playing(true);
+		emit('play');
+	});
+	element.addEventListener('pause', () => {
+		if (sleep?.kind === 'time') sleep.clock.playing(false);
+		emit('pause');
+	});
 	element.addEventListener('ratechange', positionState);
 	element.addEventListener('seeked', positionState);
 	element.addEventListener('ended', () => {
+		// "End of chapter": stop here, ready at the start of the next one.
+		const asleep = sleep?.kind === 'item';
 		if (index + 1 < items.length) {
 			open(index + 1, 0);
-			void element.play().catch(() => {});
+			if (!asleep) void element.play().catch(() => {});
 			emit('item');
 		} else emit('ended');
+		if (asleep) sleepEnded();
 	});
 	element.addEventListener('error', () => {
 		if (!element.getAttribute('src')) return;
@@ -139,6 +205,7 @@ export function webAudio(): AudioAdapter {
 			if ('preservesPitch' in element) element.preservesPitch = true;
 		},
 		unload() {
+			setSleep(null);
 			element.pause();
 			element.removeAttribute('src');
 			element.load();
@@ -147,6 +214,10 @@ export function webAudio(): AudioAdapter {
 			action('previoustrack', null);
 			action('nexttrack', null);
 			if (session) session.metadata = null;
+		},
+		setSleep,
+		get sleep() {
+			return sleepState();
 		},
 		get index() {
 			return index;

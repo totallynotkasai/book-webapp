@@ -34,6 +34,10 @@ export const LINE_HEIGHT = { min: 1.2, max: 2 } as const;
 export const PARAGRAPH_SPACING = { min: 0, max: 1.5 } as const;
 export const NARRATION_RATE = { min: 0.5, max: 3 } as const;
 
+/** The sleep timer's choices (P1-LAY-09): minutes of listening, or the end of the Chapter. */
+export const sleepTimerChoices = [5, 15, 30, 60, 'chapter'] as const;
+export type SleepTimerChoice = (typeof sleepTimerChoices)[number];
+
 const HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;
 
 const themeSchema = z.object({
@@ -45,7 +49,12 @@ const themeSchema = z.object({
 const narrationSchema = z.object({
 	rate: z.number().min(NARRATION_RATE.min).max(NARRATION_RATE.max).catch(1),
 	autoTurn: z.boolean().catch(true),
-	highlight: z.enum(['word', 'sentence', 'off']).catch('word')
+	highlight: z.enum(['word', 'sentence', 'off']).catch('word'),
+	/**
+	 * The reader's last sleep-timer choice (P1-LAY-09), for narration and the device voice alike:
+	 * the player marks it. Remembered, never armed by itself.
+	 */
+	sleepTimer: z.literal(sleepTimerChoices).optional().catch(undefined)
 });
 
 /**

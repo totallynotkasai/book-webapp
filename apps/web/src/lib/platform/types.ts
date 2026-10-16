@@ -22,11 +22,32 @@ export interface AudioTrackInfo {
 }
 
 /**
+ * The sleep timer (P1-LAY-09): stop after `ms` of playing (it counts only while playing), or at
+ * the end of the current item, a Chapter. The adapter keeps it, not the page: on Android the
+ * WebView's timers sleep with the screen locked, so the native player stops on time itself.
+ */
+export type SleepTimer = { kind: 'time'; ms: number } | { kind: 'item' };
+
+/** An armed sleep timer. */
+export interface SleepState {
+	kind: SleepTimer['kind'];
+	/**
+	 * Playing time left (`time`; 0 once the device voice is finishing its sentence), or until the
+	 * item ends where that's known (`item`, a recording); otherwise null.
+	 */
+	leftMs: number | null;
+}
+
+/** How long a recording fades out before the sleep timer stops it. */
+export const SLEEP_FADE_MS = 6000;
+
+/**
  * `play`/`pause`: playing started or stopped, from the app or the lock screen. `item`: another
  * item became current (the last one ended, or "next" on the lock screen). `ended`: the last item
- * finished. `error`: an item couldn't be played; `error` says why.
+ * finished. `error`: an item couldn't be played; `error` says why. `sleep`: the sleep timer
+ * stopped playing (after fading out) and is off again.
  */
-export type AudioEvent = 'play' | 'pause' | 'item' | 'ended' | 'error';
+export type AudioEvent = 'play' | 'pause' | 'item' | 'ended' | 'error' | 'sleep';
 
 /**
  * Narration playback as a playlist, with lock-screen and Media Session controls where the
@@ -46,8 +67,15 @@ export interface AudioAdapter {
 	seek(positionMs: number, index?: number): void;
 	/** 0.5–3; keeps the pitch. */
 	setRate(rate: number): void;
-	/** Stops, and removes the lock-screen controls. */
+	/** Stops, and removes the lock-screen controls (and any sleep timer). */
 	unload(): void;
+	/**
+	 * Arms the sleep timer, replacing any, or turns it off with null. A recording fades out over
+	 * its last `SLEEP_FADE_MS`; at an item's end it stops ready at the start of the next one.
+	 */
+	setSleep(timer: SleepTimer | null): void;
+	/** The armed sleep timer, current whenever it's read; null when off. */
+	readonly sleep: SleepState | null;
 	readonly index: number;
 	/** Current to within a frame, so it can drive highlighting (§8.3: within 100 ms). */
 	readonly positionMs: number;
@@ -95,9 +123,9 @@ export interface SpeechOptions {
 /**
  * `progress`: `current` moved (a new utterance, or a Word in it). `play`/`pause`: speaking
  * started or stopped, from the app or (Android) the lock screen. `end`: the queue ran out.
- * `error`: `error` says why.
+ * `error`: `error` says why. `sleep`: the sleep timer stopped speaking and is off again.
  */
-export type SpeechEvent = 'progress' | 'play' | 'pause' | 'end' | 'error';
+export type SpeechEvent = 'progress' | 'play' | 'pause' | 'end' | 'error' | 'sleep';
 
 /**
  * The device's own text-to-speech (P1-LAY-08, ADR-006): the Web Speech API on the web; on
@@ -132,6 +160,14 @@ export interface SpeechAdapter {
 	/** Applies at once, from the Word being said. */
 	setRate(rate: number): void;
 	setVoice(voiceId: string): void;
+	/**
+	 * Arms the sleep timer, replacing any, or turns it off with null. A synthetic voice can't fade
+	 * mid-sentence, so when the time is up it finishes its sentence and stops before the next.
+	 * `item` stops before the next Chapter: each `speak` or `enqueue` call is one Chapter.
+	 */
+	setSleep(timer: SleepTimer | null): void;
+	/** The armed sleep timer, current whenever it's read; null when off. */
+	readonly sleep: SleepState | null;
 	readonly playing: boolean;
 	readonly current: SpeechPosition | null;
 	readonly error: string | null;

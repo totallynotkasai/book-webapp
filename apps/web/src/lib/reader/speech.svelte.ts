@@ -8,10 +8,11 @@
  * Never starts by itself (Invariant 11): only the play button starts it. Labelled "Device voice"
  * wherever it shows, never as narration.
  */
-import type { RevisionManifest, WordId } from '@book/core';
+import type { RevisionManifest, SleepTimerChoice, WordId } from '@book/core';
 import type { ChapterText } from '@book/reader-core';
-import type { SpeechAdapter, SpeechPosition, SpeechVoice } from '$lib/platform';
+import type { SleepState, SpeechAdapter, SpeechPosition, SpeechVoice } from '$lib/platform';
 import type { ReadWord } from './narration-timing';
+import { sleepTimerOf } from './sleep-timer';
 import {
 	charOfWord,
 	SpokenChapters,
@@ -47,6 +48,8 @@ export class BookSpeech {
 	 */
 	wordTiming = $state(false);
 	error = $state<string | null>(null);
+	/** The sleep timer the reader set (P1-LAY-09), until it stops the voice or is turned off. */
+	sleepChoice = $state<SleepTimerChoice | null>(null);
 
 	readonly #speech: SpeechAdapter;
 	readonly #manifest: RevisionManifest;
@@ -207,12 +210,20 @@ export class BookSpeech {
 		this.#offs.push(
 			speech.on('progress', () => this.#update()),
 			speech.on('play', () => (this.playing = true)),
-			speech.on('pause', () => (this.playing = speech.playing)),
-			speech.on('end', () => (this.playing = false)),
+			speech.on('pause', () => {
+				this.playing = speech.playing;
+				// Paused while finishing its last sentence: the timer is done.
+				if (!speech.sleep) this.sleepChoice = null;
+			}),
+			speech.on('end', () => {
+				this.playing = false;
+				this.sleepChoice = null;
+			}),
 			speech.on('error', () => {
 				this.error = speech.error;
 				this.playing = speech.playing;
-			})
+			}),
+			speech.on('sleep', () => (this.sleepChoice = null))
 		);
 	}
 
@@ -323,9 +334,22 @@ export class BookSpeech {
 		if (this.active) this.#speech.setVoice(voice.id);
 	}
 
-	/** Closes the player: stops speaking and removes the lock-screen controls. */
+	/** Arms the sleep timer (P1-LAY-09), or turns it off with null. */
+	setSleep(choice: SleepTimerChoice | null) {
+		if (!this.active) return;
+		this.sleepChoice = choice;
+		this.#speech.setSleep(choice === null ? null : sleepTimerOf(choice));
+	}
+
+	/** The sleep timer's countdown, current whenever it's read (not reactive: poll it). */
+	get sleepLeft(): SleepState | null {
+		return this.active && this.sleepChoice !== null ? this.#speech.sleep : null;
+	}
+
+	/** Closes the player: stops speaking, the lock-screen controls and any sleep timer. */
 	stop() {
 		if (this.active) this.#speech.stop();
+		this.sleepChoice = null;
 		this.active = false;
 		this.playing = false;
 		this.word = null;

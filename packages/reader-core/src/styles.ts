@@ -34,6 +34,18 @@ ${[1, 2, 3, 4, 5]
 ::highlight(rd-search){background-color:var(--md-sys-color-tertiary-container);color:var(--md-sys-color-on-tertiary-container)}`;
 }
 
+/** Makes every declaration in simple rules important (no nested blocks, no `;` in values). */
+function important(css: string): string {
+	return css.replace(/\{([^}]*)\}/g, (_, body: string) => {
+		const declarations = body
+			.split(';')
+			.map((d) => d.trim())
+			.filter(Boolean)
+			.map((d) => `${d}!important`);
+		return `{${declarations.join(';')}}`;
+	});
+}
+
 /** Typography, as overrides placed after the book's own CSS. */
 export function typographyCss(t: TypographySettings): string {
 	// No specificity (:where), so the only book rules that win are important ones, which ingest
@@ -58,11 +70,22 @@ export function typographyCss(t: TypographySettings): string {
  * Focus mode (P1-RDR-11) dims every innermost Block but the focused one with opacity, which
  * never changes the layout; containers stay as they are, so nothing is dimmed twice. The fade
  * goes under reduced motion (Invariant 12).
+ *
+ * A squeezed table (P1-RDR-12, tables.ts) has a row above it with the "Open table" button,
+ * kept with the table across a page break; a book's own rules can't restyle it. The probe is
+ * the hidden copy measured to find a table's narrowest layout with its words whole.
  */
 export const BASE_CSS = `img,svg,video{max-width:100%;height:auto}
 pre{white-space:pre-wrap}
 table{border-collapse:collapse;max-width:100%}
 th,td{hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere}
+table[data-rd-probe]{position:absolute!important;visibility:hidden!important;width:min-content!important;min-width:0!important;max-width:none!important}
+[data-rd-probe] :is(th,td){overflow-wrap:normal!important;word-break:normal!important;hyphens:manual!important;-webkit-hyphens:manual!important}
+${important(`[data-rd-table]{all:initial;display:flex;justify-content:flex-end;margin:.25em 0;break-after:avoid;-webkit-column-break-after:avoid;break-inside:avoid;user-select:none;-webkit-user-select:none}
+[data-rd-table] button{all:initial;display:inline-flex;align-items:center;min-height:48px;cursor:pointer;-webkit-tap-highlight-color:transparent;font:500 max(13px,.7rem)/1.2 'Arial Rounded MT','Arial Rounded MT Std',Nunito,system-ui,sans-serif;color:var(--md-sys-color-on-secondary-container)}
+[data-rd-table] button>span{all:initial;display:inline-flex;align-items:center;gap:.35em;padding:.4em .9em .4em .65em;border-radius:999px;background:var(--md-sys-color-secondary-container);font:inherit;color:inherit}
+[data-rd-table] svg{all:initial;width:1.3em;height:1.3em;fill:currentColor}
+[data-rd-table] button:focus-visible>span{outline:2px solid var(--md-sys-color-primary);outline-offset:2px}`)}
 figure[data-injected]{margin:1em 0;text-align:center;break-inside:avoid;-webkit-column-break-inside:avoid}
 figure[data-injected] img{max-height:60vh;width:auto;cursor:zoom-in;border-radius:6px}
 figure[data-injected].full-page{break-before:column;break-after:column;display:flex;flex-direction:column;justify-content:center;height:90vh;margin:0}
