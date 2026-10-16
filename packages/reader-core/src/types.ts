@@ -36,7 +36,11 @@ export interface VisibleRange {
 	cause?: 'turn' | 'navigation' | 'link' | 'scroll';
 }
 
-export type DecorationStyle = 'highlight' | 'underline' | 'narration' | 'search';
+/**
+ * `focus` (P1-RDR-11) marks the passage to keep bright: every other paragraph of the Chapter is
+ * dimmed. The rest are painted over the text without changing the layout.
+ */
+export type DecorationStyle = 'highlight' | 'underline' | 'narration' | 'search' | 'focus';
 
 export interface Decoration {
 	id: string;

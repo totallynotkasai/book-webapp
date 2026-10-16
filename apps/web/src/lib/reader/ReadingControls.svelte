@@ -144,6 +144,12 @@
 				<p class="hint">Your device asks for reduced motion, so pages turn without animation.</p>
 			{/if}
 		</div>
+		<Switch
+			label="Focus mode"
+			description="Dims everything but the paragraph you’re reading. → or a tap at the side moves to the next one."
+			checked={prefs.focusMode}
+			onchange={(focusMode) => onchange({ focusMode })}
+		/>
 	{:else}
 		<div class="field">
 			<span class="field-label">Mode</span>

@@ -1,6 +1,6 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 16 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034. Front end first: phases 1.11–1.21 before any backend; D-035, OPEN-16. Phase 1.11: the device voice; D-036, ADR-006)
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 16 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034. Front end first: phases 1.11–1.21 before any backend; D-035, OPEN-16. Phase 1.11: the device voice; D-036, ADR-006. Phase 1.12: search in the Book and focus mode)
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
 > **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
@@ -793,7 +793,7 @@ export interface VisibleRange {
 export interface Decoration {
   id: string;
   anchor: RangeAnchor;
-  style: 'highlight' | 'underline' | 'narration' | 'search';
+  style: 'highlight' | 'underline' | 'narration' | 'search' | 'focus'; // focus: P1-RDR-11
   color?: string; // token name, never a raw hex
 }
 
@@ -857,11 +857,13 @@ export interface ReaderEngine {
 - Changing typography or layout MUST keep the first visible Word on screen.
 - `relocated` is the **single source of truth for position**. The illustration panel, narration player, progress saving and page indicator all subscribe to one shared reactive value fed by it.
 - Decorations should use the CSS Custom Highlight API where the engine allows it (supported in Chromium, Safari 17.2+ and Firefox 140+). It paints highlights without changing the DOM, so highlighting never triggers re-pagination.
+- The `focus` decoration (focus mode, P1-RDR-11) marks the paragraph to keep bright: the engine dims the Chapter's other innermost Blocks with opacity, set by attributes. Opacity never changes the layout, keeps the focused text's own colours (AA in every theme) and dims pictures too, which a highlight can't.
 
 ### 9.2 Layout and navigation
 
 - Layout modes: `paginated-single`, `paginated-spread` (offered when the viewport is ≥ 1024 px wide), `scroll`. `auto` (default) = spread on wide screens, single otherwise.
 - Navigation inputs as listed in §4.1. Tap zones are the outer 25% of the width; the centre toggles the toolbars (also Esc).
+- In focus mode (P1-RDR-11) →, ↓ and Space (and ←, ↑, Shift+Space back) and the side tap zones move the focus a paragraph at a time, turning the page when the next paragraph isn't on it; Page Down and Page Up and swipes still turn pages, and the focus goes to the first paragraph on the new page.
 - Display "page X of Y in this chapter" from `pageInChapter`; never persist it. The scrubber works in progression and Chapter boundaries, so no whole-Book page map is needed.
 - Page-turn animation: `none` / `slide` / `fade`; forced to `none` under reduced motion. `curl` is reserved for Phase 6.
 - Rendering stays virtualised by Chapter: only the current Chapter (and a neighbour, for fast turns) is laid out.
@@ -896,6 +898,7 @@ export interface ReaderPreferences {
   };
   pageTurn: 'none' | 'slide' | 'fade';
   illustrations: 'popup' | 'per-page' | 'spread' | 'in-text' | 'off';
+  focusMode: boolean;            // P1-RDR-11; off by default
   narration: { rate: number; autoTurn: boolean; highlight: 'word' | 'sentence' | 'off' };
   deviceVoice: { rate: number; voices: Record<string, string> }; // P1-LAY-08: its own speed, a voice per language
   hintsSeen: string[];           // one-off hints dismissed ('illustrations', 'narration'), global only

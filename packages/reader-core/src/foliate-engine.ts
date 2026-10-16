@@ -766,6 +766,8 @@ export class FoliateEngine implements ReaderEngine {
 	}
 
 	#paintDecorations(doc: Document, map: DocWordMap) {
+		// Focus mode needs no Custom Highlights: it dims with attributes.
+		this.#paintFocus(doc, map);
 		const win = doc.defaultView as (Window & typeof globalThis) | null;
 		if (!win || !('highlights' in win.CSS)) return;
 		const byName = new Map<string, Range[]>();
@@ -773,6 +775,7 @@ export class FoliateEngine implements ReaderEngine {
 		for (const items of this.#decorations.values()) {
 			for (const item of items) {
 				const { anchor } = item;
+				if (item.style === 'focus') continue;
 				if (anchor.revisionId !== this.#manifest.revisionId) continue;
 				if (anchor.endOrdinal < chapter.firstOrdinal || anchor.startOrdinal > chapter.lastOrdinal)
 					continue;
@@ -799,6 +802,33 @@ export class FoliateEngine implements ReaderEngine {
 			if (name === 'rd-narration') highlight.priority = 1;
 			win.CSS.highlights.set(name, highlight);
 		}
+	}
+
+	/**
+	 * Focus mode (P1-RDR-11): the Blocks holding the focus decoration's Words stay bright, the
+	 * Chapter's other Blocks dim (styles.ts). Attributes only, so the pages don't move.
+	 */
+	#paintFocus(doc: Document, map: DocWordMap) {
+		const focus = [...this.#decorations.values()]
+			.flat()
+			.find((d) => d.style === 'focus' && d.anchor.revisionId === this.#manifest.revisionId);
+		const root = doc.documentElement;
+		const focused = new Set<Element>();
+		if (focus) {
+			const { chapter } = map.words;
+			const from = Math.max(focus.anchor.startOrdinal, chapter.firstOrdinal);
+			const to = Math.min(focus.anchor.endOrdinal, chapter.lastOrdinal);
+			for (let ordinal = from; ordinal <= to; ordinal++) {
+				const block = map.blockElement(map.words.indexOfOrdinal(ordinal));
+				if (block) focused.add(block);
+			}
+		}
+		for (const el of doc.querySelectorAll('[data-rd-focused]')) {
+			if (!focused.has(el)) el.removeAttribute('data-rd-focused');
+		}
+		for (const el of focused) el.setAttribute('data-rd-focused', '');
+		if (focus) root.setAttribute('data-rd-focus', '');
+		else root.removeAttribute('data-rd-focus');
 	}
 
 	async chapterText(chapterId: string): Promise<ChapterText> {

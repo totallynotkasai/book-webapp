@@ -20,6 +20,7 @@ describe('defaultReaderPreferences (§9.4)', () => {
 			theme: { mode: 'system', contrast: 'standard' },
 			pageTurn: 'slide',
 			illustrations: 'popup',
+			focusMode: false,
 			narration: { rate: 1, autoTurn: true, highlight: 'word' },
 			deviceVoice: { rate: 1, voices: {} },
 			hintsSeen: [],
