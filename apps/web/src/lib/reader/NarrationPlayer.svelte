@@ -343,6 +343,7 @@
 		color: var(--md-sys-color-primary);
 	}
 
+	/* The credit wraps rather than squeeze the Close button on a phone. */
 	.footer {
 		display: flex;
 		align-items: center;
@@ -350,7 +351,13 @@
 		gap: var(--space-2);
 	}
 
+	.footer > :global(:last-child) {
+		flex: none;
+	}
+
 	.credit {
+		flex: 1;
+		min-width: 0;
 		color: var(--md-sys-color-on-surface-variant);
 		font-size: var(--md-sys-typescale-body-small-size);
 	}
