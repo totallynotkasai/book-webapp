@@ -73,7 +73,10 @@ test('an imported EPUB without landmarks opens at its first chapter', async ({ p
 		mimeType: 'application/epub+zip',
 		buffer: Buffer.from(frontMatterEpub())
 	});
-	await page.getByRole('dialog', { name: 'Imported' }).getByRole('link', { name: 'Read now' }).click();
+	await page
+		.getByRole('dialog', { name: 'Imported' })
+		.getByRole('link', { name: 'Read now' })
+		.click();
 	await ready(page);
 	await settled(page);
 	await expect(page.getByTestId('chapter-title')).toHaveText('Chapter 1. Low Tide');
