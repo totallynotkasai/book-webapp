@@ -85,6 +85,11 @@ for (const scheme of ['light', 'dark'] as const) {
 				'Illustrations'
 			);
 			await panel(() => page.keyboard.press('Shift+Slash'), 'Keyboard shortcuts');
+			await panel(async () => {
+				await page.keyboard.press('Slash');
+				await page.getByRole('searchbox', { name: 'Search in this book' }).fill('cheshire');
+				await expect(page.getByTestId('search-status')).toHaveText(/^7 results/);
+			}, 'Search in this book');
 
 			// The selection toolbar, then the pop-up picture, then the narration player.
 			for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowRight');

@@ -60,6 +60,9 @@
 	import type { BookSpeech } from './speech.svelte';
 	import { layoutOf, pageTurnOf, themeTokensOf, typographyOf } from './settings';
 	import ShortcutsDialog from './ShortcutsDialog.svelte';
+	import { focusOnPage, ParagraphCache, paragraphAt, step, type Paragraph } from './focus';
+	import type { SearchHit } from './search';
+	import type { BookSearch } from './search.svelte';
 	import TextDialog from './TextDialog.svelte';
 
 	/**
@@ -68,7 +71,8 @@
 	 * or Tab. Position comes only from the engine's `relocated` event (§9.1), as Anchors.
 	 * Selecting text (mouse, long-press, or Shift+arrows) brings up the selection toolbar.
 	 * Pictures (§8.2) and narration (§8.3) come from the Book's Layers; any Book can also be read
-	 * aloud by the device's own voice (P1-LAY-08).
+	 * aloud by the device's own voice (P1-LAY-08). Search (P1-RDR-10) and focus mode (P1-RDR-11)
+	 * load on first use.
 	 */
 	/**
 	 * `sample`: "Read sample" for a Book the reader doesn't own (P1-STO-01). `preview`: a Creator
@@ -248,6 +252,23 @@
 
 	let prefsOpen = $state(false);
 	let shortcutsOpen = $state(false);
+
+	// ---- Search in the Book (P1-RDR-10) ----
+	let searchOpen = $state(false);
+	let search = $state.raw<BookSearch>();
+	let SearchView = $state.raw<typeof import('./SearchSheet.svelte').default>();
+	/** The result jumped to last: painted with the `search` decoration until the reader moves on. */
+	let searchMatch = $state.raw<RangeAnchor | null>(null);
+	/** Where the reader was before searching: Back returns there, however many results they visit. */
+	let searchOrigin: PointAnchor | null = null;
+	let resultShownAt = 0;
+
+	// ---- Focus mode (P1-RDR-11) ----
+	let paragraphs: ParagraphCache | undefined;
+	/** The paragraph kept bright. */
+	let focused = $state.raw<{ chapterId: string; paragraph: Paragraph } | null>(null);
+	/** Set while focus mode turns the page itself, so the turn doesn't move the focus again. */
+	let focusMoving = false;
 	let back = $state.raw<{ anchor: PointAnchor } | null>(null);
 	let backTimer: ReturnType<typeof setTimeout> | undefined;
 	let announcement = $state('');
@@ -407,6 +428,7 @@
 		illustrations?.destroy();
 		narration?.destroy();
 		speech?.destroy();
+		search?.destroy();
 		clearTimeout(backTimer);
 		clearTimeout(narrationHintTimer);
 		void saver?.close();
@@ -507,6 +529,15 @@
 				saver?.record(range);
 				if (range.cause === 'turn' || range.cause === 'scroll') chrome = false;
 				if (range.cause === 'link' && previous) showBack(previous.first);
+				// Reading on from a search result: its highlight goes, and the next search starts here.
+				if (
+					searchMatch &&
+					(range.cause === 'turn' || range.cause === 'scroll' || range.cause === 'link') &&
+					performance.now() - resultShownAt > 600
+				) {
+					searchMatch = null;
+				}
+				if (prefs.focusMode && !focusMoving) void refocus(range);
 				// Turning pages by hand with the player open: auto-turn waits (§8.3), and never
 				// pulls the reader back while paused either.
 				if (
@@ -604,6 +635,56 @@
 		if (phase.kind === 'ready' && engine && decorations) {
 			engine.setDecorations('annotations', decorations);
 		}
+	});
+
+	$effect(() => {
+		const match = searchMatch;
+		if (phase.kind !== 'ready' || !engine) return;
+		engine.setDecorations(
+			'search',
+			match ? [{ id: 'search', anchor: match, style: 'search' }] : []
+		);
+	});
+
+	$effect(() => {
+		const current = prefs.focusMode ? focused : null;
+		if (phase.kind !== 'ready' || !engine || !manifest) return;
+		engine.setDecorations(
+			'focus',
+			current
+				? [
+						{
+							id: 'focus',
+							style: 'focus',
+							anchor: {
+								kind: 'range',
+								bookId: manifest.bookId,
+								revisionId: manifest.revisionId,
+								startWordId: current.paragraph.firstWordId,
+								endWordId: current.paragraph.lastWordId,
+								startOrdinal: current.paragraph.first,
+								endOrdinal: current.paragraph.last,
+								quote: { exact: '', prefix: '', suffix: '' }
+							}
+						}
+					]
+				: []
+		);
+	});
+
+	// Focus mode on: focus the first paragraph on the page. Off: nothing is dimmed.
+	$effect(() => {
+		const on = prefs.focusMode;
+		if (phase.kind !== 'ready' || !engine) return;
+		if (on) void refocus(untrack(() => visible));
+		else focused = null;
+	});
+
+	// Reading aloud in focus mode: the paragraph being read is the bright one.
+	$effect(() => {
+		const word = prefs.focusMode ? (reading?.word ?? null) : null;
+		if (!word || phase.kind !== 'ready') return;
+		void focusOrdinal(word.chapterId, word.ordinal);
 	});
 
 	// Creator mode: every placed picture's passage is underlined; the one just shown is marked.
@@ -1014,10 +1095,10 @@
 		chrome = false;
 	}
 
-	function showBack(anchor: PointAnchor) {
+	function showBack(anchor: PointAnchor, ms = 10_000) {
 		back = { anchor };
 		clearTimeout(backTimer);
-		backTimer = setTimeout(() => (back = null), 10_000);
+		backTimer = setTimeout(() => (back = null), ms);
 	}
 
 	/** A jump the reader may want to undo: TOC, scrubber, chapter start or end (§4.1 "Back"). */
@@ -1034,7 +1115,144 @@
 		const target = back.anchor;
 		back = null;
 		clearTimeout(backTimer);
+		searchMatch = null;
+		searchOrigin = null;
 		await engine.goTo(target);
+	}
+
+	// ---- Search in the Book (P1-RDR-10) ----
+
+	/** Opens search, loading it the first time (new reader features load on first use). */
+	async function openSearch() {
+		const e = engine;
+		const m = manifest;
+		if (!e || !m || phase.kind !== 'ready') return;
+		if (!search || !SearchView) {
+			try {
+				const [{ BookSearch }, sheet] = await Promise.all([
+					import('./search.svelte'),
+					import('./SearchSheet.svelte')
+				]);
+				search = new BookSearch({ manifest: m, textOf: (chapterId) => e.chapterText(chapterId) });
+				SearchView = sheet.default;
+				void search.prepare();
+			} catch (error) {
+				console.error(error);
+				snackbars.show('Search couldn’t open. Check your connection and try again.', {
+					tone: 'error'
+				});
+				return;
+			}
+		}
+		// A new search starts from here, unless the reader is still at a result they jumped to.
+		if (!searchMatch || !searchOrigin) searchOrigin = visible?.first ?? null;
+		searchOpen = true;
+	}
+
+	/** Jumps to a result and marks it; Back returns to where the reader was before searching. */
+	async function showResult(hit: SearchHit) {
+		if (!engine || !manifest) return;
+		const range: RangeAnchor = {
+			kind: 'range',
+			bookId: manifest.bookId,
+			revisionId: manifest.revisionId,
+			startWordId: hit.startWordId,
+			endWordId: hit.endWordId,
+			startOrdinal: hit.startOrdinal,
+			endOrdinal: hit.endOrdinal,
+			quote: { exact: hit.match, prefix: '', suffix: '' }
+		};
+		if (reading) reading.following = false;
+		searchMatch = range;
+		resultShownAt = performance.now();
+		await engine.goTo(range);
+		resultShownAt = performance.now();
+		announcement = `Result: ${hit.before}${hit.match}${hit.after}`;
+		if (searchOrigin) showBack(searchOrigin, 60_000);
+	}
+
+	// ---- Focus mode (P1-RDR-11) ----
+
+	function paragraphCache(): ParagraphCache {
+		return (paragraphs ??= new ParagraphCache((chapterId) => engine!.chapterText(chapterId)));
+	}
+
+	/**
+	 * Focuses a paragraph on the page, unless the focused one is still on it: when focus mode
+	 * comes on, and when the reader moves by other means (a swipe, a jump). `end`: the last one
+	 * that starts on the page, stepping back into a Chapter.
+	 */
+	async function refocus(range: VisibleRange | null, end: 'start' | 'end' = 'start') {
+		if (!range || !prefs.focusMode || !engine) return;
+		const list = await paragraphCache().get(range.chapterId);
+		const current = focused;
+		if (
+			end === 'start' &&
+			current?.chapterId === range.chapterId &&
+			current.paragraph.last >= range.first.ordinal &&
+			current.paragraph.first <= range.last.ordinal
+		) {
+			return;
+		}
+		const i = focusOnPage(list, { first: range.first.ordinal, last: range.last.ordinal }, end);
+		focused = i >= 0 ? { chapterId: range.chapterId, paragraph: list[i]! } : null;
+	}
+
+	async function focusOrdinal(chapterId: string, ordinal: number) {
+		const current = focused;
+		if (
+			current?.chapterId === chapterId &&
+			ordinal >= current.paragraph.first &&
+			ordinal <= current.paragraph.last
+		) {
+			return;
+		}
+		const list = await paragraphCache().get(chapterId);
+		const i = paragraphAt(list, ordinal);
+		if (i >= 0) focused = { chapterId, paragraph: list[i]! };
+	}
+
+	/** The next (+1) or previous (-1) paragraph, turning the page when it has to. */
+	async function focusStep(dir: 1 | -1) {
+		const range = visible;
+		if (!engine || !range || !manifest || focusMoving) return;
+		const list = await paragraphCache().get(range.chapterId);
+		const page = { first: range.first.ordinal, last: range.last.ordinal };
+		const current = focused;
+		let index =
+			current?.chapterId === range.chapterId ? paragraphAt(list, current.paragraph.first) : -1;
+		if (index < 0) index = focusOnPage(list, page);
+		const next = step(list, index, page, dir);
+		focusMoving = true;
+		try {
+			if (next.kind === 'turn') {
+				if (list[index]) focused = { chapterId: range.chapterId, paragraph: list[index] };
+				await turn(dir);
+			} else if (next.kind === 'focus') {
+				const paragraph = list[next.index]!;
+				focused = { chapterId: range.chapterId, paragraph };
+				if (next.turn) {
+					await turn(dir);
+					const now = engine.getVisibleRange();
+					if (now && (paragraph.last < now.first.ordinal || paragraph.first > now.last.ordinal)) {
+						await engine.goTo({
+							kind: 'point',
+							bookId: manifest.bookId,
+							revisionId: manifest.revisionId,
+							wordId: paragraph.firstWordId,
+							ordinal: paragraph.first,
+							quote: { exact: '', prefix: '', suffix: '' }
+						});
+					}
+				}
+			} else {
+				await turn(dir);
+				focused = null;
+				await refocus(engine.getVisibleRange(), dir > 0 ? 'start' : 'end');
+			}
+		} finally {
+			focusMoving = false;
+		}
 	}
 
 	function onTap(x: number) {
@@ -1049,8 +1267,10 @@
 		const rect = host?.getBoundingClientRect();
 		if (!rect) return;
 		const f = (x - rect.left) / rect.width;
-		if (f < 0.25) void turn(isRtl ? 1 : -1);
-		else if (f > 0.75) void turn(isRtl ? -1 : 1);
+		// In focus mode the sides move the focus a paragraph at a time (it turns pages as needed).
+		const move = (dir: 1 | -1) => void (prefs.focusMode ? focusStep(dir) : turn(dir));
+		if (f < 0.25) move(isRtl ? 1 : -1);
+		else if (f > 0.75) move(isRtl ? -1 : 1);
 		else chrome = !chrome;
 	}
 
@@ -1059,6 +1279,7 @@
 			contentsOpen ||
 			prefsOpen ||
 			shortcutsOpen ||
+			searchOpen ||
 			textDialog !== null ||
 			layersOpen ||
 			cardOpen ||
@@ -1089,6 +1310,9 @@
 			void toggleBookmark();
 		} else if (!ctrl && !event.altKey && (event.key === 'n' || event.key === 'N')) {
 			openContents('notes');
+		} else if (!ctrl && !event.altKey && event.key === '/') {
+			event.preventDefault();
+			void openSearch();
 		} else if (!ctrl && !event.altKey && (event.key === 'i' || event.key === 'I')) {
 			if (illustrationMode === 'popup') openPicture();
 			else if (illustrations?.packs.length) layersOpen = true;
@@ -1103,6 +1327,18 @@
 			change({ fontScale: 1 });
 		} else if (ctrl || event.altKey) {
 			return;
+		} else if (
+			prefs.focusMode &&
+			(event.key === forward || event.key === 'ArrowDown' || (event.key === ' ' && !event.shiftKey))
+		) {
+			event.preventDefault();
+			void focusStep(1);
+		} else if (
+			prefs.focusMode &&
+			(event.key === backward || event.key === 'ArrowUp' || (event.key === ' ' && event.shiftKey))
+		) {
+			event.preventDefault();
+			void focusStep(-1);
 		} else if (
 			event.key === forward ||
 			event.key === 'PageDown' ||
@@ -1395,6 +1631,12 @@
 		{#if illustrations?.packs.length}
 			<IconButton icon="photo_library" label="Illustrations" onclick={() => (layersOpen = true)} />
 		{/if}
+		<IconButton
+			icon="search"
+			label="Search in this book"
+			disabled={phase.kind !== 'ready'}
+			onclick={() => void openSearch()}
+		/>
 		<IconButton
 			icon="toc"
 			label="Contents and notes"
@@ -1748,6 +1990,9 @@
 	}}
 />
 <ShortcutsDialog bind:open={shortcutsOpen} />
+{#if search && SearchView}
+	<SearchView bind:open={searchOpen} {search} onresult={(hit) => void showResult(hit)} />
+{/if}
 
 {#if illustrations}
 	<LayersSheet

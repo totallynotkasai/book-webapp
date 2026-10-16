@@ -6,12 +6,13 @@
 import { sentenceSpans } from '@book/domain';
 import type { ChapterText } from '@book/reader-core';
 import type { SpeechVoice } from '$lib/platform';
+import { gapAfter } from './words';
 
 export interface SpokenSentence {
 	/** First and last Word, as positions in the Chapter's Words. */
 	first: number;
 	last: number;
-	/** The Words with their punctuation, joined by spaces. */
+	/** The Words with their punctuation, joined as on the page (`joinWords`). */
 	text: string;
 	/** Where each Word (from `first` on) starts in `text`. */
 	starts: number[];
@@ -22,7 +23,7 @@ export function spokenSentences(text: ChapterText): SpokenSentence[] {
 		const starts: number[] = [];
 		let joined = '';
 		for (let i = first; i <= last; i++) {
-			if (i > first) joined += ' ';
+			if (i > first) joined += gapAfter(text.texts[i - 1]!);
 			starts.push(joined.length);
 			joined += text.texts[i];
 		}

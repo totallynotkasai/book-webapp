@@ -54,6 +54,10 @@ export function typographyCss(t: TypographySettings): string {
  * Defaults placed before the book's own CSS, so books can still override them. Table cells may
  * hyphenate, then break anywhere, once a table is squeezed (a stat table on a phone at 200%):
  * wider columns stay as laid out, and nothing runs off the page.
+ *
+ * Focus mode (P1-RDR-11) dims every innermost Block but the focused one with opacity, which
+ * never changes the layout; containers stay as they are, so nothing is dimmed twice. The fade
+ * goes under reduced motion (Invariant 12).
  */
 export const BASE_CSS = `img,svg,video{max-width:100%;height:auto}
 pre{white-space:pre-wrap}
@@ -63,4 +67,7 @@ figure[data-injected]{margin:1em 0;text-align:center;break-inside:avoid;-webkit-
 figure[data-injected] img{max-height:60vh;width:auto;cursor:zoom-in;border-radius:6px}
 figure[data-injected].full-page{break-before:column;break-after:column;display:flex;flex-direction:column;justify-content:center;height:90vh;margin:0}
 figure[data-injected].full-page img{max-height:80vh}
-figure[data-injected] figcaption{font-size:.85em;opacity:.8;margin-top:.4em}`;
+figure[data-injected] figcaption{font-size:.85em;opacity:.8;margin-top:.4em}
+[data-b]:not(:has([data-b])){transition:opacity 200ms ease}
+html[data-rd-focus] [data-b]:not(:has([data-b])):not([data-rd-focused]),html[data-rd-focus] figure[data-injected]{opacity:.28}
+@media (prefers-reduced-motion:reduce){[data-b]{transition:none!important}}`;

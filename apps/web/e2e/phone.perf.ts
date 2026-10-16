@@ -286,3 +286,71 @@ test('import a 150,000-word EPUB (< 10 s)', async ({ page }, testInfo) => {
 	record(testInfo, 'import, 150,000 words', JSON.stringify(times), '10000 ms');
 	expect(times.scaled).toBeLessThan(10_000);
 });
+
+test('search a 150,000-word Book: typing stays within the interaction budget (< 100 ms)', async ({
+	page
+}, testInfo) => {
+	// P1-RDR-10: the first search reads every Chapter, one at a time, on the page's thread.
+	await page.goto('/library');
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Import EPUB' }).first().click();
+	await (
+		await chooser
+	).setFiles({
+		name: 'big.epub',
+		mimeType: 'application/epub+zip',
+		buffer: Buffer.from(bigEpub())
+	});
+	await expect(page.getByTestId('import-summary')).toHaveText(/150,000 words/, { timeout: 60_000 });
+	await page
+		.getByRole('dialog', { name: 'Imported' })
+		.getByRole('link', { name: 'Read now' })
+		.click();
+	await expect(page.getByTestId('reader')).toHaveAttribute('data-ready', 'true', {
+		timeout: 30_000
+	});
+	await settled(page);
+	await throttle(page);
+	await page.evaluate(() => {
+		const w = window as unknown as { __events: number[]; __tasks: number[] };
+		w.__events = [];
+		w.__tasks = [];
+		new PerformanceObserver((list) => {
+			for (const entry of list.getEntries()) w.__events.push(entry.duration);
+		}).observe({
+			type: 'event',
+			durationThreshold: 16,
+			buffered: false
+		} as PerformanceObserverInit);
+		new PerformanceObserver((list) => {
+			for (const entry of list.getEntries()) w.__tasks.push(entry.duration);
+		}).observe({ type: 'longtask', buffered: false });
+	});
+	const opened = Date.now();
+	await page.keyboard.press('Slash');
+	const field = page.getByRole('searchbox', { name: 'Search in this book' });
+	await expect(field).toBeFocused();
+	const openMs = Date.now() - opened;
+	await page.keyboard.type('sister on the bank', { delay: 150 });
+	const typed = Date.now();
+	const status = page.getByTestId('search-status');
+	await expect(status).toHaveText(/result/, { timeout: 60_000 });
+	const firstMs = Date.now() - typed;
+	await expect(status).toHaveText(/^[\d,]+ results in 30 chapters$/, { timeout: 120_000 });
+	const allMs = Date.now() - typed;
+	const { events, tasks } = await page.evaluate(() => {
+		const w = window as unknown as { __events: number[]; __tasks: number[] };
+		return { events: w.__events, tasks: w.__tasks };
+	});
+	// Keystrokes faster than 16 ms aren't reported, so they count as 16.
+	const keys = 'sister on the bank'.length;
+	const samples = [...events, ...Array(Math.max(0, keys - events.length)).fill(16)];
+	record(testInfo, 'search: input to next frame', JSON.stringify(stats(samples)), '100 ms');
+	record(
+		testInfo,
+		'search: longest task, open, first and all results',
+		JSON.stringify({ longestTask: Math.round(Math.max(0, ...tasks)), openMs, firstMs, allMs }),
+		'100 ms per task'
+	);
+	expect(stats(samples).p95).toBeLessThan(100);
+});

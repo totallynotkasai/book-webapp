@@ -16,6 +16,8 @@ export const READER_SHORTCUTS: Shortcut[] = [
 	['H', 'Highlight the selection in the last colour used'],
 	['B', 'Bookmark this page, or remove its bookmark'],
 	['N', 'Notes and highlights'],
+	['/', 'Search in this book; Enter goes to the first result'],
+	['→  ↓  Space  /  ←  ↑  Shift+Space', 'In focus mode: the next or previous paragraph'],
 	['?', 'This list']
 ];
 

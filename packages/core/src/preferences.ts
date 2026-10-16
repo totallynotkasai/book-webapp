@@ -71,6 +71,8 @@ export const readerPreferencesSchema = z.object({
 	theme: z.preprocess(objectOrEmpty, themeSchema),
 	pageTurn: z.enum(['none', 'slide', 'fade']).catch('slide'),
 	illustrations: z.enum(illustrationModes).catch('popup'),
+	/** Dim everything but the paragraph being read (P1-RDR-11). */
+	focusMode: z.boolean().catch(false),
 	narration: z.preprocess(objectOrEmpty, narrationSchema),
 	deviceVoice: z.preprocess(objectOrEmpty, deviceVoiceSchema),
 	/** One-off hints the reader has dismissed (e.g. `illustrations`), kept with their settings. */
