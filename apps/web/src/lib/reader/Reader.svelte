@@ -393,6 +393,10 @@
 	let readingTime = $state.raw<ReadingTime>();
 	/** Never while narration or the device voice sets the pace (P1-RDR-14 acceptance). */
 	const showTimeLeft = $derived(prefs.timeLeft && !reading && !!readingTime);
+	/** Text after the page and the time left, for screen readers (and wide screens). As
+	 * expressions: Svelte 5 trims the space at the start of an element's text. */
+	const IN_THIS_CHAPTER = ' in this chapter';
+	const IN_CHAPTER = ' in chapter';
 	const timeLeftFor = (words: number) => formatTimeLeft(timeLeftMs(words, readingTime!.pace));
 	/** "8 min left", in the Chapter from the first Word on screen. */
 	const timeLeftInChapter = $derived.by(() => {
@@ -2077,12 +2081,12 @@
 			<!-- "in this chapter" (§9.2) is for screen readers; the bar has no room for it on phones. -->
 			<span class="page" data-testid="page-label"
 				>{pageLabel}{#if visible?.pageInChapter}<span class="visually-hidden"
-						>{' '}in this chapter</span
+						>{IN_THIS_CHAPTER}</span
 					>{/if}</span
 			>
 			{#if timeLeftInChapter}
 				<span class="time-left" data-testid="time-left"
-					>{timeLeftInChapter}<span class="in-chapter">{' '}in chapter</span></span
+					>{timeLeftInChapter}<span class="in-chapter">{IN_CHAPTER}</span></span
 				>
 			{/if}
 		</span>
