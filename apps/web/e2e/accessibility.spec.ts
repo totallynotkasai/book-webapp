@@ -28,6 +28,7 @@ const ROUTES = [
 	{ path: '/you/bookmarks', heading: 'Bookmark designs' },
 	{ path: '/you/purchases', heading: 'Purchases and subscriptions' },
 	{ path: '/you/data', heading: 'Your data' },
+	{ path: '/you/reading', heading: 'Your reading' },
 	{ path: '/dev', heading: 'Developer panel' },
 	{ path: '/dev/components', heading: 'Component gallery' }
 ];

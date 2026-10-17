@@ -101,8 +101,8 @@
 		<h2 id="where-heading">Where it lives</h2>
 		<p class="lead">
 			Everything you read and note stays on this device: highlights, notes, bookmarks, where you are
-			in each book, the books you imported and your settings. Nothing is uploaded, so nothing syncs
-			to your other devices yet.
+			in each book, your reading stats and pace, the books you imported and your settings. Nothing
+			is uploaded, so nothing syncs to your other devices yet.
 		</p>
 		<p class="hint">
 			{native
@@ -188,7 +188,7 @@
 <Dialog
 	open={confirmDelete}
 	title="Delete your data on this device?"
-	description="Your highlights, notes, bookmarks, reading positions, imported books and settings will be deleted. This can’t be undone."
+	description="Your highlights, notes, bookmarks, reading positions, reading stats, imported books and settings will be deleted. This can’t be undone."
 	onclose={() => (confirmDelete = false)}
 >
 	<p class="hint">If you might want them later, export them first.</p>

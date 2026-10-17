@@ -199,6 +199,73 @@ export function describeStoresContract(name: string, makeStores: MakeStores): vo
 			});
 		});
 
+		describe('readingStats (P1-RDR-14, P1-RDR-15)', () => {
+			const entry = (date: string, bookId: string, minutes: number) => ({
+				date,
+				bookId,
+				readMs: minutes * MINUTE,
+				listenedMs: MINUTE,
+				words: minutes * 200
+			});
+
+			it('adds to a day’s reading of a Book, and lists the days oldest first', async () => {
+				const first = await stores.readingStats.addToDay(entry('2026-10-11', 'book-1', 3));
+				expect(first).toMatchObject({ id: '2026-10-11|book-1', readMs: 3 * MINUTE, words: 600 });
+				expect(first.createdAt).toBe(clock.now().toISOString());
+				clock.advance(MINUTE);
+				const more = await stores.readingStats.addToDay(entry('2026-10-11', 'book-1', 2));
+				expect(more).toMatchObject({
+					readMs: 5 * MINUTE,
+					listenedMs: 2 * MINUTE,
+					words: 1000,
+					createdAt: first.createdAt,
+					updatedAt: clock.now().toISOString()
+				});
+				await stores.readingStats.addToDay(entry('2026-10-10', 'book-2', 1));
+				await stores.readingStats.addToDay(entry('2026-10-11', 'book-2', 1));
+				const days = await stores.readingStats.listDays();
+				expect(days.map((d) => d.date)).toEqual(['2026-10-10', '2026-10-11', '2026-10-11']);
+				expect(days.map((d) => d.id).sort()).toEqual([
+					'2026-10-10|book-2',
+					'2026-10-11|book-1',
+					'2026-10-11|book-2'
+				]);
+			});
+
+			it('finishes a Book once, keeping the first date', async () => {
+				const finish = await stores.readingStats.finish('book-1', '2026-10-11');
+				expect(finish).toMatchObject({ id: 'book-1', bookId: 'book-1', date: '2026-10-11' });
+				await stores.readingStats.finish('book-1', '2026-10-20');
+				await stores.readingStats.finish('book-2', '2026-10-12');
+				expect((await stores.readingStats.listFinishes()).map((f) => [f.bookId, f.date])).toEqual([
+					['book-1', '2026-10-11'],
+					['book-2', '2026-10-12']
+				]);
+			});
+
+			it('keeps one pace, replaced on each save', async () => {
+				expect(await stores.readingStats.getPace()).toBeUndefined();
+				await stores.readingStats.savePace({ words: 400, ms: 2 * MINUTE });
+				clock.advance(MINUTE);
+				const saved = await stores.readingStats.savePace({ words: 900, ms: 4 * MINUTE });
+				expect(await stores.readingStats.getPace()).toEqual(saved);
+				expect(saved).toMatchObject({ id: 'pace', words: 900, ms: 4 * MINUTE });
+			});
+
+			it('clears the history for good, and the pace stays', async () => {
+				await stores.readingStats.addToDay(entry('2026-10-11', 'book-1', 3));
+				await stores.readingStats.finish('book-1', '2026-10-11');
+				await stores.readingStats.savePace({ words: 400, ms: 2 * MINUTE });
+				await stores.readingStats.clearHistory();
+				expect(await stores.readingStats.listDays()).toEqual([]);
+				expect(await stores.readingStats.listFinishes()).toEqual([]);
+				expect(await stores.readingStats.getPace()).toBeDefined();
+				const snapshot = await stores.exportAll();
+				expect(snapshot.readingDays).toEqual([]);
+				expect(snapshot.bookFinishes).toEqual([]);
+			});
+		});
+
 		describe('export and delete (P1-APP-04)', () => {
 			async function fill() {
 				await stores.library.putBook({
@@ -248,6 +315,15 @@ export function describeStoresContract(name: string, makeStores: MakeStores): vo
 					illustrationPackIds: ['pack-a'],
 					narrationTrackId: null
 				});
+				await stores.readingStats.addToDay({
+					date: '2026-10-11',
+					bookId: 'book-1',
+					readMs: MINUTE,
+					listenedMs: 0,
+					words: 250
+				});
+				await stores.readingStats.finish('book-1', '2026-10-11');
+				await stores.readingStats.savePace({ words: 250, ms: MINUTE });
 				return { annotation, removed };
 			}
 
@@ -273,6 +349,9 @@ export function describeStoresContract(name: string, makeStores: MakeStores): vo
 					])
 				);
 				expect(snapshot.layerSelection.map((l) => l.bookId)).toEqual(['book-1']);
+				expect(snapshot.readingDays.map((d) => d.id)).toEqual(['2026-10-11|book-1']);
+				expect(snapshot.bookFinishes.map((f) => f.bookId)).toEqual(['book-1']);
+				expect(snapshot.readingPace.map((p) => p.words)).toEqual([250]);
 				// It's plain data: it survives a JSON round trip unchanged.
 				expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot);
 			});
@@ -289,7 +368,10 @@ export function describeStoresContract(name: string, makeStores: MakeStores): vo
 					'placedBookmarks',
 					'progress',
 					'preferences',
-					'layerSelection'
+					'layerSelection',
+					'readingDays',
+					'bookFinishes',
+					'readingPace'
 				] as const) {
 					expect(empty[key], key).toEqual([]);
 				}

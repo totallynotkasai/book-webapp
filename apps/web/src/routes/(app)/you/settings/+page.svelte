@@ -149,6 +149,17 @@
 		/>
 	</section>
 
+	<section aria-labelledby="your-reading-heading">
+		<h2 id="your-reading-heading">Your reading</h2>
+		<Switch
+			label="Keep reading stats"
+			description="Time read, words, books finished, your streak and a few achievements, on this device only. Turned off, they’re hidden and nothing new is kept."
+			checked={preferences.current.readingStats}
+			onchange={(readingStats) => preferences.update({ readingStats })}
+		/>
+		<p class="hint"><a href={resolve('/you/reading')}>See your reading</a></p>
+	</section>
+
 	<section aria-labelledby="accessibility-heading">
 		<h2 id="accessibility-heading">Accessibility</h2>
 		<p class="hint">

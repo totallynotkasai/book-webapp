@@ -79,3 +79,20 @@ export function formatDayTime(iso: string, locale?: string): string {
 	const time = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 	return `${formatDay(iso, locale)}, ${time}`;
 }
+
+/** A reading time, to the minute: "less than a minute", "8 min", "1 h 5 min", "12 h". */
+export function formatReadingTime(ms: number): string {
+	const minutes = Math.round(ms / 60_000);
+	if (minutes < 1) return 'less than a minute';
+	if (minutes < 60) return `${minutes} min`;
+	const hours = Math.floor(minutes / 60);
+	const rest = minutes % 60;
+	if (hours >= 10) return `${Math.round(minutes / 60)} h`;
+	return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+/** Time left at the reader's pace (P1-RDR-14): "8 min left", "Less than a minute left". */
+export function formatTimeLeft(ms: number): string {
+	const time = formatReadingTime(ms);
+	return `${time[0]!.toUpperCase()}${time.slice(1)} left`;
+}

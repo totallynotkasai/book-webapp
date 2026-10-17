@@ -29,6 +29,7 @@
 		glossaryEntryFor,
 		reachedOrdinal,
 		storySoFarAt,
+		timeLeftMs,
 		type GlossaryEntryAt
 	} from '@book/domain';
 	import { highlightLabels } from '@book/tokens';
@@ -50,7 +51,7 @@
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import { migrateToCurrent } from '$lib/data/migration';
 	import { describeError, type DescribedError } from '$lib/errors';
-	import { formatDate, formatDay, formatDayTime } from '$lib/format';
+	import { formatDate, formatDay, formatDayTime, formatTimeLeft } from '$lib/format';
 	import { getPlatform } from '$lib/platform';
 	import { getBackend, getStores } from '$lib/services';
 	import { preferences } from '$lib/state/preferences.svelte';
@@ -75,6 +76,7 @@
 	import { openBook, startOfText, type OpenedBook } from './open-book';
 	import PreferencesSheet from './PreferencesSheet.svelte';
 	import { ProgressSaver } from './progress';
+	import { ReadingTime } from './reading-time.svelte';
 	import { readingFontFaces } from './reading-fonts';
 	import Scrubber from './Scrubber.svelte';
 	import SelectionToolbar from './SelectionToolbar.svelte';
@@ -322,6 +324,8 @@
 	let windowWidth = $state(typeof innerWidth === 'number' ? innerWidth : 1024);
 	let windowHeight = $state(typeof innerHeight === 'number' ? innerHeight : 768);
 	let saver: ProgressSaver | undefined;
+	/** The reader has closed: anything still opening must let go at once. */
+	let destroyed = false;
 	/** What the engine last got, so effects only send real changes. */
 	let applied: { typography: string; layout: string; theme: string; pageTurn: string } | undefined;
 	const offs: (() => void)[] = [];
@@ -385,6 +389,33 @@
 			: visible
 				? `${Math.round(visible.progression * 100)}%`
 				: ''
+	);
+	// ---- Your reading (P1-RDR-14, P1-RDR-15): time left at the reader's pace, and stats ----
+	let readingTime = $state.raw<ReadingTime>();
+	/** Never while narration or the device voice sets the pace (P1-RDR-14 acceptance). */
+	const showTimeLeft = $derived(prefs.timeLeft && !reading && !!readingTime);
+	/**
+	 * Text after the page and the time left, for screen readers (and wide screens). Expressions,
+	 * since Svelte 5 trims the space at the start of an element's text.
+	 */
+	const IN_THIS_CHAPTER = ' in this chapter';
+	const IN_CHAPTER = ' in chapter';
+	const timeLeftFor = (words: number) => formatTimeLeft(timeLeftMs(words, readingTime!.pace));
+	/** "8 min left", in the Chapter from the first Word on screen. */
+	const timeLeftInChapter = $derived.by(() => {
+		if (!showTimeLeft || !visible || !chapter) return null;
+		return timeLeftFor(chapter.lastOrdinal - visible.first.ordinal + 1);
+	});
+	/** For the scrubber's bubble: time left in the Book from a point on it. */
+	const timeLeftAt = $derived(
+		showTimeLeft && manifest
+			? (fraction: number) =>
+					`${timeLeftFor(Math.round((1 - fraction) * manifest!.wordCount))} in book`
+			: undefined
+	);
+	/** The Book's last Word, when this reader can read it all: reaching it finishes the Book. */
+	const bookEnd = $derived(
+		opened?.access === 'full' && !opened.locked.length && manifest ? manifest.wordCount - 1 : null
 	);
 	const isRtl = $derived(manifest?.dir === 'rtl');
 	/**
@@ -504,7 +535,10 @@
 	});
 
 	// Leaving the reader saves at once, before the next screen reads Reading Progress.
-	beforeNavigate(() => void saver?.flush());
+	beforeNavigate(() => {
+		void saver?.flush();
+		void readingTime?.flush();
+	});
 
 	onDestroy(() => {
 		illustrations?.destroy();
@@ -513,7 +547,9 @@
 		search?.destroy();
 		clearTimeout(backTimer);
 		clearTimeout(narrationHintTimer);
+		destroyed = true;
 		void saver?.close();
+		void readingTime?.close();
 		engine?.destroy();
 		preferences.closeBook();
 	});
@@ -553,6 +589,19 @@
 			await notes.load();
 			const progress = await stores.progress.get(bookId);
 			saver = studioMode ? undefined : new ProgressSaver(stores, bookId, progress);
+			if (!studioMode) {
+				const pace = await stores.readingStats.getPace();
+				readingTime = new ReadingTime({
+					stores,
+					bookId,
+					pace: pace && { words: pace.words, ms: pace.ms },
+					learnPace: () => prefs.timeLeft,
+					keepStats: () => preferences.current.readingStats,
+					listening: () => !!reading?.playing
+				});
+				// Closed while the Book was opening: its timer mustn't run on.
+				if (destroyed) void readingTime.close();
+			}
 			furthestAtOpen = progress?.furthest ?? null;
 			lastReadAt = progress?.updatedAt;
 			const fontFaceCss = await fontsLoading;
@@ -620,6 +669,8 @@
 				}
 				if (toolbar && range.first.ordinal !== previous?.first.ordinal) closeToolbar();
 				saver?.record(range);
+				readingTime?.relocated(range, autoTurning);
+				if (bookEnd !== null && range.last.ordinal >= bookEnd) readingTime?.finished();
 				if (range.cause === 'turn' || range.cause === 'scroll') chrome = false;
 				if (range.cause === 'link' && previous) showBack(previous.first);
 				// Reading on from a search result: its highlight goes, and the next search starts here.
@@ -644,6 +695,7 @@
 			}),
 			e.on('tap', ({ x }) => onTap(x)),
 			e.on('selection', (selection) => {
+				readingTime?.activity();
 				if (selection) {
 					if (selection.pointer !== 'keyboard') keyboardSelection = null;
 					toolbar = {
@@ -1404,6 +1456,7 @@
 	}
 
 	function onTap(x: number) {
+		readingTime?.activity();
 		if (tapConsumed) {
 			tapConsumed = false;
 			return;
@@ -1438,6 +1491,7 @@
 	}
 
 	function onKey(event: KeyboardEvent) {
+		readingTime?.activity();
 		if (phase.kind !== 'ready' || anyOverlayOpen()) return;
 		const target = event.target as HTMLElement | null;
 		if (target?.closest?.('input, textarea, [role="slider"]')) return;
@@ -2026,14 +2080,22 @@
 		<Scrubber
 			progression={visible?.progression ?? 0}
 			chapters={scrubberChapters}
+			{timeLeftAt}
 			oncommit={(progression) => jump({ progression })}
 		/>
-		<!-- "in this chapter" (§9.2) is for screen readers; the bar has no room for it on phones. -->
-		<span class="page" data-testid="page-label"
-			>{pageLabel}{#if visible?.pageInChapter}<span class="visually-hidden">
-					in this chapter</span
-				>{/if}</span
-		>
+		<span class="where">
+			<!-- "in this chapter" (§9.2) is for screen readers; the bar has no room for it on phones. -->
+			<span class="page" data-testid="page-label"
+				>{pageLabel}{#if visible?.pageInChapter}<span class="visually-hidden"
+						>{IN_THIS_CHAPTER}</span
+					>{/if}</span
+			>
+			{#if timeLeftInChapter}
+				<span class="time-left" data-testid="time-left"
+					>{timeLeftInChapter}<span class="in-chapter">{IN_CHAPTER}</span></span
+				>
+			{/if}
+		</span>
 		<IconButton
 			icon={isRtl ? 'chevron_left' : 'chevron_right'}
 			label="Next page"
@@ -2418,13 +2480,28 @@
 		font-weight: var(--md-sys-typescale-weight-medium);
 	}
 
-	.page {
+	.where {
+		display: grid;
 		flex: none;
+		justify-items: center;
 		min-width: 6.5em;
 		color: var(--md-sys-color-on-surface-variant);
 		font-size: var(--md-sys-typescale-body-small-size);
+		line-height: 1.3;
 		text-align: center;
 		font-variant-numeric: tabular-nums;
+	}
+
+	/* On a phone the bar has room for "8 min left" under the page; "in chapter" is still read out. */
+	@media (max-width: 599.98px) {
+		.in-chapter {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
 	}
 
 	.overlay {

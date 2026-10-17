@@ -3,7 +3,7 @@
 
 	/**
 	 * The scrubber (§4.1, §9.2): progression across the Book with Chapter ticks. While dragging it
-	 * shows the Chapter and percentage; it jumps only on release. It works in progression and Chapter
+	 * shows the Chapter, percentage and time left in the Book (P1-RDR-14); it jumps only on release. It works in progression and Chapter
 	 * boundaries, so no whole-Book page map is needed.
 	 */
 	interface Props {
@@ -11,10 +11,12 @@
 		progression: number;
 		/** Where each Chapter starts (0..1), with its title. */
 		chapters: readonly { title: string; start: number }[];
+		/** Time left in the Book from a point (0..1), at the reader's pace; absent when it's off. */
+		timeLeftAt?: (fraction: number) => string;
 		oncommit: (progression: number) => void;
 	}
 
-	let { progression, chapters, oncommit }: Props = $props();
+	let { progression, chapters, timeLeftAt, oncommit }: Props = $props();
 
 	const STEPS = 1000;
 	let dragging = $state<number | null>(null);
@@ -26,7 +28,8 @@
 		return title;
 	};
 	const percent = $derived(Math.round(fraction * 100));
-	const label = $derived(`${percent}%, ${chapterAt(fraction)}`);
+	const timeLeft = $derived(timeLeftAt?.(fraction) ?? null);
+	const label = $derived(`${percent}%, ${chapterAt(fraction)}${timeLeft ? `, ${timeLeft}` : ''}`);
 </script>
 
 <div class="scrubber">
@@ -34,6 +37,7 @@
 		<div class="bubble" style:left={`${fraction * 100}%`} aria-hidden="true">
 			<span class="chapter">{chapterAt(fraction)}</span>
 			<span>{percent}%</span>
+			{#if timeLeft}<span data-testid="scrubber-time-left">{timeLeft}</span>{/if}
 		</div>
 	{/if}
 	<Slider.Root

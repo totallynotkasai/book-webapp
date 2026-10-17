@@ -6,10 +6,13 @@
  */
 import type {
 	Annotation,
+	BookFinish,
 	LayerSelection,
 	LibraryBook,
 	LibraryRevision,
 	PlacedBookmark,
+	ReadingDay,
+	ReadingPace,
 	ReadingProgress
 } from './models';
 import type { Timestamp } from './ids';
@@ -87,6 +90,25 @@ export interface LayerSelectionStore {
 }
 
 /**
+ * Your reading (P1-RDR-14, P1-RDR-15): reading time per day and Book, Books finished and the
+ * reader's pace. Device-only: never synced or sent anywhere (§6.3); the app stops writing when
+ * the reader turns stats (or time left, for the pace) off.
+ */
+export interface ReadingStatsStore {
+	/** Adds to a day's reading of a Book, creating the day if it's new. */
+	addToDay(entry: NewRecord<ReadingDay>): Promise<ReadingDay>;
+	/** Every day with reading, oldest first. */
+	listDays(): Promise<ReadingDay[]>;
+	/** Records a Book read to its end. A Book is finished once: a second finish changes nothing. */
+	finish(bookId: string, date: string): Promise<BookFinish>;
+	listFinishes(): Promise<BookFinish[]>;
+	getPace(): Promise<ReadingPace | undefined>;
+	savePace(pace: NewRecord<ReadingPace>): Promise<ReadingPace>;
+	/** Deletes the reading history (days and finishes) for good; the pace stays. */
+	clearHistory(): Promise<void>;
+}
+
+/**
  * Every record the Stores hold, for "Export all data" (P1-APP-04, DESIGN.md §18). Soft-deleted
  * records are included with their `deletedAt` (they're kept until sync confirms, §6.3). A Book's
  * processed files are listed, not included: the EPUB they came from can be imported again.
@@ -104,6 +126,11 @@ export interface StoresSnapshot {
 	/** `bookId` null for the global preferences, else that Book's overrides. */
 	preferences: { bookId: string | null; preferences: ReaderPreferencesPatch }[];
 	layerSelection: LayerSelection[];
+	/** Your reading (P1-RDR-14, P1-RDR-15). */
+	readingDays: ReadingDay[];
+	bookFinishes: BookFinish[];
+	/** The reader's pace: none until they've read a page. */
+	readingPace: ReadingPace[];
 }
 
 /** Everything the app stores for one user, bundled so it can be swapped in one place. */
@@ -114,6 +141,7 @@ export interface Stores {
 	progress: ProgressStore;
 	preferences: PreferencesStore;
 	layerSelection: LayerSelectionStore;
+	readingStats: ReadingStatsStore;
 	/** Every record, for "Export all data". */
 	exportAll(): Promise<StoresSnapshot>;
 	/** Removes every record and file ("Delete my data on this device"). */

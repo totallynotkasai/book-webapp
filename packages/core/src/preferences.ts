@@ -82,12 +82,22 @@ export const readerPreferencesSchema = z.object({
 	illustrations: z.enum(illustrationModes).catch('popup'),
 	/** Dim everything but the paragraph being read (P1-RDR-11). */
 	focusMode: z.boolean().catch(false),
+	/**
+	 * Reading time left beside the page indicator, from the reader's own pace (P1-RDR-14). Off
+	 * also stops learning the pace. On by default (D-040).
+	 */
+	timeLeft: z.boolean().catch(true),
 	narration: z.preprocess(objectOrEmpty, narrationSchema),
 	deviceVoice: z.preprocess(objectOrEmpty, deviceVoiceSchema),
 	/** One-off hints the reader has dismissed (e.g. `illustrations`), kept with their settings. */
 	hintsSeen: z.array(z.string()).catch([]),
 	/** Hide AI-generated Books and Layers in the store, the Layers menu and community (§10.6). */
 	hideAiGenerated: z.boolean().catch(false),
+	/**
+	 * Keep reading stats, a streak and achievements on this device (P1-RDR-15). Off hides them
+	 * and stops collecting. On by default (D-040). Global only: a Book's override is ignored.
+	 */
+	readingStats: z.boolean().catch(true),
 	/** The Bookmark Design new Placed Bookmarks use; the default design when unset (P1-STO-03). */
 	bookmarkDesignProductId: z.string().min(1).optional().catch(undefined)
 });
