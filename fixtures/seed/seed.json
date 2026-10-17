@@ -1,5 +1,5 @@
 {
-	"version": 9,
+	"version": 10,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -1116,6 +1116,128 @@
 					"description": "A faceless figure made of the Murk, taller than a door, waiting at the foot of the stair beneath St Ember tower. It asks where you are going; those who cannot answer forget the way home."
 				}
 			]
+		}
+	],
+	"reviews": [
+		{
+			"bookId": "book-alice",
+			"userId": "seed-reader-1",
+			"reviewerName": "Priya N.",
+			"stars": 5,
+			"text": "I came for the narration and stayed for the Tenniel pictures. Reading along with the voice made the wordplay land in a way it never did at school.",
+			"spoilers": false,
+			"progression": 1,
+			"createdAt": "2026-09-28T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-alice",
+			"userId": "seed-reader-2",
+			"reviewerName": "Tom Baxter",
+			"stars": 4,
+			"text": "Halfway through, and the Caterpillar is my favourite so far. The pop-up pictures are a lovely touch: I turned them off for a chapter and missed them.",
+			"spoilers": false,
+			"progression": 0.45,
+			"createdAt": "2026-10-02T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-alice",
+			"userId": "seed-reader-3",
+			"reviewerName": "Mo",
+			"stars": 3,
+			"text": "Charming, but very much of its time. I’ll keep going, slowly.",
+			"spoilers": false,
+			"progression": 0.2,
+			"createdAt": "2026-10-05T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-alice",
+			"userId": "seed-reader-4",
+			"reviewerName": "Ellie R.",
+			"stars": 5,
+			"text": "The trial is the best chapter: the whole court turning into a pack of cards is the perfect way to wake up from it all. Read it before any film version.",
+			"spoilers": true,
+			"progression": 1,
+			"createdAt": "2026-10-08T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-alice",
+			"userId": "seed-reader-5",
+			"reviewerName": "Jamal",
+			"stars": 4,
+			"text": "",
+			"spoilers": false,
+			"progression": 0.8,
+			"createdAt": "2026-10-09T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-lamplighters-ledger",
+			"userId": "seed-reader-6",
+			"reviewerName": "Sasha K.",
+			"stars": 5,
+			"text": "A cosy LitRPG with lamps instead of swords. The status windows are genuinely funny, and the Murk is properly creepy.",
+			"spoilers": false,
+			"progression": 0.5,
+			"createdAt": "2026-10-03T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-lamplighters-ledger",
+			"userId": "seed-reader-7",
+			"reviewerName": "Ade",
+			"stars": 4,
+			"text": "The last chapter changes how you see the whole round. I went straight back to chapter one to read it again.",
+			"spoilers": true,
+			"progression": 1,
+			"createdAt": "2026-10-10T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-lamplighters-ledger",
+			"userId": "seed-reader-8",
+			"reviewerName": "Lin",
+			"stars": 3,
+			"text": "A nice idea, but the early chapters are slow while the rules are set up.",
+			"spoilers": false,
+			"progression": 0.3,
+			"createdAt": "2026-10-06T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-treasure-island",
+			"userId": "seed-reader-9",
+			"reviewerName": "Callum",
+			"stars": 5,
+			"text": "Still the best pirate story. Long John Silver is a brilliant villain because you keep wanting to like him.",
+			"spoilers": false,
+			"progression": 1,
+			"createdAt": "2026-09-20T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-treasure-island",
+			"userId": "seed-reader-10",
+			"reviewerName": "Grace O.",
+			"stars": 4,
+			"text": "Faster than I expected. Having it read aloud on my commute worked surprisingly well.",
+			"spoilers": false,
+			"progression": 0.6,
+			"createdAt": "2026-10-01T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-time-machine",
+			"userId": "seed-reader-11",
+			"reviewerName": "Nadia",
+			"stars": 4,
+			"text": "Short and strange. The far-future beach has stayed with me for days.",
+			"spoilers": false,
+			"progression": 1,
+			"createdAt": "2026-09-25T10:00:00.000Z"
+		},
+		{
+			"bookId": "book-wonderful-wizard-of-oz",
+			"userId": "seed-reader-12",
+			"reviewerName": "Ben",
+			"stars": 4,
+			"text": "Kinder and odder than the film. Lovely to read with a child.",
+			"spoilers": false,
+			"progression": 0.7,
+			"createdAt": "2026-10-04T10:00:00.000Z"
 		}
 	]
 }

@@ -5,7 +5,7 @@
  * behind these is made by the Entitlements rules in `@book/domain` (Invariant 15).
  */
 import { z } from 'zod';
-import { bookDetailSchema, productKindSchema } from './backend/dto';
+import { bookDetailSchema, bookSummarySchema, productKindSchema } from './backend/dto';
 import { audioTrackSummarySchema, illustrationImageSchema, layerSummarySchema } from './layers';
 import { moneySchema } from './money';
 
@@ -165,6 +165,18 @@ export const tipInputSchema = z.object({
 });
 export type TipInput = z.input<typeof tipInputSchema>;
 
+/**
+ * A Book on the reader's wishlist (P1-STO-06): the Book with its price now. A sale alert comes
+ * when the price falls below `seenPrice` (D-042).
+ */
+export const wishlistEntrySchema = z.object({
+	book: bookSummarySchema,
+	addedAt: timestamp,
+	/** The price when it was added, or in the reader's last sale alert, whichever came last. */
+	seenPrice: moneySchema
+});
+export type WishlistEntryDto = z.infer<typeof wishlistEntrySchema>;
+
 /** A Book page (P1-STO-01): the Book, its Layers, what it offers, and the reader's place in it. */
 export const bookPageSchema = bookDetailSchema.extend({
 	layers: z.array(layerSummarySchema),
@@ -178,6 +190,8 @@ export const bookPageSchema = bookDetailSchema.extend({
 	/** Its Chapters come out over time (a serial) and may be early access. */
 	isSerial: z.boolean(),
 	/** When its next scheduled Chapter comes out (P1-STU-06): "Next chapter: Friday 24 October". */
-	nextChapterAt: timestamp.nullable().default(null)
+	nextChapterAt: timestamp.nullable().default(null),
+	/** On the signed-in reader's wishlist (P1-STO-06). */
+	wishlisted: z.boolean().default(false)
 });
 export type BookPageDto = z.infer<typeof bookPageSchema>;

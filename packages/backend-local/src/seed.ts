@@ -277,6 +277,17 @@ const storyRecord = z.object({
 /** Seeded ratings and follows by readers who aren't Personas (plan §4.7, "Other people"). */
 const ratingRecord = z.object({ layerId: id, userId: id, stars: z.number().int().min(1).max(5) });
 const followRecord = z.object({ userId: id, creatorId: id });
+/** Other readers' reviews (P1-STO-07): written for the demo, by readers who aren't Personas. */
+const reviewRecord = z.object({
+	bookId: id,
+	userId: id,
+	reviewerName: z.string().trim().min(1).max(60),
+	stars: z.number().int().min(1).max(5),
+	text: z.string().max(4000),
+	spoilers: z.boolean().default(false),
+	progression: z.number().min(0).max(1),
+	createdAt: z.iso.datetime()
+});
 
 export const seedSchema = z.object({
 	/** Bump when the seed changes; a different version re-seeds the simulated backend. */
@@ -296,7 +307,8 @@ export const seedSchema = z.object({
 	flags: z.array(flagRecord).default([]),
 	ratings: z.array(ratingRecord).default([]),
 	follows: z.array(followRecord).default([]),
-	stories: z.array(storyRecord).default([])
+	stories: z.array(storyRecord).default([]),
+	reviews: z.array(reviewRecord).default([])
 });
 
 export type Seed = z.infer<typeof seedSchema>;
@@ -466,6 +478,18 @@ export function parseSeed(raw: unknown): Seed {
 		if (!books.has(story.bookId)) problems.push(`stories.${i}.bookId: no book "${story.bookId}"`);
 		for (const dup of duplicates(story.glossary.map((e) => e.id))) {
 			problems.push(`stories.${i}.glossary: duplicate id "${dup}"`);
+		}
+	});
+
+	for (const dup of duplicates(seed.reviews.map((r) => `${r.userId}|${r.bookId}`))) {
+		problems.push(`reviews: two reviews by one reader of one book ("${dup}")`);
+	}
+	seed.reviews.forEach((r, i) => {
+		if (!books.has(r.bookId)) problems.push(`reviews.${i}.bookId: no book "${r.bookId}"`);
+		if (users.has(r.userId)) {
+			problems.push(
+				`reviews.${i}.userId: "${r.userId}" is a Persona; seeded reviews are other readers'`
+			);
 		}
 	});
 

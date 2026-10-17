@@ -33,6 +33,8 @@ import { createCommunityApi } from './community';
 import { createInboxApi } from './inbox';
 import { createModerationApi } from './moderation';
 import { createReleases } from './releases';
+import { createReviewsApi } from './reviews';
+import { createWishlistApi } from './wishlist';
 import { createStoryModule, seededStory } from './story';
 import { createStudioApi } from './studio';
 import { createSupportApi } from './support';
@@ -159,6 +161,14 @@ async function writeSeed(db: BackendDatabase, seed: Seed, profile: Profile): Pro
 			createdAt: '2026-01-01T00:00:00.000Z'
 		});
 	}
+	for (const review of seed.reviews) {
+		await tx.objectStore('reviews').put({
+			...review,
+			id: `${review.userId}|${review.bookId}`,
+			state: 'visible',
+			updatedAt: review.createdAt
+		});
+	}
 	await tx.objectStore('meta').put({ key: 'seedVersion', value: seed.version });
 	await tx.objectStore('meta').put({ key: 'seedProfile', value: profile });
 	await tx.objectStore('meta').put({ key: 'currentPersonaId', value: seed.defaultPersonaId });
@@ -257,6 +267,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		| 'studio'
 		| 'community'
 		| 'inbox'
+		| 'wishlist'
+		| 'reviews'
 	> = {
 		session: {
 			async current() {
@@ -380,12 +392,20 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 			for (const topic of topics) events.emit(topic);
 		}
 	});
+	const reviews = createReviewsApi({
+		db,
+		clock,
+		requireUser,
+		currentUser: () => currentUser,
+		changed: () => events.emit('reviews')
+	});
 	const moderation = createModerationApi({
 		db,
 		clock,
 		requirePermission,
 		simulation: () => simulation,
 		inbox,
+		reviews,
 		changed: () => {
 			events.emit('moderation');
 			events.emit('catalogue');
@@ -410,7 +430,16 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		nextChapterAt: async (book) => {
 			await releases.refresh();
 			return releases.nextChapterAt(book);
-		}
+		},
+		wishlisted: (userId, bookId) => wishlist.has(userId, bookId)
+	});
+	const wishlist = createWishlistApi({
+		db,
+		clock,
+		requireUser,
+		summaries: (books) => catalogue.summaries(books),
+		inbox,
+		changed: () => events.emit('wishlist')
 	});
 	const studio = createStudioApi({
 		db,
@@ -425,6 +454,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		inbox,
 		story,
 		releases,
+		wishlist,
 		changed: (...topics) => {
 			for (const topic of topics) events.emit(topic);
 		}
@@ -510,6 +540,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		moderation: wrapModule('moderation', moderation, backendContract.moderation),
 		community: wrapModule('community', community, backendContract.community),
 		inbox: wrapModule('inbox', inbox, backendContract.inbox),
+		wishlist: wrapModule('wishlist', wishlist, backendContract.wishlist),
+		reviews: wrapModule('reviews', reviews, backendContract.reviews),
 		events: { on: events.on }
 	};
 

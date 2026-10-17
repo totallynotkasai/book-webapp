@@ -21,6 +21,7 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ManualClock } from './clock';
 import { describeStoreContract } from './store';
+import { describeOpinionsContract } from './opinions';
 import { describeCommunityContract } from './community';
 import { describeReleasesContract } from './releases';
 import { describeStudioContract, type StudioFixtures } from './studio';
@@ -388,6 +389,13 @@ export function describeBackendContract(
 		});
 
 		describeStoreContract({
+			backend: () => backend,
+			clock: () => clock,
+			personas: () => personas,
+			conforms: (module, method, value) => conforms(module as never, method as never, value)
+		});
+
+		describeOpinionsContract({
 			backend: () => backend,
 			clock: () => clock,
 			personas: () => personas,

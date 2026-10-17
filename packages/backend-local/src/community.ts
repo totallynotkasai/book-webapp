@@ -142,13 +142,9 @@ export function createCommunityApi(deps: {
 
 		async report(input) {
 			const user = deps.requireUser();
-			const exists =
-				input.targetType === 'book'
-					? await db.get('books', input.targetId)
-					: input.targetType === 'illustration_pack'
-						? await db.get('illustrationPacks', input.targetId)
-						: await db.get('audioTracks', input.targetId);
-			if (!exists) throw new BackendError('NOT_FOUND', 'That isn’t in the store.');
+			if (!(await deps.moderation.exists(input.targetType, input.targetId))) {
+				throw new BackendError('NOT_FOUND', 'That isn’t in the store.');
+			}
 			await deps.moderation.report(user.id, input);
 		}
 	};
