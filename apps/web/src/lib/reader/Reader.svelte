@@ -324,7 +324,8 @@
 	let windowWidth = $state(typeof innerWidth === 'number' ? innerWidth : 1024);
 	let windowHeight = $state(typeof innerHeight === 'number' ? innerHeight : 768);
 	let saver: ProgressSaver | undefined;
-
+	/** The reader has closed: anything still opening must let go at once. */
+	let destroyed = false;
 	/** What the engine last got, so effects only send real changes. */
 	let applied: { typography: string; layout: string; theme: string; pageTurn: string } | undefined;
 	const offs: (() => void)[] = [];
@@ -393,8 +394,10 @@
 	let readingTime = $state.raw<ReadingTime>();
 	/** Never while narration or the device voice sets the pace (P1-RDR-14 acceptance). */
 	const showTimeLeft = $derived(prefs.timeLeft && !reading && !!readingTime);
-	/** Text after the page and the time left, for screen readers (and wide screens). As
-	 * expressions: Svelte 5 trims the space at the start of an element's text. */
+	/**
+	 * Text after the page and the time left, for screen readers (and wide screens). Expressions,
+	 * since Svelte 5 trims the space at the start of an element's text.
+	 */
 	const IN_THIS_CHAPTER = ' in this chapter';
 	const IN_CHAPTER = ' in chapter';
 	const timeLeftFor = (words: number) => formatTimeLeft(timeLeftMs(words, readingTime!.pace));
@@ -544,6 +547,7 @@
 		search?.destroy();
 		clearTimeout(backTimer);
 		clearTimeout(narrationHintTimer);
+		destroyed = true;
 		void saver?.close();
 		void readingTime?.close();
 		engine?.destroy();
@@ -595,6 +599,8 @@
 					keepStats: () => preferences.current.readingStats,
 					listening: () => !!reading?.playing
 				});
+				// Closed while the Book was opening: its timer mustn't run on.
+				if (destroyed) void readingTime.close();
 			}
 			furthestAtOpen = progress?.furthest ?? null;
 			lastReadAt = progress?.updatedAt;
