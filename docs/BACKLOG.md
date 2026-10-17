@@ -42,6 +42,7 @@ Suggested order when picked up: IOS-01, IOS-02, IOS-04, IOS-05, then the rest.
 | IOS-15 | The device voice on an iPhone: WKWebView's Web Speech API, its voices and Word boundaries, and whether it speaks with the screen locked; update ADR-006 | P1-LAY-08 | Needs a real iPhone. Playwright's WebKit on Windows has no Web Speech API, so CI uses a stand-in |
 | IOS-16 | The sleep timer on an iPhone: iOS ignores an audio element's `volume`, so narration stops on time but doesn't fade out; and with the screen locked the WebView's timer may not run until the native player of IOS-04 counts it, as Android's does | P1-LAY-09 | Comes with IOS-04 (native narration on iOS) |
 | IOS-17 | Share quote on an iPhone: WKWebView's Web Share API with the card as a file (iOS 15+), copying the picture, and the card's reading fonts on the canvas | P1-RDR-16 | Needs a real iPhone; Safari on an iPhone uses the same web code |
+| IOS-18 | Define's "Look up on Wiktionary" in the iPhone app: a `target="_blank"` link from WKWebView should open Safari, as it opens Chrome from Android's WebView | P1-RDR-18 | Needs a real iPhone; Capacitor's iOS WebView may need the Browser plugin for links out |
 
 Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 4).
 
@@ -52,6 +53,9 @@ Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 
 | ID | Item | Deferred from | Why deferred, and what brings it back |
 |---|---|---|---|
 | RDR-03 | **A lighter reader route:** validate the reader's few content schemas without Zod, about 32 KB of the reader route's 216 KB (gzipped) | P1-QA-01 | The route is within its 250 KB budget (docs/perf/p1-qa-01.md); Zod is how `@book/core` validates everything. Brought back when `npm run budget` gets close to the line |
+| RDR-04 | **Define a phrase:** "rabbit hole", "a cappella", "well-known": Open English WordNet's phrases and hyphenated entries (about 90,000 of its 160,000) | P1-RDR-18 | Define looks up one Word (the plan's UX notes), and the tokeniser splits at spaces and hyphens, so the app's copy keeps only single Words (D-043). Brought back if readers select phrases and miss it |
+| RDR-05 | **Dictionaries in other languages:** Define for a Book in French, Spanish and so on | P1-RDR-18 | Open English WordNet is English, so Define shows only in English Books (and those that don't say). Brought back with the first non-English Book a tester reads, with a dictionary chosen as D-043 chose this one |
+| RDR-06 | **The whole dictionary for offline web reading:** on the web a piece of the dictionary downloads the first time a Word in it is looked up, so offline it has only the pieces read that session | P1-RDR-18 | The Android app carries all of it; the web build has no offline support at all yet (Phase 6's offline downloads). Brought back with them |
 
 ---
 

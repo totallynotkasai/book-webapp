@@ -17,6 +17,7 @@ export const READER_SHORTCUTS: Shortcut[] = [
 	['B', 'Bookmark this page, or remove its bookmark'],
 	['N', 'Notes and highlights'],
 	['/', 'Search in this book; Enter goes to the first result'],
+	['O', 'The chapter’s pages at a glance; arrows and Enter go to one'],
 	['→  ↓  Space  /  ←  ↑  Shift+Space', 'In focus mode: the next or previous paragraph'],
 	['?', 'This list']
 ];

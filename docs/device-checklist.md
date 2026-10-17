@@ -89,6 +89,16 @@ The **Emulator** column has the results from 16 October 2026 (owner build, `book
 | A sale alert arrives: wishlist the Ledger as the Reader, lower its price as the Author (Studio → Details), back as the Reader: You → Inbox | Dev panel → Personas | Web E2E | ☐ |
 | Write a review with the on-screen keyboard: the dialog's buttons stay in reach | *Alice*'s Book page → Write a review | ☐ | ☐ |
 
+## Overview and look-up (Phase 1.19)
+
+| Check | How | Emulator | Phone |
+|---|---|---|---|
+| **The overview:** the Chapter's pages two to a row, at the page you're on ("You're here"); a tap goes to that page, and Back returns | In *Alice* Chapter I, tap "Page 9 of 22" under the scrubber; tap another page | ✓ (`book_compact`: page 3 landed on its first Word) | ☐ |
+| The thumbnails look like the pages: headings, pictures, the status window's boxes and table | Dev panel → Import the status-window fixture; open the overview | Web E2E | ☐ |
+| **Look up "antipathies" with the phone offline:** the card has *antipathy* (noun), "a feeling of intense dislike", and "From Open English WordNet 2025 (CC BY 4.0)" | Airplane mode on; Chapter I, long-press "Antipathies", Define (the book icon) | ✓ (airplane mode) | ☐ |
+| A Word the dictionary hasn't got offers "Look up on Wiktionary", which opens the browser at that Word | Long-press "Dinah" in "(Dinah was the cat.)", Define, then the link | ✓ (Chrome opened) | ☐ |
+| Android's own text menu still offers its own options (Copy, Share, any dictionary app) beside the toolbar | Long-press a Word | ☐ | ☐ |
+
 ## Android behaviour
 
 | Check | How | Emulator | Phone |
@@ -132,6 +142,7 @@ Settings → Accessibility → TalkBack on. Swipe right and left to move, double
 | Reading preferences | Each slider and choice reads its name and value; Back closes the sheet | ☐ |
 | Contents and notes | Chapters, Notes and Bookmarks tabs; a chapter opens it | ☐ |
 | Select text and add a note (TalkBack's reading controls → text selection) | Note it if this is hard: it decides how notes work for screen-reader users | ☐ |
+| The page number under the scrubber (Phase 1.19) | "Page 1 of 22 in this chapter. Show the chapter's pages"; in the overview each page reads "Page 3 of 22", then its first words | ☐ |
 
 ### Desktop screen reader
 

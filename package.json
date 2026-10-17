@@ -24,7 +24,8 @@
 		"fixtures:narration": "npm run narration -w @book/tools",
 		"layers": "npm run layers -w @book/tools",
 		"pretest": "node apps/web/scripts/ensure-layers.mjs",
-		"narration": "npm run narration -w @book/tools --"
+		"narration": "npm run narration -w @book/tools --",
+		"dictionary": "npm run dictionary -w @book/tools --"
 	},
 	"engines": {
 		"node": ">=22"

@@ -142,6 +142,49 @@ test('open a cached 10,000-word Chapter (< 1 s)', async ({ page }, testInfo) => 
 	expect(stats(samples).max).toBeLessThan(1000);
 });
 
+test('the overview of a 10,000-word Chapter, drawn on screen (< 1 s)', async ({
+	page
+}, testInfo) => {
+	// P1-RDR-17: no budget of its own in §12.3, so a cached Chapter's (it lays nothing out).
+	await page.goto('/library');
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Import EPUB' }).first().click();
+	await (
+		await chooser
+	).setFiles({
+		name: 'long-chapters.epub',
+		mimeType: 'application/epub+zip',
+		buffer: Buffer.from(bigEpub({ chapters: 2, wordsPerChapter: 10_000, title: 'Long chapters' }))
+	});
+	await page.getByRole('dialog').getByRole('link', { name: 'Read now' }).click();
+	await expect(page.getByTestId('reader')).toHaveAttribute('data-ready', 'true', {
+		timeout: 30_000
+	});
+	await settled(page);
+	// Loaded once first: the measure is opening it, not downloading its code.
+	await showChrome(page);
+	await page.getByTestId('page-label').click();
+	await expect(page.getByTestId('overview')).toBeVisible();
+	await page.keyboard.press('Escape');
+	await throttle(page);
+	const samples: number[] = [];
+	for (let i = 0; i < 3; i++) {
+		await showChrome(page);
+		const started = Date.now();
+		await page.getByTestId('page-label').click();
+		const thumbs = page.getByTestId('overview-page');
+		for (const n of [0, 1, 2, 3])
+			await expect(thumbs.nth(n).locator('.line').first()).toBeAttached();
+		samples.push(Date.now() - started);
+		const count = await thumbs.count();
+		expect(count).toBeGreaterThan(30);
+		await page.keyboard.press('Escape');
+		await expect(page.getByTestId('overview')).toBeHidden();
+	}
+	record(testInfo, 'overview, 10,000-word Chapter', JSON.stringify(stats(samples)), '1000 ms');
+	expect(stats(samples).max).toBeLessThan(1000);
+});
+
 test('page turn, input to first frame (< 100 ms)', async ({ page }, testInfo) => {
 	await openReader(page, 'book-alice');
 	await settled(page);

@@ -21,6 +21,7 @@
 	} from '@book/core';
 	import {
 		createEngine,
+		type ChapterPages,
 		type ReaderEngine,
 		type TableView,
 		type VisibleRange
@@ -98,7 +99,8 @@
 	 * Selecting text (mouse, long-press, or Shift+arrows) brings up the selection toolbar.
 	 * Pictures (§8.2) and narration (§8.3) come from the Book's Layers; any Book can also be read
 	 * aloud by the device's own voice (P1-LAY-08), with a sleep timer (P1-LAY-09). Search
-	 * (P1-RDR-10), focus mode (P1-RDR-11) and the table viewer (P1-RDR-12) load on first use.
+	 * (P1-RDR-10), focus mode (P1-RDR-11), the table viewer (P1-RDR-12), the overview of a Chapter's
+	 * pages (P1-RDR-17) and Define (P1-RDR-18) load on first use.
 	 * A catalogue Book's story so far (P1-RDR-13) is in Contents, up to where the reader has got.
 	 */
 	/**
@@ -312,6 +314,16 @@
 	let sharing = $state.raw<Quote | null>(null);
 	let ShareQuoteView = $state.raw<typeof import('./ShareQuoteDialog.svelte').default>();
 
+	// ---- Overview mode (P1-RDR-17): the Chapter's pages, loaded the first time it opens ----
+	let overviewOpen = $state(false);
+	let overview = $state.raw<ChapterPages | null>(null);
+	let OverviewView = $state.raw<typeof import('./OverviewSheet.svelte').default>();
+
+	// ---- Define (P1-RDR-18): the offline dictionary, loaded the first time a Word is looked up ----
+	let defineOpen = $state(false);
+	let defining = $state('');
+	let DefineCardView = $state.raw<typeof import('./DefineCard.svelte').default>();
+
 	// ---- The table viewer (P1-RDR-12): loads the first time a table is opened ----
 	let tableOpen = $state(false);
 	let table = $state.raw<TableView | null>(null);
@@ -358,6 +370,17 @@
 			? glossaryEntryFor(toolbar.text, storyAt)
 			: undefined
 	);
+	/** The dictionary is English (D-043): offered in English Books, and those that don't say. */
+	const englishBook = $derived(
+		!!manifest && ['en', '', 'und', 'mul', 'zxx'].includes(primaryLanguage(manifest.lang))
+	);
+	/** The toolbar's passage is one Word: Define looks it up. */
+	const definable = $derived.by(() => {
+		if (!toolbar || !englishBook) return null;
+		const anchor = toolbar.kind === 'selection' ? toolbar.anchor : toolbar.annotation.anchor;
+		if (anchor.startOrdinal !== anchor.endOrdinal) return null;
+		return toolbar.kind === 'selection' ? toolbar.text : anchor.quote.exact;
+	});
 	const tokens = $derived(themeTokensOf(prefs, systemDark.current));
 	const themeStyle = $derived(
 		Object.entries(tokens)
@@ -405,6 +428,7 @@
 	 * since Svelte 5 trims the space at the start of an element's text.
 	 */
 	const IN_THIS_CHAPTER = ' in this chapter';
+	const SHOW_PAGES = '. Show the chapter’s pages';
 	const IN_CHAPTER = ' in chapter';
 	const timeLeftFor = (words: number) => formatTimeLeft(timeLeftMs(words, readingTime!.pace));
 	/** "8 min left", in the Chapter from the first Word on screen. */
@@ -674,6 +698,7 @@
 					furthestSeen = range.last;
 				}
 				if (toolbar && range.first.ordinal !== previous?.first.ordinal) closeToolbar();
+				if (overviewOpen) overview = e.chapterPages();
 				saver?.record(range);
 				readingTime?.relocated(range, autoTurning);
 				if (bookEnd !== null && range.last.ordinal >= bookEnd) readingTime?.finished();
@@ -1326,6 +1351,34 @@
 		await engine.goTo(target);
 	}
 
+	// ---- Overview mode (P1-RDR-17) ----
+
+	/** The Chapter's pages as thumbnails, loaded the first time (new features load on first use). */
+	async function openOverview() {
+		const pages = phase.kind === 'ready' ? engine?.chapterPages() : null;
+		if (!pages) return;
+		try {
+			OverviewView ??= (await import('./OverviewSheet.svelte')).default;
+		} catch (error) {
+			console.error(error);
+			snackbars.show('The pages couldn’t open. Check your connection and try again.', {
+				tone: 'error'
+			});
+			return;
+		}
+		overview = pages;
+		overviewOpen = true;
+	}
+
+	/** A page from the overview: its first Word first on screen, and Back to where the reader was. */
+	async function goToPage(index: number) {
+		if (!engine) return;
+		if (reading) reading.following = false;
+		const from = visible?.first;
+		await engine.goToPage(index);
+		if (from && engine.getVisibleRange()?.first.ordinal !== from.ordinal) showBack(from);
+	}
+
 	// ---- Search in the Book (P1-RDR-10) ----
 
 	/** Opens search, loading it the first time (new reader features load on first use). */
@@ -1492,7 +1545,9 @@
 			cardOpen ||
 			lightboxOpen ||
 			tableOpen ||
-			glossaryOpen
+			glossaryOpen ||
+			defineOpen ||
+			overviewOpen
 		);
 	}
 
@@ -1524,6 +1579,8 @@
 			void toggleBookmark();
 		} else if (!ctrl && !event.altKey && (event.key === 'n' || event.key === 'N')) {
 			openContents('notes');
+		} else if (!ctrl && !event.altKey && (event.key === 'o' || event.key === 'O')) {
+			void openOverview();
 		} else if (!ctrl && !event.altKey && event.key === '/') {
 			event.preventDefault();
 			void openSearch();
@@ -1679,6 +1736,24 @@
 		sharing = quoteOf(text);
 		ShareQuoteView ??= (await import('./ShareQuoteDialog.svelte')).default;
 		shareOpen = true;
+	}
+
+	/** Define: the Word's card, loaded the first time (P1-RDR-18). */
+	async function defineFromToolbar() {
+		const word = definable;
+		if (!word) return;
+		closeToolbar();
+		try {
+			DefineCardView ??= (await import('./DefineCard.svelte')).default;
+		} catch (error) {
+			console.error(error);
+			snackbars.show('The dictionary couldn’t open. Check your connection and try again.', {
+				tone: 'error'
+			});
+			return;
+		}
+		defining = word;
+		defineOpen = true;
 	}
 
 	async function removeFromToolbar() {
@@ -2102,11 +2177,20 @@
 		/>
 		<span class="where">
 			<!-- "in this chapter" (§9.2) is for screen readers; the bar has no room for it on phones. -->
-			<span class="page" data-testid="page-label"
-				>{pageLabel}{#if visible?.pageInChapter}<span class="visually-hidden"
-						>{IN_THIS_CHAPTER}</span
-					>{/if}</span
-			>
+			{#if visible?.pageInChapter}
+				<!-- Overview mode (P1-RDR-17) opens from here: the Chapter's pages at a glance. -->
+				<button
+					type="button"
+					class="page"
+					data-testid="page-label"
+					aria-haspopup="dialog"
+					disabled={phase.kind !== 'ready'}
+					onclick={() => void openOverview()}
+					>{pageLabel}<span class="visually-hidden">{IN_THIS_CHAPTER}{SHOW_PAGES}</span></button
+				>
+			{:else}
+				<span class="page" data-testid="page-label">{pageLabel}</span>
+			{/if}
 			{#if timeLeftInChapter}
 				<span class="time-left" data-testid="time-left"
 					>{timeLeftInChapter}<span class="in-chapter">{IN_CHAPTER}</span></span
@@ -2194,6 +2278,7 @@
 		onremove={() => void removeFromToolbar()}
 		onattach={creatorPack && toolbar.kind === 'selection' ? attachFromToolbar : undefined}
 		onglossary={selectedEntry ? () => void showGlossary(selectedEntry) : undefined}
+		ondefine={definable ? () => void defineFromToolbar() : undefined}
 		onclose={closeToolbar}
 	/>
 {/if}
@@ -2307,6 +2392,18 @@
 {/if}
 {#if TableViewerView}
 	<TableViewerView bind:open={tableOpen} view={table} />
+{/if}
+{#if OverviewView}
+	<OverviewView
+		bind:open={overviewOpen}
+		pages={overview}
+		title={chapterTitle}
+		draw={(index) => engine?.drawPage(index) ?? null}
+		ongo={(index) => void goToPage(index)}
+	/>
+{/if}
+{#if DefineCardView}
+	<DefineCardView bind:open={defineOpen} text={defining} />
 {/if}
 {#if ShareQuoteView && manifest}
 	<ShareQuoteView
@@ -2524,6 +2621,28 @@
 		line-height: 1.3;
 		text-align: center;
 		font-variant-numeric: tabular-nums;
+	}
+
+	/* The page indicator opens the overview (P1-RDR-17): it reads as the label it was, until hovered. */
+	button.page {
+		min-height: 32px;
+		padding: 0 var(--space-2);
+		border: none;
+		border-radius: var(--md-sys-shape-corner-full);
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		font-variant-numeric: tabular-nums;
+		cursor: pointer;
+	}
+
+	button.page:hover {
+		background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+	}
+
+	button.page:focus-visible {
+		outline: 3px solid var(--md-sys-color-secondary);
+		outline-offset: 0;
 	}
 
 	/* On a phone the bar has room for "8 min left" under the page; "in chapter" is still read out. */

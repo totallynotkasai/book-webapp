@@ -14,15 +14,18 @@ import {
 	type RevisionManifest
 } from '@book/core';
 import { ChapterContent } from './content';
+import { drawPage, pageStarts, type PageGeometry } from './pages';
 import { BASE_CSS, MARGINS, themeCss, typographyCss } from './styles';
 import { isSqueezed, TABLE_ROW, tableOfRow, tableRow, tableView } from './tables';
 import type {
+	ChapterPages,
 	ChapterText,
 	Decoration,
 	EngineEvent,
 	EngineEvents,
 	EngineOptions,
 	FigureInjection,
+	PageDrawing,
 	PageTurn,
 	PublicationHandle,
 	ReaderEngine,
@@ -64,7 +67,20 @@ interface Paginator extends HTMLElement {
 	/** The scroll offset of the visible area (pixels along the flow). */
 	readonly start: number;
 	readonly pages: number;
+	/** A page's (or spread's) width along the flow. */
+	readonly size: number;
 	readonly scrolled: boolean;
+}
+
+/** A Chapter's pages as overview mode measured them (P1-RDR-17). */
+interface MeasuredPages {
+	doc: Document;
+	/** The geometry they were measured in: a change means measuring again. */
+	key: string;
+	geometry: PageGeometry;
+	/** Each page's first Word, or -1. */
+	starts: number[];
+	punctuated?: string[];
 }
 
 type Listeners = { [E in EngineEvent]: Set<(payload: EngineEvents[E]) => void> };
@@ -142,6 +158,8 @@ export class FoliateEngine implements ReaderEngine {
 	#destroyed = false;
 	/** Set while following a link in the book, so the next relocation says so. */
 	#linking = false;
+	/** The pages overview mode last measured (P1-RDR-17), until the Chapter or layout changes. */
+	#pages: MeasuredPages | null = null;
 
 	#emit<E extends EngineEvent>(event: E, payload: EngineEvents[E]) {
 		for (const cb of this.#listeners[event]) cb(payload);
@@ -863,6 +881,80 @@ export class FoliateEngine implements ReaderEngine {
 			texts: map.punctuatedTexts(),
 			blocks: words.index.words.map((w) => w[1])
 		};
+	}
+
+	// ---- overview mode (P1-RDR-17) ----
+
+	/** The current Chapter's page geometry, or null when it has no pages to show. */
+	#geometry(doc: Document): PageGeometry | null {
+		const p = this.#paginator;
+		const win = doc.defaultView;
+		if (!p || !win || p.scrolled) return null;
+		const body = win.getComputedStyle(doc.body);
+		if (body.writingMode.startsWith('vertical')) return null;
+		const count = p.pages - 2;
+		if (count < 1) return null;
+		return {
+			size: p.size,
+			height: win.innerHeight,
+			count,
+			frameWidth: win.innerWidth,
+			rtl: doc.body.dir === 'rtl' || body.direction === 'rtl' || doc.documentElement.dir === 'rtl'
+		};
+	}
+
+	/** The pages measured for the Chapter on screen, measuring again when anything moved. */
+	#measure(): MeasuredPages | null {
+		const current = this.#current();
+		const map = current && this.#maps.get(current.doc);
+		const geometry = current && this.#geometry(current.doc);
+		if (!current || !map || !geometry) return null;
+		const key = JSON.stringify(geometry);
+		if (this.#pages?.doc !== current.doc || this.#pages.key !== key) {
+			this.#pages = { doc: current.doc, key, geometry, starts: pageStarts(map, geometry) };
+		}
+		return this.#pages;
+	}
+
+	chapterPages(): ChapterPages | null {
+		const measured = this.#measure();
+		const current = this.#current();
+		const map = current && this.#maps.get(current.doc);
+		if (!measured || !current || !map) return null;
+		const win = current.doc.defaultView!;
+		return {
+			chapterId: map.words.chapter.chapterId,
+			width: measured.geometry.size,
+			height: measured.geometry.height,
+			background: win.getComputedStyle(current.doc.body).backgroundColor,
+			dir: measured.geometry.rtl ? 'rtl' : 'ltr',
+			current: Math.min(measured.geometry.count - 1, Math.max(0, this.#paginator!.page - 1)),
+			pages: measured.starts.map((i) => ({ first: i >= 0 ? map.pointAnchor(i) : null }))
+		};
+	}
+
+	drawPage(index: number): PageDrawing | null {
+		const measured = this.#measure();
+		const map = measured && this.#maps.get(measured.doc);
+		if (!measured || !map || index < 0 || index >= measured.geometry.count) return null;
+		measured.punctuated ??= map.punctuatedTexts();
+		return drawPage(map, measured.geometry, index, measured.starts, measured.punctuated);
+	}
+
+	async goToPage(index: number): Promise<void> {
+		const measured = this.#measure();
+		const current = this.#current();
+		const map = current && this.#maps.get(current.doc);
+		if (!measured || !current || !map || index < 0 || index >= measured.geometry.count) return;
+		const first = measured.starts[index]!;
+		if (first >= 0) return this.goTo(map.pointAnchor(first));
+		// A page with no Word on it (a picture): by its place among the Chapter's pages.
+		const relocated = this.#nextRelocate();
+		await this.#paginator!.goTo({
+			index: current.index,
+			anchor: () => index / Math.max(1, measured.geometry.count - 1)
+		});
+		await relocated;
 	}
 
 	injectFigures(items: FigureInjection[]): void {
