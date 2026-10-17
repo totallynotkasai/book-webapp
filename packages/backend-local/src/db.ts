@@ -1,10 +1,12 @@
 import type {
 	AiUse,
+	AnchorStatus,
 	FlagTargetType,
 	InboxAboutDto,
 	IngestReport,
 	ModerationAction,
 	Money,
+	RangeAnchor,
 	ReportReason,
 	RevisionChangesDto
 } from '@book/core';
@@ -80,6 +82,55 @@ export interface BackendDB extends DBSchema {
 	wishlists: { key: string; value: WishlistRecord; indexes: { userId: string; bookId: string } };
 	/** Reviews (P1-STO-07), keyed `<userId>|<bookId>`: one per reader per Book. */
 	reviews: { key: string; value: ReviewRecord; indexes: { bookId: string } };
+	/** Paragraph comments and their replies (P1-COM-03). */
+	comments: { key: string; value: CommentRecord; indexes: { bookId: string } };
+	/** Other readers' highlights, counted for popular highlights (P1-COM-04). */
+	sharedHighlights: { key: string; value: SharedHighlightRecord; indexes: { bookId: string } };
+}
+
+/**
+ * Where something attached to a Book's text is (Invariant 2), worked out again for each Revision it's
+ * read on (§6.2): migrated by WordIds, found by its quote, or orphaned (kept, but not shown).
+ */
+export interface Placement {
+	/** The Revision it was last placed on; null until a seeded passage is first looked for. */
+	revisionId: string | null;
+	chapterId: string;
+	/** Null while a seeded passage hasn't been found in the text. */
+	anchor: RangeAnchor | null;
+	status: AnchorStatus;
+	/** A seeded record's Words, found in the Chapter the first time they're read. */
+	passage: string | null;
+}
+
+/** A reader's comment on a passage, or a reply to one (P1-COM-03). */
+export interface CommentRecord {
+	id: string;
+	bookId: string;
+	/** The comment a reply is to; null for a comment. */
+	parentId: string | null;
+	userId: string;
+	authorName: string;
+	text: string;
+	spoilers: boolean;
+	/**
+	 * `hidden`: a moderator hid it after a report; only its writer sees it. `deleted`: its writer
+	 * deleted a comment that has replies; its words are gone and its place stays for them.
+	 */
+	state: 'visible' | 'hidden' | 'deleted';
+	createdAt: string;
+	/** Order of writing within its Book, for comments written in the same instant. */
+	seq: number;
+	/** A comment's passage; null for a reply, which is on its comment's. */
+	place: Placement | null;
+}
+
+/** Another reader's highlight, only ever counted (P1-COM-04): who it was never leaves the backend. */
+export interface SharedHighlightRecord {
+	id: string;
+	bookId: string;
+	readerId: string;
+	place: Placement;
 }
 
 export interface WishlistRecord {
@@ -305,11 +356,13 @@ export const SEEDED_STORES = [
 	'stories',
 	'chapterReleases',
 	'wishlists',
-	'reviews'
+	'reviews',
+	'comments',
+	'sharedHighlights'
 ] as const;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 11;
+const VERSION = 12;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -389,6 +442,11 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 				wishlists.createIndex('userId', 'userId');
 				wishlists.createIndex('bookId', 'bookId');
 				db.createObjectStore('reviews', { keyPath: 'id' }).createIndex('bookId', 'bookId');
+			}
+			if (oldVersion < 12) {
+				// P1-COM-03, P1-COM-04: comments and other readers' highlights, both seeded.
+				db.createObjectStore('comments', { keyPath: 'id' }).createIndex('bookId', 'bookId');
+				db.createObjectStore('sharedHighlights', { keyPath: 'id' }).createIndex('bookId', 'bookId');
 			}
 		}
 	});

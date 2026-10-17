@@ -106,9 +106,12 @@ export const flagTargetSchema = z.object({
 	state: listingStateSchema.nullable(),
 	/** The creator was asked to correct the AI label and hasn't yet. */
 	relabelRequired: z.boolean(),
-	/** For a Layer or a review: the Book it's for. */
+	/** For a Layer, a review or a comment: the Book it's for. */
 	bookTitle: z.string().nullable(),
-	/** For a review: its stars and words, as the moderator needs to read them (P1-STO-07). */
+	/**
+	 * What the moderator needs to read: a review's stars and words (P1-STO-07), or a comment's
+	 * words and the passage it's on (P1-COM-03).
+	 */
 	excerpt: z.string().nullable().default(null)
 });
 

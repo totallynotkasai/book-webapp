@@ -33,6 +33,7 @@ import {
 	type Permission
 } from '@book/domain';
 import { newId } from './checkout';
+import type { CommentsModule } from './comments';
 import type { BackendDatabase, ModerationActionRecord } from './db';
 import type { InboxModule } from './inbox';
 import { paginate } from './paging';
@@ -40,8 +41,13 @@ import type { ReviewsModule } from './reviews';
 import type { FlagRecord } from './seed';
 import type { SimulationSettings } from './simulation';
 
-/** What a Book's or Layer's listing state applies to; reviews are moderated on their own. */
-type ContentType = Exclude<FlagTargetType, 'creator' | 'review'>;
+/** What a Book's or Layer's listing state applies to; readers' words are moderated on their own. */
+type ContentType = Exclude<FlagTargetType, 'creator' | 'review' | 'comment'>;
+
+/** Readers' own words (P1-STO-07, P1-COM-03): approved, hidden, removed, or their writer warned. */
+type ReadersWords = Extract<FlagTargetType, 'review' | 'comment'>;
+const readersWords = (type: FlagTargetType): type is ReadersWords =>
+	type === 'review' || type === 'comment';
 
 interface Target {
 	type: FlagTargetType;
@@ -54,10 +60,10 @@ interface Target {
 	relabelRequired: boolean;
 	bookTitle: string | null;
 	bookId: string | null;
-	/** A review's stars and words, for the moderator (P1-STO-07). */
+	/** A review's stars and words (P1-STO-07), or a comment's words and passage (P1-COM-03). */
 	excerpt: string | null;
-	/** Who wrote a review: they hear the outcome, as a Creator does for their content. */
-	reviewerId: string | null;
+	/** Who wrote a review or comment: they hear the outcome, as a Creator does for their content. */
+	writerId: string | null;
 	/** The Book page, for the reviewer's message. */
 	bookSlug: string | null;
 }
@@ -92,6 +98,8 @@ export function createModerationApi(deps: {
 	inbox: InboxModule;
 	/** Readers' reviews (P1-STO-07): a report target, hidden or removed by a moderator. */
 	reviews?: ReviewsModule;
+	/** Readers' comments and replies (P1-COM-03): the same. */
+	comments?: CommentsModule;
 	changed: () => void;
 }): ModerationModule {
 	const { db, clock } = deps;
@@ -99,7 +107,7 @@ export function createModerationApi(deps: {
 	async function target(type: FlagTargetType, id: string): Promise<Target> {
 		const creatorName = async (creatorId: string | null) =>
 			creatorId ? ((await db.get('creators', creatorId))?.displayName ?? '') : '';
-		const none = { excerpt: null, reviewerId: null, bookSlug: null };
+		const none = { excerpt: null, writerId: null, bookSlug: null };
 		if (type === 'creator') {
 			const creator = await db.get('creators', id);
 			return {
@@ -135,7 +143,39 @@ export function createModerationApi(deps: {
 				excerpt: review
 					? `${review.stars} of 5 stars${review.spoilers ? ', marked as having spoilers' : ''}. ${review.text || '(Stars only, no words.)'}`
 					: null,
-				reviewerId: review?.userId ?? null,
+				writerId: review?.userId ?? null,
+				bookSlug: book?.slug ?? null
+			};
+		}
+		if (type === 'comment') {
+			const comment = await deps.comments?.get(id);
+			const book = comment ? await db.get('books', comment.bookId) : undefined;
+			const parent = comment?.parentId ? await deps.comments?.get(comment.parentId) : comment;
+			const passage = parent?.place?.anchor?.quote.exact ?? parent?.place?.passage ?? null;
+			const kind = comment?.parentId ? 'Reply' : 'Comment';
+			return {
+				type,
+				id,
+				title: comment
+					? `${kind} on “${book?.title ?? comment.bookId}” by ${comment.authorName}`
+					: id,
+				creatorId: null,
+				creatorName: comment?.authorName ?? '',
+				aiUse: null,
+				state: null,
+				relabelRequired: false,
+				bookTitle: book?.title ?? null,
+				bookId: comment?.bookId ?? null,
+				excerpt: comment
+					? [
+							`“${comment.text || '(Deleted by its writer.)'}”`,
+							comment.spoilers ? 'Marked as having spoilers.' : '',
+							passage ? `On the passage “${passage}”.` : ''
+						]
+							.filter(Boolean)
+							.join(' ')
+					: null,
+				writerId: comment?.userId ?? null,
 				bookSlug: book?.slug ?? null
 			};
 		}
@@ -246,9 +286,9 @@ export function createModerationApi(deps: {
 		);
 		const newest = <T extends { createdAt: string }>(a: T, b: T) =>
 			b.createdAt.localeCompare(a.createdAt);
-		const { bookId: _bookId, reviewerId: _reviewer, bookSlug: _slug, ...visible } = t;
+		const { bookId: _bookId, writerId: _writer, bookSlug: _slug, ...visible } = t;
 		void _bookId;
-		void _reviewer;
+		void _writer;
 		void _slug;
 		return {
 			flag: await toDto(flag),
@@ -286,13 +326,18 @@ export function createModerationApi(deps: {
 		suspend: () => 'Your account has been suspended'
 	};
 
-	/** What a reviewer hears (P1-STO-07); a review can't be relabelled, and has no account to suspend. */
-	const REVIEW_OUTCOME: Partial<Record<ActInput['action'], (book: string) => string>> = {
-		approve: (book) => `Your review of “${book}” was looked at and is fine`,
-		hide: (book) => `Your review of “${book}” has been hidden`,
-		remove: (book) => `Your review of “${book}” has been removed`,
-		warn: (book) => `A warning about your review of “${book}”`
+	/**
+	 * What a reviewer (P1-STO-07) or commenter (P1-COM-03) hears: readers' words can't be
+	 * relabelled, and have no Creator account to suspend.
+	 */
+	const WORDS_OUTCOME: Partial<Record<ActInput['action'], (what: string) => string>> = {
+		approve: (what) => `Your ${what} was looked at and is fine`,
+		hide: (what) => `Your ${what} has been hidden`,
+		remove: (what) => `Your ${what} has been removed`,
+		warn: (what) => `A warning about your ${what}`
 	};
+	const wordsAbout = (type: ReadersWords, book: string) =>
+		type === 'review' ? `review of “${book}”` : `comment on “${book}”`;
 
 	const APPEAL =
 		'If you think this is a mistake, you can appeal: reply from your Studio (in this preview, tell the owner).';
@@ -329,18 +374,22 @@ export function createModerationApi(deps: {
 			}
 			let state: FlagRecord['state'] = 'actioned';
 			const type = flag.targetType as ContentType;
-			const reviewOutcome = REVIEW_OUTCOME[input.action];
-			if (flag.targetType === 'review') {
-				if (!reviewOutcome) {
+			const wordsOutcome = WORDS_OUTCOME[input.action];
+			if (readersWords(flag.targetType)) {
+				if (!wordsOutcome) {
 					throw new BackendError(
 						'VALIDATION_FAILED',
-						'A review can be approved, hidden or removed, or its writer warned.'
+						`A ${flag.targetType} can be approved, hidden or removed, or its writer warned.`
 					);
 				}
+				const moderate = (outcome: 'visible' | 'hidden' | 'removed') =>
+					flag.targetType === 'review'
+						? deps.reviews?.moderate(t.id, outcome)
+						: deps.comments?.moderate(t.id, outcome);
 				if (input.action === 'approve') state = 'cleared';
-				if (input.action === 'approve') await deps.reviews?.moderate(t.id, 'visible');
-				if (input.action === 'hide') await deps.reviews?.moderate(t.id, 'hidden');
-				if (input.action === 'remove') await deps.reviews?.moderate(t.id, 'removed');
+				if (input.action === 'approve') await moderate('visible');
+				if (input.action === 'hide') await moderate('hidden');
+				if (input.action === 'remove') await moderate('removed');
 			} else {
 				switch (input.action) {
 					case 'approve':
@@ -392,16 +441,18 @@ export function createModerationApi(deps: {
 				createdAt: now,
 				seq: await db.count('moderationActions')
 			});
-			if (flag.targetType === 'review' && t.reviewerId && reviewOutcome) {
+			if (readersWords(flag.targetType) && t.writerId && wordsOutcome) {
 				await deps.inbox.notify(
-					{ userId: t.reviewerId },
+					{ userId: t.writerId },
 					{
-						title: reviewOutcome(t.bookTitle ?? 'a book'),
+						title: wordsOutcome(wordsAbout(flag.targetType, t.bookTitle ?? 'a book')),
 						body:
 							input.action === 'approve'
 								? `A moderator read it after a report. ${input.reason}`
 								: `${input.reason} ${APPEAL}`,
-						about: t.bookSlug ? { type: 'review', id: flag.targetId, slug: t.bookSlug } : null
+						about: t.bookSlug
+							? { type: flag.targetType, id: flag.targetId, slug: t.bookSlug }
+							: null
 					}
 				);
 			} else if (t.creatorId) {
@@ -547,6 +598,10 @@ export function createModerationApi(deps: {
 
 		async exists(type, id) {
 			if (type === 'review') return !!(await deps.reviews?.get(id));
+			if (type === 'comment') {
+				const comment = await deps.comments?.get(id);
+				return !!comment && comment.state !== 'deleted';
+			}
 			const record =
 				type === 'book'
 					? await db.get('books', id)

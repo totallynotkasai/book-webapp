@@ -502,6 +502,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				contentWarnings: fresh.contentWarnings,
 				communityPolicy: fresh.communityPolicy,
 				communityAi: fresh.communityAi,
+				readerComments: fresh.readerComments,
 				isSerial: fresh.isSerial,
 				earlyAccessChapters: fresh.earlyAccess?.chapters ?? 0
 			},
@@ -1110,6 +1111,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 						nextWordId: 1,
 						communityPolicy: 'closed',
 						communityAi: 'allowed',
+						readerComments: true,
 						relabelRequired: false,
 						endorsed: false,
 						authorApproved: false
@@ -1155,6 +1157,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			if (changes.contentWarnings !== undefined) next.contentWarnings = changes.contentWarnings;
 			if (changes.communityPolicy !== undefined) next.communityPolicy = changes.communityPolicy;
 			if (changes.communityAi !== undefined) next.communityAi = changes.communityAi;
+			if (changes.readerComments !== undefined) next.readerComments = changes.readerComments;
 			if (changes.isSerial !== undefined) next.isSerial = changes.isSerial;
 			if (changes.aiUse !== undefined) {
 				// A corrected AI answer for the version readers have (§10.6 relabelling).
@@ -1203,7 +1206,11 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			await setPrice('book', bookId, changes.price);
 			// A lower price tells the readers who wishlisted it (P1-STO-06, D-042).
 			if (changes.price) await deps.wishlist?.priceChanged(bookId, changes.price);
-			deps.changed('studio', 'catalogue');
+			deps.changed(
+				'studio',
+				'catalogue',
+				...(next.readerComments !== book.readerComments ? (['comments'] as const) : [])
+			);
 			return detail(next);
 		},
 

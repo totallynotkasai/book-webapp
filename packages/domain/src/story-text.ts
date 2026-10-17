@@ -62,14 +62,18 @@ export class RevisionWordTexts {
 		}
 	}
 
-	/** The name's first occurrence in reading order, or null when it isn't in the text. */
-	find(name: string): NameOccurrence | null {
+	/**
+	 * The name's first occurrence in reading order, or null when it isn't in the text. With
+	 * `chapterId`, its first in that Chapter (a seeded comment's passage, P1-COM-03).
+	 */
+	find(name: string, chapterId?: string): NameOccurrence | null {
 		const words = nameWords(name);
 		const k = words.length;
 		if (!k) return null;
 		for (const start of this.#at.get(words[0]!.toLowerCase()) ?? []) {
 			const end = start + k - 1;
 			if (end >= this.#texts.length || this.#chapterIds[end] !== this.#chapterIds[start]) continue;
+			if (chapterId !== undefined && this.#chapterIds[start] !== chapterId) continue;
 			let found = true;
 			for (let j = 0; j < k; j++) {
 				if (!wordMatches(this.#texts[start + j]!, words[j]!, j === k - 1)) {
@@ -80,6 +84,31 @@ export class RevisionWordTexts {
 			if (found) return this.#occurrence(start, end);
 		}
 		return null;
+	}
+
+	/**
+	 * The Words from one Ordinal to another, inclusive, as an occurrence (a popular highlight's
+	 * passage, P1-COM-04); null when either isn't a Word or they're in different Chapters.
+	 */
+	between(startOrdinal: number, endOrdinal: number): NameOccurrence | null {
+		const start = this.#positionOf(startOrdinal);
+		const end = this.#positionOf(endOrdinal);
+		if (start < 0 || end < start || this.#chapterIds[start] !== this.#chapterIds[end]) return null;
+		return this.#occurrence(start, end);
+	}
+
+	/** Where an Ordinal's Word is in reading order, or -1. */
+	#positionOf(ordinal: number): number {
+		let lo = 0;
+		let hi = this.#ordinals.length - 1;
+		while (lo <= hi) {
+			const mid = (lo + hi) >> 1;
+			const at = this.#ordinals[mid]!;
+			if (at === ordinal) return mid;
+			if (at < ordinal) lo = mid + 1;
+			else hi = mid - 1;
+		}
+		return -1;
 	}
 
 	#join(from: number, to: number): string {

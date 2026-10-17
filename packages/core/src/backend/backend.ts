@@ -8,7 +8,8 @@
  * methods it needs, with schemas in `contract.ts` and cases in the contract suite: P0-08 starts
  * `session`, `catalogue`, `library`, `studio` and `events`; `moderation` (P1-APP-01, extended
  * by P1-ADM-02), `content` (P1-APP-03), `checkout` (P1-STO-02), `support` (P1-STO-04), `layers`
- * (P1-LAY-01) and `community` (P1-COM-01) follow.
+ * (P1-LAY-01) and `community` (P1-COM-01) follow; `wishlist` and `reviews` (P1-STO-06,
+ * P1-STO-07), `comments` (P1-COM-03) and `highlights` (P1-COM-04) are simulated until Phase 6.
  *
  * Every method can reject with a `BackendError`. Lists are paged as `{ items, nextCursor }`.
  */
@@ -74,6 +75,13 @@ import type {
 	WishlistEntryDto
 } from '../store';
 import type { BookReviewsDto, ReviewDto, ReviewInput } from '../reviews';
+import type {
+	ChapterCommentsDto,
+	CommentDto,
+	CommentInput,
+	PopularHighlightsDto,
+	ReplyInput
+} from '../together';
 import type { Page, PageRequest } from './paging';
 
 export interface SessionApi {
@@ -363,6 +371,47 @@ export interface ReviewsApi {
 	remove(bookId: string): Promise<void>;
 }
 
+/**
+ * Paragraph comments (P1-COM-03; simulated until Phase 6): readers' comments on passages, one level
+ * of replies, shown behind a count once the reader turns them on for a Book. Anyone who can open a
+ * Chapter can read its comments; writing needs the Book (D-044), and its author can turn comments
+ * off. Readers report a comment or a reply with `community.report` (target `comment`).
+ */
+export interface CommentsApi {
+	/**
+	 * A Chapter's comments on the Book's current Revision, which they move to when the author
+	 * publishes a new one (§6.2); one whose passage is gone is kept but not shown. Ones a moderator
+	 * hid are left out, but for their writer's. `ENTITLEMENT_REQUIRED` for a Chapter the reader
+	 * can't open (Invariant 15); `NOT_FOUND` for an unknown Book or Chapter.
+	 */
+	list(bookId: string, chapterId: string): Promise<ChapterCommentsDto>;
+	/**
+	 * A comment on a passage of a Chapter the reader can open. `ENTITLEMENT_REQUIRED` unless they own
+	 * the Book; `FORBIDDEN` when its author has turned comments off; `CONFLICT` when the passage is
+	 * on an older Revision (the Book has a new version); `VALIDATION_FAILED` for one not in the Book.
+	 */
+	add(bookId: string, input: CommentInput): Promise<CommentDto>;
+	/** Replies to a comment, under the same rules. Returns the comment with its replies. */
+	reply(commentId: string, input: ReplyInput): Promise<CommentDto>;
+	/**
+	 * Deletes the reader's own comment or reply; `FORBIDDEN` for anyone else's. A comment with
+	 * replies stays for them, as deleted. One that's gone already changes nothing.
+	 */
+	remove(commentId: string): Promise<void>;
+}
+
+/**
+ * Popular highlights (P1-COM-04; simulated until Phase 6): passages many readers highlighted. The
+ * counts are other readers' (seeded in the PoC): the reader's own highlights stay on their device.
+ */
+export interface HighlightsApi {
+	/**
+	 * Passages at least `minReaders` readers highlighted, on the current Revision, in Chapters the
+	 * reader can open, with how many readers; never who. `ENTITLEMENT_REQUIRED` like `content.open`.
+	 */
+	popular(bookId: string): Promise<PopularHighlightsDto>;
+}
+
 /** A user's in-app inbox: moderation outcomes, submissions, approvals (plan §4.7). */
 export interface InboxApi {
 	/** Newest first. */
@@ -400,7 +449,9 @@ export const backendTopics = [
 	'community',
 	'inbox',
 	'wishlist',
-	'reviews'
+	'reviews',
+	/** Paragraph comments and replies, and a Book's comments being allowed or not. */
+	'comments'
 ] as const;
 export type BackendTopic = (typeof backendTopics)[number];
 
@@ -423,5 +474,7 @@ export interface Backend {
 	inbox: InboxApi;
 	wishlist: WishlistApi;
 	reviews: ReviewsApi;
+	comments: CommentsApi;
+	highlights: HighlightsApi;
 	events: BackendEvents;
 }

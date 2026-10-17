@@ -68,6 +68,13 @@ import {
 	storySoFarSchema,
 	studioStorySchema
 } from '../story';
+import {
+	chapterCommentsSchema,
+	commentInputSchema,
+	commentSchema,
+	popularHighlightsSchema,
+	replyInputSchema
+} from '../together';
 import { pageRequestSchema, pageSchema } from './paging';
 
 const optionalPage = z.tuple([pageRequestSchema.optional()]);
@@ -228,6 +235,15 @@ export const backendContract = {
 		},
 		save: { input: z.tuple([id, reviewInputSchema]), output: reviewSchema },
 		remove: { input: slug, output: z.undefined() }
+	},
+	comments: {
+		list: { input: z.tuple([id, id]), output: chapterCommentsSchema },
+		add: { input: z.tuple([id, commentInputSchema]), output: commentSchema },
+		reply: { input: z.tuple([id, replyInputSchema]), output: commentSchema },
+		remove: { input: slug, output: z.undefined() }
+	},
+	highlights: {
+		popular: { input: slug, output: popularHighlightsSchema }
 	},
 	moderation: {
 		listQueue: { input: optionalPage, output: pageSchema(flagSchema) },

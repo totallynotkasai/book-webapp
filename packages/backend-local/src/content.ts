@@ -108,6 +108,18 @@ export interface ContentModule extends ContentApi {
 	manifestOf(revisionId: string): Promise<RevisionManifest>;
 	/** The current Revision's Chapters still to come (P1-STU-06), with when each comes out. */
 	toCome(book: BookRecord, manifest: RevisionManifest): Promise<Map<string, Date>>;
+	/**
+	 * What the signed-in reader can read of a Book, as `open` decides it (an owner, or a sample
+	 * reader of a listed Book): the current Revision and which of its Chapters they can open.
+	 * Rejects like `open`. For what's attached to the text: comments and highlights (P1-COM-03).
+	 */
+	reading(bookId: string): Promise<{
+		book: BookRecord;
+		owns: boolean;
+		revisionId: string;
+		manifest: RevisionManifest;
+		readable: (chapterId: string) => boolean;
+	}>;
 }
 
 export function createContentApi(deps: {
@@ -335,6 +347,21 @@ export function createContentApi(deps: {
 		return { book, owns, holds };
 	}
 
+	async function reading(bookId: string) {
+		const { book, owns, holds } = await access(bookId, true);
+		const revisionId = await currentRevisionId(book);
+		const manifest = await manifestOf(revisionId);
+		const locked = new Set((await lockedFor(book, manifest, owns, holds)).map((l) => l.chapterId));
+		const known = new Set(manifest.chapters.map((c) => c.chapterId));
+		return {
+			book,
+			owns,
+			revisionId,
+			manifest,
+			readable: (chapterId: string) => known.has(chapterId) && !locked.has(chapterId)
+		};
+	}
+
 	return {
 		async open(bookId, options): Promise<OpenBookDto> {
 			const { book, owns, holds } = await access(bookId, !!options?.sample);
@@ -434,15 +461,12 @@ export function createContentApi(deps: {
 
 		async storySoFar(bookId) {
 			// A sample reader gets what their sample Chapters hold, like the sample itself.
-			const { book, owns, holds } = await access(bookId, true);
-			const revisionId = await currentRevisionId(book);
-			const manifest = await manifestOf(revisionId);
-			const locked = new Set(
-				(await lockedFor(book, manifest, owns, holds)).map((l) => l.chapterId)
-			);
+			const { book, revisionId, readable } = await reading(bookId);
 			if (!deps.story) return null;
-			return deps.story.forReader(book, revisionId, (chapterId) => !locked.has(chapterId));
+			return deps.story.forReader(book, revisionId, readable);
 		},
+
+		reading,
 
 		grantLayer(layerId, baseUrl, only) {
 			return grant({ kind: 'layer', layerId, baseUrl, only: only ? new Set(only) : undefined });

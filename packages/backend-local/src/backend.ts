@@ -34,6 +34,9 @@ import { createInboxApi } from './inbox';
 import { createModerationApi } from './moderation';
 import { createReleases } from './releases';
 import { createReviewsApi } from './reviews';
+import { createCommentsApi } from './comments';
+import { createHighlightsApi } from './highlights';
+import { createPlacements } from './placements';
 import { createWishlistApi } from './wishlist';
 import { createStoryModule, seededStory } from './story';
 import { createStudioApi } from './studio';
@@ -169,6 +172,44 @@ async function writeSeed(db: BackendDatabase, seed: Seed, profile: Profile): Pro
 			updatedAt: review.createdAt
 		});
 	}
+	// Other readers' comments (P1-COM-03): their passages are found the first time they're read.
+	let seq = 0;
+	for (const { replies, passage, chapterId, ...comment } of seed.comments) {
+		await tx.objectStore('comments').put({
+			...comment,
+			parentId: null,
+			state: 'visible',
+			seq: seq++,
+			place: { revisionId: null, chapterId, anchor: null, status: 'ok', passage }
+		});
+		for (const reply of replies) {
+			await tx.objectStore('comments').put({
+				...reply,
+				bookId: comment.bookId,
+				parentId: comment.id,
+				state: 'visible',
+				seq: seq++,
+				place: null
+			});
+		}
+	}
+	// Popular highlights (P1-COM-04): one highlight per seeded reader, each a different reader.
+	for (const entry of seed.popularHighlights) {
+		for (let n = 1; n <= entry.readers; n++) {
+			await tx.objectStore('sharedHighlights').put({
+				id: `${entry.id}|${n}`,
+				bookId: entry.bookId,
+				readerId: `${entry.id}|reader-${n}`,
+				place: {
+					revisionId: null,
+					chapterId: entry.chapterId,
+					anchor: null,
+					status: 'ok',
+					passage: entry.passage
+				}
+			});
+		}
+	}
 	await tx.objectStore('meta').put({ key: 'seedVersion', value: seed.version });
 	await tx.objectStore('meta').put({ key: 'seedProfile', value: profile });
 	await tx.objectStore('meta').put({ key: 'currentPersonaId', value: seed.defaultPersonaId });
@@ -269,6 +310,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		| 'inbox'
 		| 'wishlist'
 		| 'reviews'
+		| 'comments'
+		| 'highlights'
 	> = {
 		session: {
 			async current() {
@@ -399,6 +442,16 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		currentUser: () => currentUser,
 		changed: () => events.emit('reviews')
 	});
+	const placements = createPlacements({ db, pipeline, files });
+	const comments = createCommentsApi({
+		db,
+		clock,
+		requireUser,
+		content,
+		placements,
+		changed: () => events.emit('comments')
+	});
+	const highlights = createHighlightsApi({ db, content, placements });
 	const moderation = createModerationApi({
 		db,
 		clock,
@@ -406,6 +459,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		simulation: () => simulation,
 		inbox,
 		reviews,
+		comments,
 		changed: () => {
 			events.emit('moderation');
 			events.emit('catalogue');
@@ -544,6 +598,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		inbox: wrapModule('inbox', inbox, backendContract.inbox),
 		wishlist: wrapModule('wishlist', wishlist, backendContract.wishlist),
 		reviews: wrapModule('reviews', reviews, backendContract.reviews),
+		comments: wrapModule('comments', comments, backendContract.comments),
+		highlights: wrapModule('highlights', highlights, backendContract.highlights),
 		events: { on: events.on }
 	};
 
