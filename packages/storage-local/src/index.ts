@@ -12,6 +12,7 @@ import {
 	type PlacedBookmark,
 	type PreferencesStore,
 	type ProgressStore,
+	type ReadingStatsStore,
 	type RecordChanges,
 	type Stores,
 	type StoresSnapshot
@@ -213,6 +214,80 @@ function layerSelectionStore(db: Database, clock: Clock): LayerSelectionStore {
 	};
 }
 
+/**
+ * Your reading (P1-RDR-14, P1-RDR-15). Device-only records, so the history is deleted for good
+ * rather than soft-deleted (§6.3's tombstones exist for sync, which never sees these).
+ */
+function readingStatsStore(db: Database, clock: Clock): ReadingStatsStore {
+	const PACE_ID = 'pace';
+	return {
+		async addToDay(entry) {
+			const id = `${entry.date}|${entry.bookId}`;
+			const tx = db.transaction('readingDays', 'readwrite');
+			const existing = await tx.store.get(id);
+			const now = timestamp(clock);
+			const day = {
+				id,
+				date: entry.date,
+				bookId: entry.bookId,
+				readMs: (existing?.readMs ?? 0) + entry.readMs,
+				listenedMs: (existing?.listenedMs ?? 0) + entry.listenedMs,
+				words: (existing?.words ?? 0) + entry.words,
+				createdAt: existing?.createdAt ?? now,
+				updatedAt: now,
+				deletedAt: null
+			};
+			await tx.store.put(day);
+			await tx.done;
+			return day;
+		},
+		async listDays() {
+			return db.getAllFromIndex('readingDays', 'date');
+		},
+		async finish(bookId, date) {
+			const tx = db.transaction('bookFinishes', 'readwrite');
+			const existing = await tx.store.get(bookId);
+			if (existing) {
+				await tx.done;
+				return existing;
+			}
+			const now = timestamp(clock);
+			const finish = { id: bookId, bookId, date, createdAt: now, updatedAt: now, deletedAt: null };
+			await tx.store.put(finish);
+			await tx.done;
+			return finish;
+		},
+		async listFinishes() {
+			return (await db.getAll('bookFinishes')).sort((a, b) => a.date.localeCompare(b.date));
+		},
+		getPace: () => db.get('readingPace', PACE_ID),
+		async savePace(input) {
+			const tx = db.transaction('readingPace', 'readwrite');
+			const existing = await tx.store.get(PACE_ID);
+			const now = timestamp(clock);
+			const pace = {
+				id: PACE_ID,
+				words: input.words,
+				ms: input.ms,
+				createdAt: existing?.createdAt ?? now,
+				updatedAt: now,
+				deletedAt: null
+			};
+			await tx.store.put(pace);
+			await tx.done;
+			return pace;
+		},
+		async clearHistory() {
+			const tx = db.transaction(['readingDays', 'bookFinishes'], 'readwrite');
+			await Promise.all([
+				tx.objectStore('readingDays').clear(),
+				tx.objectStore('bookFinishes').clear()
+			]);
+			await tx.done;
+		}
+	};
+}
+
 /** Every record in one read transaction, so the snapshot is consistent (P1-APP-04). */
 async function exportAll(db: Database, clock: Clock): Promise<StoresSnapshot> {
 	const tx = db.transaction(
@@ -224,7 +299,10 @@ async function exportAll(db: Database, clock: Clock): Promise<StoresSnapshot> {
 			'placedBookmarks',
 			'progress',
 			'preferences',
-			'layerSelection'
+			'layerSelection',
+			'readingDays',
+			'bookFinishes',
+			'readingPace'
 		],
 		'readonly'
 	);
@@ -238,7 +316,10 @@ async function exportAll(db: Database, clock: Clock): Promise<StoresSnapshot> {
 		progress,
 		patches,
 		keys,
-		layerSelection
+		layerSelection,
+		readingDays,
+		bookFinishes,
+		readingPace
 	] = await Promise.all([
 		tx.objectStore('libraryBooks').getAll(),
 		tx.objectStore('libraryRevisions').getAll(),
@@ -248,7 +329,10 @@ async function exportAll(db: Database, clock: Clock): Promise<StoresSnapshot> {
 		tx.objectStore('progress').getAll(),
 		preferences.getAll(),
 		preferences.getAllKeys(),
-		tx.objectStore('layerSelection').getAll()
+		tx.objectStore('layerSelection').getAll(),
+		tx.objectStore('readingDays').getAll(),
+		tx.objectStore('bookFinishes').getAll(),
+		tx.objectStore('readingPace').getAll()
 	]);
 	await tx.done;
 	return {
@@ -270,7 +354,10 @@ async function exportAll(db: Database, clock: Clock): Promise<StoresSnapshot> {
 			bookId: keys[i] === GLOBAL_PREFERENCES_KEY ? null : String(keys[i]),
 			preferences: patch
 		})),
-		layerSelection
+		layerSelection,
+		readingDays,
+		bookFinishes,
+		readingPace
 	};
 }
 
@@ -297,6 +384,7 @@ export async function createLocalStores(options: LocalStoresOptions = {}): Promi
 		progress: progressStore(db, clock),
 		preferences: preferencesStore(db),
 		layerSelection: layerSelectionStore(db, clock),
+		readingStats: readingStatsStore(db, clock),
 		exportAll: () => exportAll(db, clock),
 		deleteAll: () => deleteAll(db),
 		close: () => db.close()

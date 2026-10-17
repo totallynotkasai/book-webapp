@@ -74,6 +74,38 @@ export interface LibraryRevision extends UserRecord {
 	wordCount: number;
 }
 
+/**
+ * A day's reading of one Book (P1-RDR-15, §4.9): time reading and listening, and Words, kept on
+ * this device only (never synced, §6.3). `id` is `<date>|<bookId>`.
+ */
+export interface ReadingDay extends UserRecord {
+	/** The local calendar date, `YYYY-MM-DD`. */
+	date: string;
+	bookId: string;
+	/** Time reading: on a page, in view, not idle. */
+	readMs: number;
+	/** Time listening to narration or the device voice. */
+	listenedMs: number;
+	/** Words passed reading on, or heard. */
+	words: number;
+}
+
+/** A Book read to its last Word (P1-RDR-15), on this device only. `id` is the Book's `bookId`. */
+export interface BookFinish extends UserRecord {
+	bookId: string;
+	/** The local calendar date it was finished, `YYYY-MM-DD`. */
+	date: string;
+}
+
+/**
+ * The reader's own pace (P1-RDR-14): Words over time, older pages counting less, on this device
+ * only. One per user; `id` is `pace`.
+ */
+export interface ReadingPace extends UserRecord {
+	words: number;
+	ms: number;
+}
+
 /** Which Layers a user has on for a Book (§8.1). One per Book. */
 export interface LayerSelection {
 	bookId: string;

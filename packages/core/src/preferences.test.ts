@@ -21,10 +21,12 @@ describe('defaultReaderPreferences (§9.4)', () => {
 			pageTurn: 'slide',
 			illustrations: 'popup',
 			focusMode: false,
+			timeLeft: true,
 			narration: { rate: 1, autoTurn: true, highlight: 'word' },
 			deviceVoice: { rate: 1, voices: {} },
 			hintsSeen: [],
-			hideAiGenerated: false
+			hideAiGenerated: false,
+			readingStats: true
 		});
 	});
 });

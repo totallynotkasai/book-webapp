@@ -1,10 +1,13 @@
 import type {
 	Annotation,
+	BookFinish,
 	LayerSelection,
 	LibraryBook,
 	LibraryRevision,
 	PlacedBookmark,
 	ReaderPreferencesPatch,
+	ReadingDay,
+	ReadingPace,
 	ReadingProgress
 } from '@book/core';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
@@ -35,12 +38,16 @@ export interface ReaderDB extends DBSchema {
 	progress: { key: string; value: ReadingProgress };
 	preferences: { key: string; value: ReaderPreferencesPatch };
 	layerSelection: { key: string; value: LayerSelection };
+	/** Your reading (P1-RDR-14, P1-RDR-15): device-only, never synced (§6.3). */
+	readingDays: { key: string; value: ReadingDay; indexes: { date: string } };
+	bookFinishes: { key: string; value: BookFinish };
+	readingPace: { key: string; value: ReadingPace };
 }
 
 export type Database = IDBPDatabase<ReaderDB>;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 2;
+const VERSION = 3;
 
 /** Object stores from version 1 (the v0.1 Locator model), dropped in version 2. */
 const V1_STORES = ['bookmarks', 'annotations', 'progress', 'settings'];
@@ -70,6 +77,12 @@ export async function openReaderDB(name = DEFAULT_DB_NAME): Promise<Database> {
 				db.createObjectStore('progress', { keyPath: 'bookId' });
 				db.createObjectStore('preferences');
 				db.createObjectStore('layerSelection', { keyPath: 'bookId' });
+			}
+			if (oldVersion < 3) {
+				// P1-RDR-14, P1-RDR-15: reading time per day and Book, Books finished, the pace.
+				db.createObjectStore('readingDays', { keyPath: 'id' }).createIndex('date', 'date');
+				db.createObjectStore('bookFinishes', { keyPath: 'id' });
+				db.createObjectStore('readingPace', { keyPath: 'id' });
 			}
 		}
 	});
