@@ -341,7 +341,7 @@ export function createModerationApi(deps: {
 				if (input.action === 'approve') await deps.reviews?.moderate(t.id, 'visible');
 				if (input.action === 'hide') await deps.reviews?.moderate(t.id, 'hidden');
 				if (input.action === 'remove') await deps.reviews?.moderate(t.id, 'removed');
-			} else
+			} else {
 				switch (input.action) {
 					case 'approve':
 						state = 'cleared';
@@ -376,6 +376,7 @@ export function createModerationApi(deps: {
 						break;
 					}
 				}
+			}
 			await db.put('flags', { ...flag, state });
 			const now = clock.now().toISOString();
 			await db.add('moderationActions', {
