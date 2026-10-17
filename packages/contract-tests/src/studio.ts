@@ -25,6 +25,8 @@ export interface StudioFixtures {
 	book: Uint8Array;
 	/** The same EPUB with one paragraph changed in its first Chapter only. */
 	edited: Uint8Array;
+	/** The same EPUB with a Chapter added at the end (P1-STU-06: a serial's next Chapter). */
+	extended: Uint8Array;
 	/** Names in `book`'s text (P1-STU-05): one in its first Chapter, one first in its second. */
 	names: { inFirstChapter: string; inSecondChapter: string };
 }

@@ -22,6 +22,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ManualClock } from './clock';
 import { describeStoreContract } from './store';
 import { describeCommunityContract } from './community';
+import { describeReleasesContract } from './releases';
 import { describeStudioContract, type StudioFixtures } from './studio';
 
 /** Must return a freshly seeded, independent backend on every call, signed in as the default. */
@@ -52,8 +53,8 @@ function conforms<M extends keyof typeof backendContract>(
 }
 
 /**
- * `studio`: an EPUB and an edited copy for the Creator Studio cases (P1-STU-01); without them
- * those cases are skipped.
+ * `studio`: an EPUB, an edited copy and a longer copy for the Creator Studio cases (P1-STU-01,
+ * P1-STU-06); without them those cases are skipped.
  */
 export function describeBackendContract(
 	name: string,
@@ -402,6 +403,13 @@ export function describeBackendContract(
 			});
 			describeCommunityContract({
 				backend: () => backend,
+				personas: () => personas,
+				conforms: (module, method, value) => conforms(module as never, method as never, value),
+				fixtures: options.studio
+			});
+			describeReleasesContract({
+				backend: () => backend,
+				clock: () => clock,
 				personas: () => personas,
 				conforms: (module, method, value) => conforms(module as never, method as never, value),
 				fixtures: options.studio

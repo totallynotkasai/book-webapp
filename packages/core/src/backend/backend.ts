@@ -33,6 +33,7 @@ import type {
 	MigrateAnchorsResult,
 	PlanInput,
 	PublishRevisionInput,
+	ScheduleChapterInput,
 	StudioBookDetailDto,
 	StudioBookDto,
 	StudioPackDto,
@@ -218,6 +219,14 @@ export interface StudioApi {
 	 * Rejects with `CONFLICT` if the Revision isn't ready.
 	 */
 	publishRevision(bookId: string, input: PublishRevisionInput): Promise<StudioBookDetailDto>;
+	/**
+	 * Schedules a Chapter of a serial (P1-STU-06): one still to come, in the version readers have
+	 * or in an uploaded one, comes out at `releaseAt`, or with no time (null) when its version is
+	 * published, or now. Until then it's locked for every reader; when it comes out, the author's
+	 * followers get one inbox message each. Rejects with `CONFLICT` for a Chapter already out (or
+	 * the first), and `VALIDATION_FAILED` for a time in the past or out of reading order.
+	 */
+	scheduleChapter(bookId: string, input: ScheduleChapterInput): Promise<StudioBookDetailDto>;
 	/** Opens one of the Creator's own Revisions (the newest when omitted) to preview or build in. */
 	previewRevision(bookId: string, revisionId?: string): Promise<OpenBookDto>;
 

@@ -50,7 +50,7 @@
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import { migrateToCurrent } from '$lib/data/migration';
 	import { describeError, type DescribedError } from '$lib/errors';
-	import { formatDate } from '$lib/format';
+	import { formatDate, formatDay, formatDayTime } from '$lib/format';
 	import { getPlatform } from '$lib/platform';
 	import { getBackend, getStores } from '$lib/services';
 	import { preferences } from '$lib/state/preferences.svelte';
@@ -444,7 +444,8 @@
 	let stageTop = $state(0);
 	let stageBottom = $state(0);
 
-	// ---- Samples and early access (P1-STO-01, P1-STO-04): the readable text ends early ----
+	// ---- Samples, early access and Chapters to come (P1-STO-01, P1-STO-04, P1-STU-06): the
+	// readable text ends early ----
 	const locked = $derived(opened?.locked ?? []);
 	const storeHref = $derived(
 		opened?.slug ? resolve('/(app)/book/[slug]', { slug: opened.slug }) : null
@@ -462,7 +463,9 @@
 	const lockedNote = (l: (typeof locked)[number]) =>
 		l.reason === 'sample'
 			? 'Not in the sample'
-			: `Early access${l.freeAt ? ` until ${formatDate(l.freeAt)}` : ''}`;
+			: l.reason === 'scheduled'
+				? `Out ${l.releaseAt ? formatDay(l.releaseAt) : 'soon'}`
+				: `Early access${l.freeAt ? ` until ${formatDate(l.freeAt)}` : ''}`;
 
 	async function subscribeForEarlyAccess() {
 		const first = locked[0];
@@ -1952,6 +1955,23 @@
 				<div class="end-actions">
 					<Button variant="text" onclick={() => (endDismissed = true)}>Not now</Button>
 					{#if storeHref}<Button href={storeHref}>Get the book</Button>{/if}
+				</div>
+			{:else if next.reason === 'scheduled'}
+				<p class="end-title">Next: {next.title}</p>
+				<p>
+					It comes out {next.releaseAt ? formatDayTime(next.releaseAt) : 'soon'}. Follow {next.creatorName}
+					to hear when it’s out.
+				</p>
+				<div class="end-actions">
+					<Button variant="text" onclick={() => (endDismissed = true)}>Not now</Button>
+					{#if next.creatorHandle}
+						<Button
+							variant="tonal"
+							icon="person"
+							href={resolve('/(app)/creator/[handle]', { handle: next.creatorHandle })}
+							>{next.creatorName}</Button
+						>
+					{/if}
 				</div>
 			{:else}
 				<p class="end-title">Next: {next.title}</p>

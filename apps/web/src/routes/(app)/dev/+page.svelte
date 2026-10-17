@@ -8,7 +8,8 @@
 		editedAlice,
 		editedSerial,
 		editedStatusWindow,
-		retitledStatusWindow
+		retitledStatusWindow,
+		serialWithNextChapter
 	} from '$lib/library/test-books';
 	import { getPlatform } from '$lib/platform';
 	import { narrationKit } from '$lib/studio/test-kit';
@@ -16,6 +17,8 @@
 	// Test books for the Phase 1.2 and 1.3 Try-it lists, bundled as files (never inlined).
 	import statusWindowUrl from '../../../../../../fixtures/epub/status-window.epub?url';
 	import rackhamUrl from '../../../../../../fixtures/epub/alice-rackham-gutenberg.epub?url';
+	// The demo serial's seventh Chapter, for serial release schedules (P1-STU-06).
+	import ledgerChapter7 from '../../../../../../fixtures/src/lamplighters-ledger-next/chapter-7.xhtml?raw';
 	import {
 		getBackend,
 		getDevControls,
@@ -426,8 +429,19 @@
 						editedSerial
 					)}>Download an edited copy of The Lamplighter’s Ledger</button
 			>
+			<button
+				onclick={() =>
+					downloadBook(
+						'the-lamplighters-ledger-chapter-7.epub',
+						asset('/demo/books/the-lamplighters-ledger.epub'),
+						(bytes) => serialWithNextChapter(bytes, ledgerChapter7)
+					)}>Download The Lamplighter’s Ledger with a seventh chapter</button
+			>
 		</div>
-		<p class="muted">The edited copies change one paragraph, so they upload as a new version.</p>
+		<p class="muted">
+			The edited copies change one paragraph, so they upload as a new version. The Ledger with a
+			seventh chapter is its next version, for scheduling a chapter’s release.
+		</p>
 		{#if kitBooks.length}
 			<div class="row">
 				<label for="kit-book">Book</label>

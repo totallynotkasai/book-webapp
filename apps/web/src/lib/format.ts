@@ -58,3 +58,24 @@ export function formatDate(iso: string, locale?: string): string {
 		year: 'numeric'
 	});
 }
+
+/**
+ * A day ahead, with its weekday: "Friday 24 October" (P1-STU-06's "Next chapter: Friday"),
+ * and the year when it isn't this one.
+ */
+export function formatDay(iso: string, locale?: string): string {
+	const date = new Date(iso);
+	return date.toLocaleDateString(locale, {
+		weekday: 'long',
+		day: 'numeric',
+		month: 'long',
+		...(date.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' })
+	});
+}
+
+/** A day and time ahead: "Friday 24 October, 09:00" (when a Chapter comes out). */
+export function formatDayTime(iso: string, locale?: string): string {
+	const date = new Date(iso);
+	const time = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+	return `${formatDay(iso, locale)}, ${time}`;
+}

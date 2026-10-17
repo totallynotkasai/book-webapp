@@ -167,14 +167,17 @@ export const flagSchema = z.object({
 export type FlagDto = z.infer<typeof flagSchema>;
 
 /**
- * A Chapter the reader can't open yet (P1-STO-01 samples, P1-STO-04 early access). Locked
- * content always explains itself: whose it is, when it becomes free, and how to get it.
+ * A Chapter the reader can't open yet (P1-STO-01 samples, P1-STO-04 early access, P1-STU-06 a
+ * serial's Chapters still to come). Locked content always explains itself: whose it is, when it
+ * comes out or becomes free, and how to get it.
  */
 export const lockedChapterSchema = z.object({
 	chapterId: id,
-	reason: z.enum(['sample', 'early_access']),
+	reason: z.enum(['sample', 'early_access', 'scheduled']),
 	/** When early access ends and it becomes free for every owner. */
 	freeAt: timestamp.nullable(),
+	/** When a scheduled Chapter comes out (`scheduled`). */
+	releaseAt: timestamp.nullable().default(null),
 	/** The plan that opens it now (early access). */
 	planId: id.nullable(),
 	creatorName: z.string(),
@@ -201,7 +204,8 @@ export const openBookSchema = z.object({
 	access: z.enum(['full', 'sample']).default('full'),
 	/**
 	 * Chapters this reader can't open yet, in reading order: the rest of the Book in a sample,
-	 * or early-access Chapters (P1-STO-04). Their files can't be read under the token.
+	 * early-access Chapters (P1-STO-04), or Chapters still to come (P1-STU-06), which are always
+	 * the last. Their files can't be read under the token.
 	 */
 	locked: z.array(lockedChapterSchema).default([])
 });

@@ -1,30 +1,32 @@
 /**
  * `Backend.inbox` in the browser (plan §4.7: an in-app inbox, no email or push in the PoC):
  * moderation outcomes and how to appeal (§10.6), community submissions waiting for an author,
- * and the author's decisions.
+ * the author's decisions, and a followed author's new Chapters (P1-STU-06).
  */
 import { BackendError, type Clock, type InboxApi, type UserDto } from '@book/core';
 import { newId } from './checkout';
 import type { BackendDatabase, InboxRecord } from './db';
 
 export interface InboxModule extends InboxApi {
-	/** Sends a message to everyone signed in as one of a Creator's Personas (or a user). */
-	notify(
-		to: { userId: string } | { creatorId: string },
-		message: Pick<InboxRecord, 'title' | 'body' | 'about'>
-	): Promise<void>;
+	/** Sends a message to everyone signed in as one of a Creator's Personas, or to users. */
+	notify(to: Recipients, message: Pick<InboxRecord, 'title' | 'body' | 'about'>): Promise<void>;
 }
+
+type Recipients = { userId: string } | { userIds: string[] } | { creatorId: string };
 
 export function createInboxApi(deps: {
 	db: BackendDatabase;
 	clock: Clock;
 	requireUser: () => UserDto;
 	changed: () => void;
+	/** Brings what's time-based up to the clock first: Chapters out since (P1-STU-06). */
+	beforeList?: () => Promise<void>;
 }): InboxModule {
 	const { db, clock } = deps;
 
-	async function usersOf(to: { userId: string } | { creatorId: string }): Promise<string[]> {
+	async function usersOf(to: Recipients): Promise<string[]> {
 		if ('userId' in to) return [to.userId];
+		if ('userIds' in to) return to.userIds;
 		return (await db.getAll('personas'))
 			.filter((p) => p.user.creatorId === to.creatorId)
 			.map((p) => p.user.id);
@@ -47,6 +49,7 @@ export function createInboxApi(deps: {
 
 		async list() {
 			const user = deps.requireUser();
+			await deps.beforeList?.();
 			return (await db.getAllFromIndex('inbox', 'userId', user.id))
 				.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.seq - a.seq)
 				.map(({ id, title, body, createdAt, read, about }) => ({

@@ -2,7 +2,7 @@
  * Dev panel test books. An "edited copy" of an EPUB has one paragraph changed (and, for Alice,
  * one deleted), made on the fly. Same dc:identifier, different bytes: importing it is a new
  * Revision of the Book (P1-ING-03); uploading it in the Studio publishes a new version
- * (P1-STU-01).
+ * (P1-STU-01). The demo serial's next version adds a seventh Chapter (P1-STU-06).
  */
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 
@@ -13,8 +13,15 @@ interface Edit {
 	to: string;
 }
 
-/** Applies every edit to its Chapter, or throws if one doesn't match: the test would mean nothing. */
-export function editEpub(bytes: Uint8Array, edits: readonly Edit[]): Uint8Array {
+/**
+ * Applies every edit to its file, or throws if one doesn't match: the test would mean nothing.
+ * `added` files (path → text) are new ones, such as a Chapter.
+ */
+export function editEpub(
+	bytes: Uint8Array,
+	edits: readonly Edit[],
+	added: Readonly<Record<string, string>> = {}
+): Uint8Array {
 	const files = unzipSync(bytes);
 	const done = new Set<Edit>();
 	const out: Zippable = {
@@ -35,6 +42,10 @@ export function editEpub(bytes: Uint8Array, edits: readonly Edit[]): Uint8Array 
 	}
 	if (done.size !== edits.length)
 		throw new Error('This EPUB doesn’t have the text the edit expects.');
+	for (const [path, text] of Object.entries(added)) {
+		if (out[path]) throw new Error(`This EPUB already has ${path}.`);
+		out[path] = strToU8(text);
+	}
 	return zipSync(out);
 }
 
@@ -80,4 +91,38 @@ export function retitledStatusWindow(bytes: Uint8Array, title: string): Uint8Arr
 			to: `<dc:title>${title}</dc:title>`
 		}
 	]);
+}
+
+/**
+ * The demo serial's next version (P1-STU-06): the seeded Ledger with `chapter` (the XHTML of
+ * fixtures/src/lamplighters-ledger-next/chapter-7.xhtml) added as its seventh Chapter.
+ */
+export function serialWithNextChapter(bytes: Uint8Array, chapter: string): Uint8Array {
+	const opf = /\.opf$/;
+	return editEpub(
+		bytes,
+		[
+			{
+				file: opf,
+				from: /(<item id="chapter-6"[^>]*\/>)/,
+				to: '$1\n\t\t<item id="chapter-7" href="text/chapter-7.xhtml" media-type="application/xhtml+xml"/>'
+			},
+			{
+				file: opf,
+				from: '<itemref idref="chapter-6"/>',
+				to: '<itemref idref="chapter-6"/>\n\t\t<itemref idref="chapter-7"/>'
+			},
+			{
+				file: opf,
+				from: 'Chapters 1 to 6; to be continued.',
+				to: 'Chapters 1 to 7; to be continued.'
+			},
+			{
+				file: /nav\.xhtml$/,
+				from: /(<li><a href="text\/chapter-6\.xhtml">[^<]*<\/a><\/li>)/,
+				to: '$1\n\t\t\t<li><a href="text/chapter-7.xhtml">7. The Night Round</a></li>'
+			}
+		],
+		{ 'OEBPS/text/chapter-7.xhtml': chapter }
+	);
 }

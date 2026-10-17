@@ -1,6 +1,7 @@
 import type {
 	AiUse,
 	FlagTargetType,
+	InboxAboutDto,
 	IngestReport,
 	ModerationAction,
 	ReportReason,
@@ -68,6 +69,26 @@ export interface BackendDB extends DBSchema {
 	publishes: { key: string; value: PublishRecord; indexes: { creatorId: string } };
 	/** The story so far (P1-STU-05): each Book's recaps and glossary, draft and published. */
 	stories: { key: string; value: StoryRecord };
+	/** Serial release schedules (P1-STU-06): when each Chapter still to come comes out. */
+	chapterReleases: {
+		key: [string, string];
+		value: ChapterReleaseRecord;
+		indexes: { bookId: string };
+	};
+}
+
+/**
+ * A Chapter's release (P1-STU-06), keyed by Book and Chapter so it carries from an uploaded
+ * version to the published one and on to the next. Every Chapter a published Book gains has one;
+ * the Chapters of a Book's first version have none (they're out).
+ */
+export interface ChapterReleaseRecord {
+	bookId: string;
+	chapterId: string;
+	/** The time the author chose, or the publish for a Chapter that came out with its version. */
+	releaseAt: string;
+	/** When it came out and the author's followers were told; null while it's still to come. */
+	releasedAt: string | null;
 }
 
 export interface ReportRecord {
@@ -102,7 +123,7 @@ export interface InboxRecord {
 	body: string;
 	createdAt: string;
 	read: boolean;
-	about: { type: FlagTargetType; id: string } | null;
+	about: InboxAboutDto | null;
 	/** Order of writing, for messages in the same instant. */
 	seq: number;
 }
@@ -250,11 +271,12 @@ export const SEEDED_STORES = [
 	'moderationActions',
 	'inbox',
 	'publishes',
-	'stories'
+	'stories',
+	'chapterReleases'
 ] as const;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 9;
+const VERSION = 10;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -320,6 +342,13 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 			if (oldVersion < 9) {
 				// P1-STU-05: recaps and glossaries. Seeded like Books, so a new seed version fills it.
 				db.createObjectStore('stories', { keyPath: 'bookId' });
+			}
+			if (oldVersion < 10) {
+				// P1-STU-06: serial release schedules. Seeded Books have none, so a reset clears it.
+				db.createObjectStore('chapterReleases', { keyPath: ['bookId', 'chapterId'] }).createIndex(
+					'bookId',
+					'bookId'
+				);
 			}
 		}
 	});
