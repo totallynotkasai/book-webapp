@@ -64,6 +64,14 @@ The **Emulator** column has the results from 16 October 2026 (owner build, `book
 | A swipe across the squeezed table on the page still turns the page | Swipe on the table | Web E2E (Chromium touch) | ☐ |
 | The reader's top bar on the phone: the titles are readable; search, Illustrations and reading preferences are under ⋮ | Open any Book | Web E2E (360 px) | ☐ |
 
+## Your reading (Phase 1.16)
+
+| Check | How | Emulator | Phone |
+|---|---|---|---|
+| "9 min left" sits under the page number on the phone, and settles to your pace over ten minutes of reading | Read *Alice* Chapter I | Web E2E (360 px) | ☐ |
+| **Listening with the screen locked counts:** after 20 minutes of narration with the phone locked, You → Your reading has about 20 minutes more, "of it listening" | *Alice* as the Author, Chapter I: Listen, lock the phone, unlock after 20 minutes, open You → Your reading | ☐ | ☐ |
+| Turning "Keep reading stats" off hides them, and reading on adds nothing | You → Your reading | Web E2E | ☐ |
+
 ## Android behaviour
 
 | Check | How | Emulator | Phone |

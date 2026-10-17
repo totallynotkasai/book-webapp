@@ -31,7 +31,7 @@
 | **1.13** Comfortable on a phone | Squeezed tables open full screen; a sleep timer for listening | P1-RDR-12, P1-LAY-09 | Done (16 Oct 2026; notes in §6) |
 | **1.14** The story so far (simulated) | Authors write recaps and a glossary; readers see only what they’ve reached | P1-STU-05, P1-RDR-13 | Done (17 Oct 2026; notes in §6) |
 | **1.15** Serials (simulated) | Scheduled Chapter releases with follower messages; align your own narration | P1-STU-06, P1-STU-07 | Done (17 Oct 2026; notes in §6) |
-| **1.16** Your reading | Time left in the Chapter and the Book; stats and streaks you can switch off | P1-RDR-14, P1-RDR-15 | Not started |
+| **1.16** Your reading | Time left in the Chapter and the Book; stats and streaks you can switch off | P1-RDR-14, P1-RDR-15 | Done (17 Oct 2026; notes in §6) |
 | **1.17** Share and colour | Share a quote as a card; your own page and text colours | P1-RDR-16, P1-UI-04 | Not started |
 | **1.18** Wishlists and reviews (simulated) | A wishlist with sale alerts; reviews that show how far the reviewer read | P1-STO-06, P1-STO-07 | Not started |
 | **1.19** Overview and look-up | Page thumbnails to scan a Chapter; look up a Word | P1-RDR-17, P1-RDR-18 | Not started |
@@ -993,6 +993,28 @@ Every front-end feature worth building without a real backend, before any backen
 **Try it**
 - Read for ten minutes: time left settles to your pace.
 - Look at You → Your reading; turn it off; it's gone, and the export has no new records.
+
+**Done (17 Oct 2026): what was built and how it differs from the plan.** The Try-it items and both tasks' acceptance criteria are Playwright specs in Chromium and WebKit (`apps/web/e2e/your-reading.spec.ts`, on Playwright's clock, with a scripted reader at 120 and 150 Words a minute), with axe on You → Your reading in light and dark (`accessibility.spec.ts`). The rules are unit tests in `@book/domain` (`reading.test.ts`: scripted readers from 120 to 450 Words a minute land within a tenth in ten minutes, pauses and skims are ignored, and streaks and achievements fall on the right days), the reader's counting is `reading-time.test.ts` (idle, hidden, listening with the screen off, both switches off), and the new store is in the Stores contract (`readingStats`, export and delete) with an IndexedDB upgrade test from version 2. The owner chose before the work started (D-040): **two switches**, Time left and Keep reading stats; **both on by default**; **listening counts** as reading time and towards the streak; **a day counts after 5 minutes**. Notes and deviations:
+
+*P1-RDR-14 (time left):*
+- **The stated default pace is 238 Words a minute,** the average for adults reading non-fiction silently in English (Brysbaert, 2019; fiction is about 260): the slower figure is the safer guess. The reader's own pace is learnt from the pages they turn forward (or scroll past) themselves at a reading pace: between 60 and 900 Words a minute for that page, so a page left open while making tea, or flicked past, teaches nothing. Older pages count less (a page counts half as much 4,000 Words later), so the pace follows a reader who speeds up. **One pace for every Book**, not one per Book.
+- **Where it shows:** "9 min left in chapter" under the page indicator (on phones "9 min left", with "in chapter" kept for screen readers), from the first Word on screen to the Chapter's end. In the scrubber's bubble while dragging, and its screen-reader text: "…, 2 h 10 min left in book" from that point to the end of what the reader can read now (a sample's end, or before early-access or scheduled Chapters).
+- **Never while narration or the device voice sets the pace:** hidden from the moment the player opens until it's closed, and nothing is learnt from turns it makes. **Time left** under Reading preferences → Page (and Settings → Reading defaults) turns it off and stops the learning; like other page settings it can be set for one Book.
+- **Saved** as the reader's `readingPace` (below), 2 s after a page turn and on leaving the Book.
+- **Found and fixed:** the page indicator's " in this chapter" for screen readers read "Page 1 of 17in this chapter": Svelte 5 trims the space at the start of an element's text.
+
+*P1-RDR-15 (stats, streak and achievements):*
+- **What's counted, on this device only:** time reading (a Book in view, until 5 minutes pass with no turn, tap, key or selection); time listening (narration or the device voice playing); Words passed reading on or heard (jumps don't count); and Books finished (the last Word on screen, in a Book the reader can read to its end, so not a sample). **Listening with the screen off** is counted when the app looks again: in full if it's still playing, else only the first 2 minutes, since it stopped (sleep timer, end of Chapter) at some point in between.
+- **A new `Stores` record** (`readingStats`: `ReadingDay` per local date and Book, `BookFinish`, `ReadingPace`), reader database version 3. It's written 2 s after a page turn, every minute while reading and on leaving: WebKit didn't keep what was only written on unload. It's in the export and cleared by "Delete my data on this device". **Device-only:** it never goes through `Backend`, and Phase 2's sync leaves it out (DESIGN.md §6.3).
+- **You → Your reading** (also linked from Settings → Your reading): the last 7 days (time, with how much was listening, and Words), Books finished in all, the streak and the longest, and **seven quiet achievements**: First book finished, Five books finished, A week in a row, A month in a row, Ten hours, 100,000 words, An hour of listening. Earned ones show their date, the rest "Not yet"; there are no pop-ups while reading. **Clear reading history** deletes the days and finishes for good (the pace stays).
+- **Deviation: "the last 7 days", not "this week"** as the UX notes have it: a rolling week never resets to nothing on a Monday.
+- **Keep reading stats** off hides them, says "Reading stats are off, so nothing new is kept" (You's entry says so too) and stops collecting: time counted after that is dropped, not saved for later. What was kept before stays, and stays in the export, until it's cleared.
+- The streak counts today once it reaches 5 minutes, and until then runs to yesterday, so it isn't lost before the reader has had the chance to read today.
+
+*Also:*
+- **Bundle:** the reader route is 229.6 KB of its 250 KB budget (gzipped), up 1.8 KB from Phase 1.15: the counting and time left, which run from the moment a Book opens. The stats rules are in their own domain module (`reading-stats.ts`), which only You → Your reading loads.
+- **Not checked on the Android emulator:** the counting is the web's. Listening with the phone locked is on `docs/device-checklist.md`.
+- **Testing on this PC:** the whole suite in Chromium and WebKit: 345 passed and 2 skipped. One WebKit narration spec (`narration.spec.ts`, tap a Word to jump there) failed under 4-worker load and passed 3 times out of 3 when run again alone, like the WebKit narration flakes of phases 1.11–1.14.
 
 ### Phase 1.17 — Share and colour
 
