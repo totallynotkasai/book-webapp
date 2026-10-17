@@ -6,6 +6,7 @@ import {
 	selectPhrase,
 	settled,
 	showChrome,
+	storedPreferences,
 	storedRecords,
 	switchPersona,
 	test,
@@ -201,6 +202,10 @@ test('a Book with no story has no tab, and AI-generated ones are hidden on reque
 
 	await page.goto('/you/settings');
 	await page.getByRole('switch', { name: /Hide AI-generated/ }).click();
+	// Written before the next page loads: a full load aborts an IndexedDB write still running.
+	await expect
+		.poll(() => storedPreferences(page, 'user-reader'))
+		.toMatchObject({ hideAiGenerated: true });
 	await buyLedger(page);
 	await openStory(page);
 	await expect(dialog(page)).toContainText('you’ve chosen to hide AI-generated content');
