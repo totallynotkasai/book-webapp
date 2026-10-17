@@ -1055,6 +1055,7 @@ Every front-end feature worth building without a real backend, before any backen
 
 *Also:*
 - **Bundle:** the reader route is 232.4 KB of its 250 KB budget (gzipped), up 2.8 KB from Phase 1.16: the colour rules, which every theme now runs through, the passage rules and the toolbar's button.
+- **Testing on this PC:** the whole suite in Chromium and WebKit, both build profiles: 362 passed and 2 skipped, the WebKit narration specs included. Phase 1.17's spec passed again on the final build, after the right-to-left card.
 
 ### Phase 1.18 — Wishlists and reviews (simulated)
 
