@@ -81,6 +81,14 @@ The **Emulator** column has the results from 16 October 2026 (owner build, `book
 | **Custom colours:** a dark green page with cream text; the bars behind the status and navigation bars follow the page; a pair below AA shows the warning and leaves the page as it was | Reading preferences → Theme → Custom; type `#1f3d2b` and `#f3ead3`, then a darker green text | Web E2E | ☐ |
 | The round swatch at the end of each colour field opens Android's colour picker | Tap it | ☐ | ☐ (if nothing opens, the hex field and the suggestions still work) |
 
+## Wishlists and reviews (Phase 1.18, owner build)
+
+| Check | How | Emulator | Phone |
+|---|---|---|---|
+| The heart on a store card is easy to hit with a thumb, and doesn't open the Book | Store: tap the heart on *The Lamplighter's Ledger* | Web E2E (360 px) | ☐ |
+| A sale alert arrives: wishlist the Ledger as the Reader, lower its price as the Author (Studio → Details), back as the Reader: You → Inbox | Dev panel → Personas | Web E2E | ☐ |
+| Write a review with the on-screen keyboard: the dialog's buttons stay in reach | *Alice*'s Book page → Write a review | ☐ | ☐ |
+
 ## Android behaviour
 
 | Check | How | Emulator | Phone |

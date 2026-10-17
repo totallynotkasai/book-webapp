@@ -4,6 +4,7 @@ import type {
 	InboxAboutDto,
 	IngestReport,
 	ModerationAction,
+	Money,
 	ReportReason,
 	RevisionChangesDto
 } from '@book/core';
@@ -75,6 +76,36 @@ export interface BackendDB extends DBSchema {
 		value: ChapterReleaseRecord;
 		indexes: { bookId: string };
 	};
+	/** Wishlists (P1-STO-06), keyed `<userId>|<bookId>`. */
+	wishlists: { key: string; value: WishlistRecord; indexes: { userId: string; bookId: string } };
+	/** Reviews (P1-STO-07), keyed `<userId>|<bookId>`: one per reader per Book. */
+	reviews: { key: string; value: ReviewRecord; indexes: { bookId: string } };
+}
+
+export interface WishlistRecord {
+	id: string;
+	userId: string;
+	bookId: string;
+	addedAt: string;
+	/** The price when it was added, or in the last sale alert (D-042). */
+	seenPrice: Money;
+	/** The reader has had a sale alert for it. */
+	alerted: boolean;
+}
+
+export interface ReviewRecord {
+	id: string;
+	userId: string;
+	bookId: string;
+	reviewerName: string;
+	stars: number;
+	text: string;
+	spoilers: boolean;
+	progression: number;
+	/** `hidden`: a moderator hid it after a report; only its writer still sees it. */
+	state: 'visible' | 'hidden';
+	createdAt: string;
+	updatedAt: string;
 }
 
 /**
@@ -272,11 +303,13 @@ export const SEEDED_STORES = [
 	'inbox',
 	'publishes',
 	'stories',
-	'chapterReleases'
+	'chapterReleases',
+	'wishlists',
+	'reviews'
 ] as const;
 
 /** Bump when the schema changes, and add a matching step in `upgrade`. */
-const VERSION = 10;
+const VERSION = 11;
 
 export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<BackendDatabase> {
 	const db = await openDB<BackendDB>(name, VERSION, {
@@ -349,6 +382,13 @@ export async function openBackendDB(name = DEFAULT_BACKEND_DB_NAME): Promise<Bac
 					'bookId',
 					'bookId'
 				);
+			}
+			if (oldVersion < 11) {
+				// P1-STO-06, P1-STO-07: wishlists, and reviews (seeded, so a new seed version fills it).
+				const wishlists = db.createObjectStore('wishlists', { keyPath: 'id' });
+				wishlists.createIndex('userId', 'userId');
+				wishlists.createIndex('bookId', 'bookId');
+				db.createObjectStore('reviews', { keyPath: 'id' }).createIndex('bookId', 'bookId');
 			}
 		}
 	});

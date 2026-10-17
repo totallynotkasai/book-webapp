@@ -96,3 +96,14 @@ export function formatTimeLeft(ms: number): string {
 	const time = formatReadingTime(ms);
 	return `${time[0]!.toUpperCase()}${time.slice(1)} left`;
 }
+
+/**
+ * How far a reviewer had read (P1-STO-07): "Read 45% when reviewing", or that they'd finished, or
+ * not started. Reading Progress is the first Word on screen, so the last page of a Book is a
+ * little under 100%: 99% or more counts as finished. Otherwise rounded down.
+ */
+export function reviewProgress(progression: number): string {
+	if (progression >= 0.99) return 'Finished the book when reviewing';
+	const percent = Math.floor(progression * 100);
+	return percent < 1 ? 'Hadn’t started reading when reviewing' : `Read ${percent}% when reviewing`;
+}

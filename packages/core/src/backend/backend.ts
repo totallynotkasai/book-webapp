@@ -70,8 +70,10 @@ import type {
 	ShelfDto,
 	SubscriptionDto,
 	TipDto,
-	TipInput
+	TipInput,
+	WishlistEntryDto
 } from '../store';
+import type { BookReviewsDto, ReviewDto, ReviewInput } from '../reviews';
 import type { Page, PageRequest } from './paging';
 
 export interface SessionApi {
@@ -331,6 +333,36 @@ export interface CommunityApi {
 	report(input: ReportInput): Promise<void>;
 }
 
+/**
+ * The reader's wishlist (P1-STO-06; simulated until Phase 6): Books saved for later, with a sale
+ * alert in the inbox when a Book's price falls below the price the reader last saw (D-042).
+ * Owning a Book takes it off.
+ */
+export interface WishlistApi {
+	/** Newest first. Books the reader has got since are taken off, and left out. */
+	list(): Promise<WishlistEntryDto[]>;
+	/** Adds a listed Book; adding it again changes nothing. `CONFLICT` if it's in their library. */
+	add(bookId: string): Promise<WishlistEntryDto>;
+	/** Takes a Book off; one that isn't on it changes nothing. */
+	remove(bookId: string): Promise<void>;
+}
+
+/**
+ * Reviews (P1-STO-07; simulated until Phase 6): one per reader per Book they own, showing how
+ * far they'd read. Readers report a review with `community.report`.
+ */
+export interface ReviewsApi {
+	/** A Book's reviews, a page at a time; ones a moderator hid are left out, but for their writer's. */
+	list(bookId: string, page?: PageRequest): Promise<BookReviewsDto>;
+	/**
+	 * Writes the reader's review, or replaces it. `ENTITLEMENT_REQUIRED` unless they own the Book
+	 * (Invariant 15); `NOT_FOUND` for a Book that isn't listed.
+	 */
+	save(bookId: string, input: ReviewInput): Promise<ReviewDto>;
+	/** Deletes the reader's own review; none changes nothing. */
+	remove(bookId: string): Promise<void>;
+}
+
 /** A user's in-app inbox: moderation outcomes, submissions, approvals (plan §4.7). */
 export interface InboxApi {
 	/** Newest first. */
@@ -366,7 +398,9 @@ export const backendTopics = [
 	'moderation',
 	/** Community hubs, ratings and follows. */
 	'community',
-	'inbox'
+	'inbox',
+	'wishlist',
+	'reviews'
 ] as const;
 export type BackendTopic = (typeof backendTopics)[number];
 
@@ -387,5 +421,7 @@ export interface Backend {
 	moderation: ModerationApi;
 	community: CommunityApi;
 	inbox: InboxApi;
+	wishlist: WishlistApi;
+	reviews: ReviewsApi;
 	events: BackendEvents;
 }

@@ -12,3 +12,4 @@ export * from './store';
 export * from './studio';
 export * from './community';
 export * from './story';
+export * from './reviews';

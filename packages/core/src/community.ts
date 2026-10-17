@@ -106,8 +106,10 @@ export const flagTargetSchema = z.object({
 	state: listingStateSchema.nullable(),
 	/** The creator was asked to correct the AI label and hasn't yet. */
 	relabelRequired: z.boolean(),
-	/** For a Layer: the Book it's for. */
-	bookTitle: z.string().nullable()
+	/** For a Layer or a review: the Book it's for. */
+	bookTitle: z.string().nullable(),
+	/** For a review: its stars and words, as the moderator needs to read them (P1-STO-07). */
+	excerpt: z.string().nullable().default(null)
 });
 
 /** The Flag detail screen (§10.6): the content, the rule, the evidence and the creator's history. */
@@ -132,10 +134,13 @@ export type FlagDetailDto = z.infer<typeof flagDetailSchema>;
  * of a Book (P1-STU-06), where `id` is the Book's.
  */
 export const inboxAboutSchema = z.object({
-	type: z.enum([...flagTargetTypeSchema.options, 'chapter']),
+	/** `book_page`: a Book in the store, for readers (a sale alert, P1-STO-06). */
+	type: z.enum([...flagTargetTypeSchema.options, 'chapter', 'book_page']),
 	id,
 	/** The Chapter, for `chapter`. */
-	chapterId: id.optional()
+	chapterId: id.optional(),
+	/** The Book page's slug, for `book_page` and `review`. */
+	slug: id.optional()
 });
 export type InboxAboutDto = z.infer<typeof inboxAboutSchema>;
 

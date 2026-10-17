@@ -88,6 +88,7 @@ import type {
 	ProductRecord
 } from './seed';
 import type { InboxModule } from './inbox';
+import type { WishlistModule } from './wishlist';
 import type { ReleasesModule } from './releases';
 import type { ModerationModule } from './moderation';
 import type { SupportModule } from './support';
@@ -128,6 +129,8 @@ export interface StudioDeps {
 	story: StoryModule;
 	/** Serial release schedules (P1-STU-06). */
 	releases: ReleasesModule;
+	/** Wishlists (P1-STO-06): a new price may send sale alerts. */
+	wishlist?: Pick<WishlistModule, 'priceChanged'>;
 	changed: (...topics: BackendTopic[]) => void;
 }
 
@@ -1198,6 +1201,8 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			}
 			await db.put('books', next);
 			await setPrice('book', bookId, changes.price);
+			// A lower price tells the readers who wishlisted it (P1-STO-06, D-042).
+			if (changes.price) await deps.wishlist?.priceChanged(bookId, changes.price);
 			deps.changed('studio', 'catalogue');
 			return detail(next);
 		},

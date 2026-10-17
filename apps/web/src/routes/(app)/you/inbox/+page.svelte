@@ -27,11 +27,18 @@
 	});
 
 	/**
-	 * Where a message's subject is: a new Chapter in the reader; otherwise where it's looked after,
-	 * the Studio.
+	 * Where a message's subject is: a new Chapter in the reader; a Book in the store (a sale alert,
+	 * or the reader's own review); otherwise where it's looked after, the Studio.
 	 */
 	function linkOf(message: InboxMessageDto): { href: string; label: string } | null {
 		if (!message.about) return null;
+		if (message.about.type === 'book_page' || message.about.type === 'review') {
+			if (!message.about.slug) return null;
+			return {
+				href: resolve('/(app)/book/[slug]', { slug: message.about.slug }),
+				label: 'See the book'
+			};
+		}
 		if (message.about.type === 'chapter') {
 			const reader = resolve('/read/[bookId]', { bookId: message.about.id });
 			const chapter = message.about.chapterId
@@ -67,7 +74,7 @@
 			<EmptyState
 				icon="inbox"
 				title="Nothing here yet"
-				message="News about your books, illustrations and narration, and new chapters from authors you follow, will arrive here."
+				message="News about your books, illustrations and narration, new chapters from authors you follow, and price drops on your wishlist will arrive here."
 			/>
 		{/snippet}
 		{#snippet children(list)}

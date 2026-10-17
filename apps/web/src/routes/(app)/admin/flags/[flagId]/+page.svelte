@@ -58,8 +58,33 @@
 		book: 'Book',
 		illustration_pack: 'Illustration pack',
 		audio_track: 'Narration',
-		creator: 'Creator'
+		creator: 'Creator',
+		review: 'Review'
 	} as const;
+
+	/**
+	 * What a moderator can do: content can be relabelled, hidden and removed, an account
+	 * suspended; a reader's review (P1-STO-07) approved, hidden (its writer still sees it),
+	 * removed, or its writer warned.
+	 */
+	function actionsFor(type: keyof typeof targetLabels) {
+		if (type === 'review') {
+			return ACTIONS.filter((a) => ['approve', 'hide', 'remove', 'warn'].includes(a.action)).map(
+				(a) =>
+					a.action === 'hide'
+						? { ...a, help: 'Hide it from other readers; its writer still sees it.' }
+						: a.action === 'remove'
+							? { ...a, help: 'Delete it.' }
+							: a.action === 'warn'
+								? { ...a, help: 'Tell its writer, change nothing else.' }
+								: { ...a, help: 'It’s fine. A hidden review shows again.' }
+			);
+		}
+		return ACTIONS.filter((a) => type !== 'creator' || !a.content);
+	}
+
+	/** Who hears the outcome. */
+	const told = (type: keyof typeof targetLabels) => (type === 'review' ? 'reviewer' : 'creator');
 
 	const stateLabels: Record<string, string> = {
 		draft: 'Draft',
@@ -96,7 +121,9 @@
 		try {
 			await (await getBackend()).moderation.act(flagId, { action: choice.action, reason });
 			open = false;
-			snackbars.show(`${choice.label}: done. The creator has been told.`);
+			snackbars.show(
+				`${choice.label}: done. The ${told(detail.data?.target.type ?? 'book')} has been told.`
+			);
 		} catch (error) {
 			snackbars.show(describeError(error).message, { tone: 'error' });
 		} finally {
@@ -135,13 +162,13 @@
 				<h2 id="what-heading">What fired</h2>
 				<p>{d.flag.details}</p>
 				<dl>
-					<dt>Creator</dt>
+					<dt>{d.target.type === 'review' ? 'Written by' : 'Creator'}</dt>
 					<dd>{d.target.creatorName || '—'}</dd>
 					{#if d.target.bookTitle}
 						<dt>For</dt>
 						<dd>{d.target.bookTitle}</dd>
 					{/if}
-					{#if d.target.type !== 'creator'}
+					{#if d.target.type !== 'creator' && d.target.type !== 'review'}
 						<dt>AI label</dt>
 						<dd>
 							{#if d.target.aiUse && d.target.aiUse !== 'none'}<AiLabel
@@ -160,6 +187,13 @@
 					<dd>{formatDate(d.flag.createdAt)} · priority {d.flag.priority}</dd>
 				</dl>
 			</section>
+
+			{#if d.target.excerpt}
+				<section class="card" aria-labelledby="review-heading">
+					<h2 id="review-heading">The review</h2>
+					<p class="excerpt" data-testid="flag-excerpt">{d.target.excerpt}</p>
+				</section>
+			{/if}
 
 			{#if d.reports.length}
 				<section class="card" aria-labelledby="reports-heading">
@@ -180,7 +214,7 @@
 				<section class="card" aria-labelledby="actions-heading">
 					<h2 id="actions-heading">Decide</h2>
 					<ul class="actions">
-						{#each ACTIONS.filter((a) => d.target.type !== 'creator' || !a.content) as a (a.action)}
+						{#each actionsFor(d.target.type) as a (a.action)}
 							<li>
 								<Button
 									variant={a.action === 'approve' ? 'filled' : 'outlined'}
@@ -195,7 +229,7 @@
 			{/if}
 
 			<section class="card" aria-labelledby="history-heading">
-				<h2 id="history-heading">The creator’s history</h2>
+				<h2 id="history-heading">The {told(d.target.type)}’s history</h2>
 				{#if !d.history.flags.length && !d.history.actions.length}
 					<p class="muted">Nothing before this.</p>
 				{/if}
@@ -222,7 +256,9 @@
 <Dialog
 	bind:open
 	title={choice ? `${choice.label}?` : ''}
-	description={choice ? `${choice.help} The reason goes in the log and to the creator.` : ''}
+	description={choice
+		? `${choice.help} The reason goes in the log and to the ${told(detail.data?.target.type ?? 'book')}.`
+		: ''}
 	size="medium"
 >
 	<TextField label="Reason" bind:value={reason} multiline rows={3} required />
@@ -250,6 +286,11 @@
 		flex-wrap: wrap;
 		gap: var(--space-2);
 		margin-top: var(--space-2);
+	}
+
+	.excerpt {
+		margin: 0;
+		white-space: pre-wrap;
 	}
 
 	.card {

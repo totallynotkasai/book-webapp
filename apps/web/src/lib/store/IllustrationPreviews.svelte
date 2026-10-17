@@ -56,7 +56,13 @@
 		{#each [0, 1, 2] as i (i)}<Skeleton shape="block" width="10rem" height="13rem" />{/each}
 	</div>
 {:else if shown.length}
-	<ul class="strip" aria-label="Pictures from this book" data-testid="illustration-previews">
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex (it scrolls sideways: focusable, so the arrow keys scroll it, WCAG 2.1.1) -->
+	<ul
+		class="strip"
+		aria-label="Pictures from this book"
+		data-testid="illustration-previews"
+		tabindex="0"
+	>
 		{#each shown as { preview, url } (preview.id)}
 			<li>
 				<figure>
@@ -84,6 +90,11 @@
 		overflow-x: auto;
 		list-style: none;
 		scroll-snap-type: x proximity;
+	}
+
+	.strip:focus-visible {
+		outline: 3px solid var(--md-sys-color-secondary);
+		outline-offset: 2px;
 	}
 
 	.strip li {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { BookSummaryDto } from '@book/core';
-	import { Icon } from '@book/ui';
+	import { Icon, IconButton } from '@book/ui';
 	import { formatPrice } from '$lib/format';
 	import AiLabel from './AiLabel.svelte';
 	import BookCover from './BookCover.svelte';
@@ -12,31 +12,63 @@
 		showPrice?: boolean;
 		/** A line under the title instead of the price, e.g. "Chapter 3 · 24%". */
 		detail?: string;
+		/** The wishlist's heart on the cover (P1-STO-06), on store cards. */
+		wishlist?: { on: boolean; toggle: () => void };
 	}
 
-	let { book, href, showPrice = true, detail }: Props = $props();
+	let { book, href, showPrice = true, detail, wishlist }: Props = $props();
 </script>
 
-<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass a resolved href -->
-<a class="book-card" {href}>
-	<BookCover title={book.title} creatorName={book.creatorName} coverUrl={book.coverUrl} />
-	<span class="title">{book.title}</span>
-	<span class="creator">{book.creatorName}</span>
-	<span class="meta">
-		{#if detail}<span>{detail}</span>{:else if showPrice && book.inLibrary}<span class="owned"
-				>In your library</span
-			>{:else if showPrice}<span class="price">{formatPrice(book.price)}</span>{/if}
-		{#if book.hasIllustrations}<span class="layer" title="Illustrated"
-				><Icon name="image" size={16} /><span class="visually-hidden">Illustrated</span></span
-			>{/if}
-		{#if book.hasNarration}<span class="layer" title="Narrated"
-				><Icon name="headphones" size={16} /><span class="visually-hidden">Narrated</span></span
-			>{/if}
-		<AiLabel aiUse={book.aiUse} />
-	</span>
-</a>
+<div class="book-card-wrap">
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass a resolved href -->
+	<a class="book-card" {href}>
+		<BookCover title={book.title} creatorName={book.creatorName} coverUrl={book.coverUrl} />
+		<span class="title">{book.title}</span>
+		<span class="creator">{book.creatorName}</span>
+		<span class="meta">
+			{#if detail}<span>{detail}</span>{:else if showPrice && book.inLibrary}<span class="owned"
+					>In your library</span
+				>{:else if showPrice}<span class="price">{formatPrice(book.price)}</span>{/if}
+			{#if book.hasIllustrations}<span class="layer" title="Illustrated"
+					><Icon name="image" size={16} /><span class="visually-hidden">Illustrated</span></span
+				>{/if}
+			{#if book.hasNarration}<span class="layer" title="Narrated"
+					><Icon name="headphones" size={16} /><span class="visually-hidden">Narrated</span></span
+				>{/if}
+			<AiLabel aiUse={book.aiUse} />
+		</span>
+	</a>
+	{#if wishlist}
+		<!-- Beside the link, not in it: a button can't sit inside a link. -->
+		<span class="wish">
+			<IconButton
+				icon="favorite"
+				selectedIcon="favorite-fill"
+				selected={wishlist.on}
+				label={`Wishlist ${book.title}`}
+				onclick={wishlist.toggle}
+			/>
+		</span>
+	{/if}
+</div>
 
 <style>
+	.book-card-wrap {
+		position: relative;
+		display: grid;
+		min-width: 0;
+	}
+
+	/* On the cover's top corner, on a disc of its own so it shows on any cover. */
+	.wish {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		border-radius: 50%;
+		background: var(--md-sys-color-surface-container-highest);
+		box-shadow: var(--md-sys-elevation-1);
+	}
+
 	.book-card {
 		display: grid;
 		align-content: start;
