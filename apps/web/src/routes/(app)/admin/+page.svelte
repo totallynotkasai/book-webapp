@@ -18,6 +18,7 @@
 	const targetLabels = {
 		book: 'Book',
 		illustration_pack: 'Illustration pack',
+		review: 'Review',
 		audio_track: 'Narration',
 		creator: 'Creator'
 	} as const;

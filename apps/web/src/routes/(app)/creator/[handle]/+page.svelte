@@ -17,6 +17,7 @@
 	import { snackbars } from '$lib/state/snackbar.svelte';
 	import SubscribeSheet from '$lib/store/SubscribeSheet.svelte';
 	import TipSheet from '$lib/store/TipSheet.svelte';
+	import { Wishlist } from '$lib/store/wishlist.svelte';
 
 	// A Creator profile (P1-APP-01, P1-STO-04, P1-COM-02): follow them, Tip, their Creator
 	// Subscription plans, their Books, and their portfolio of illustrations and narration.
@@ -36,6 +37,8 @@
 		},
 		{ topics: ['catalogue', 'entitlements', 'community'] }
 	);
+	// A heart on every store card (P1-STO-06).
+	const wishlist = new Wishlist();
 	const books = resource(
 		() => {
 			const handle = page.params.handle ?? '';
@@ -164,7 +167,13 @@
 		{#snippet children(list)}
 			<BookGrid label="Books">
 				{#each list.items.filter((b) => !(hideAi && b.aiUse === 'generated')) as book (book.id)}
-					<li><BookCard {book} href={resolve('/(app)/book/[slug]', { slug: book.slug })} /></li>
+					<li>
+						<BookCard
+							{book}
+							href={resolve('/(app)/book/[slug]', { slug: book.slug })}
+							wishlist={wishlist.heart(book)}
+						/>
+					</li>
 				{/each}
 			</BookGrid>
 		{/snippet}

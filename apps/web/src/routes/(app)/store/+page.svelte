@@ -10,6 +10,7 @@
 	import { getBackend } from '$lib/services';
 	import { preferences } from '$lib/state/preferences.svelte';
 	import { resource } from '$lib/state/resource.svelte';
+	import { Wishlist } from '$lib/store/wishlist.svelte';
 
 	// The store (P1-STO-01): curated shelves, search across titles, authors and descriptions, and
 	// every Book. "Hide AI-generated content" (P1-STO-05) takes AI-generated Books out of all of it.
@@ -24,6 +25,9 @@
 		},
 		{ topics: ['catalogue', 'entitlements'] }
 	);
+
+	// A heart on every store card (P1-STO-06).
+	const wishlist = new Wishlist();
 
 	let query = $state('');
 	let searched = $state<{ query: string; books: BookSummaryDto[] } | null>(null);
@@ -81,7 +85,9 @@
 					</h2>
 					{#if results.length}
 						<BookGrid label="Search results">
-							{#each results as book (book.id)}<li><BookCard {book} href={href(book)} /></li>{/each}
+							{#each results as book (book.id)}<li>
+									<BookCard {book} href={href(book)} wishlist={wishlist.heart(book)} />
+								</li>{/each}
 						</BookGrid>
 					{:else}
 						<EmptyState
@@ -109,7 +115,7 @@
 							<p class="shelf-description">{shelf.description}</p>
 							<ul class="row" aria-label={shelf.title}>
 								{#each shelfBooks as book (book.id)}<li>
-										<BookCard {book} href={href(book)} />
+										<BookCard {book} href={href(book)} wishlist={wishlist.heart(book)} />
 									</li>{/each}
 							</ul>
 						</section>
@@ -130,7 +136,7 @@
 					<h2 id="all-heading" class="shelf-title">All books</h2>
 					<BookGrid label="All books">
 						{#each visible(books) as book (book.id)}<li>
-								<BookCard {book} href={href(book)} />
+								<BookCard {book} href={href(book)} wishlist={wishlist.heart(book)} />
 							</li>{/each}
 					</BookGrid>
 				</section>

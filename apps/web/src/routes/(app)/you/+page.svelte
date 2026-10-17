@@ -34,7 +34,14 @@
 				: 'News about your books, illustrations and narration',
 			icon: 'inbox',
 			href: resolve('/you/inbox'),
-			show: flags.studio || flags.community || flags.admin
+			show: flags.store || flags.studio || flags.community || flags.admin
+		},
+		{
+			label: 'Wishlist',
+			description: 'Books saved for later, with a message when one costs less',
+			icon: 'favorite',
+			href: resolve('/you/wishlist'),
+			show: flags.store
 		},
 		{
 			label: 'Your reading',

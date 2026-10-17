@@ -500,7 +500,9 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 			if (error instanceof BackendError) throw error;
 			throw new BackendError('SERVER_ERROR', 'The server had a problem.', String(error));
 		}
-		if (simulation.emptyLists && isPage(output)) output = { items: [], nextCursor: null } as T;
+		// Empties the list itself; a page with more (a Book's reviews and their average) keeps the rest.
+		if (simulation.emptyLists && isPage(output))
+			output = { ...output, items: [], nextCursor: null };
 		if (!validate) return output;
 		const parsed = contract.output.safeParse(output);
 		if (!parsed.success) {
