@@ -1,6 +1,6 @@
 # Interactive Book Platform — Design Document
 
-> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 17 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034. Front end first: phases 1.11–1.21 before any backend; D-035, OPEN-16. Phase 1.11: the device voice; D-036, ADR-006. Phase 1.12: search in the Book and focus mode. Phase 1.13: the table viewer, the sleep timer and the phone's top bar; D-037. Phase 1.14: recaps and glossary, the story so far; D-038. Phase 1.15: serial release schedules and `tools/align` for any Book; D-039. Phase 1.16: reading time left, stats, a streak and achievements on the device; D-040. Phase 1.17: share quote and custom page and text colours; D-041. Phase 1.18: wishlists, sale alerts and reviews, simulated; D-042. Phase 1.19: overview mode and look-up; D-043, OPEN-16 resolved)
+> **Status:** Draft v0.3 · **Owner:** Kasai · **Last updated:** 17 October 2026 (Phase 1.9: tester builds and the PoC review kit; D-029 to D-031. Phase 2 detailed and split into phases 2.1–2.13; D-032, OPEN-15. Phase 1.10: a new Book opens at its text; D-033, D-034. Front end first: phases 1.11–1.21 before any backend; D-035, OPEN-16. Phase 1.11: the device voice; D-036, ADR-006. Phase 1.12: search in the Book and focus mode. Phase 1.13: the table viewer, the sleep timer and the phone's top bar; D-037. Phase 1.14: recaps and glossary, the story so far; D-038. Phase 1.15: serial release schedules and `tools/align` for any Book; D-039. Phase 1.16: reading time left, stats, a streak and achievements on the device; D-040. Phase 1.17: share quote and custom page and text colours; D-041. Phase 1.18: wishlists, sale alerts and reviews, simulated; D-042. Phase 1.19: overview mode and look-up; D-043, OPEN-16 resolved. Phase 1.20: paragraph comments and popular highlights, simulated; D-044)
 > **Supersedes:** `docs/design-doc.md` (v0.1, 28 Sep 2026: product and vision) and `docs/DESIGN.md` (v0.1, 11 Oct 2026: engineering plan). Appendix A records what came from each and how conflicts were resolved.
 > The two v0.1 drafts are kept for reference in `docs/archive/`. Decisions D-003, D-005, D-008, D-009, D-011 to D-014, D-019 and D-020 in §16 were confirmed by the owner on 11 October 2026.
 > **v0.3 (11 October 2026)** adds the simulated backend for the PoC (§5.6), splits Phases 0 and 1 into smaller phases detailed in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md), and moves iOS work to [BACKLOG.md](BACKLOG.md). The owner confirmed D-021 to D-024 the same day.
@@ -257,8 +257,8 @@ Every feature has a home phase so the vision and the roadmap are the same list. 
 | Community Layers | Packs and narration by other creators, subject to the author's policy (§6.6) | 1 (simulated), 5 |
 | Per-Book hub | Browse, rate and enable community Layers, free or paid; "Author-endorsed" badge; top-rated first | 1 (simulated), 5 |
 | Creator profiles | Portfolio across Books, follow, tip, subscribe | 1 (simulated), 5 |
-| Paragraph comments | Comments on passages, hidden by default behind a count indicator | 1.20 (simulated), 6 |
-| Popular highlights | Optionally show passages many readers highlighted | 1.20 (simulated), 6 |
+| Paragraph comments | Comments on passages, with replies, behind a count after each paragraph that has some; off until a reader turns them on for a Book; owners of the Book write, and its author can turn them off (D-044) | 1.20 (simulated), 6 |
+| Popular highlights | Optionally underline passages many readers highlighted, with how many and never who; off until a reader turns them on for a Book | 1.20 (simulated), 6 |
 | Reviews | Showing how far the reviewer read; wishlists and sale alerts | 1.18 (simulated), 6 |
 | Reading groups | Shared progress and discussion for a small group | Parked |
 
@@ -589,7 +589,7 @@ The PoC stores everything locally, and Phase 2 adds sync. To avoid a rewrite, ev
 | `subscription_plans` | `creator_id`, `name`, `price_minor`, `currency`, `interval` (`month`), benefits (e.g. early access to listed Books), `status` | 4 |
 | `creator_subscriptions` | `user_id`, `plan_id`, `status` (`active` / `cancelling` / `ended`), `current_period_end`, Stripe subscription ID | 4 |
 | `payout_accounts`, `payout_ledger` | Creator earnings and Stripe Connect state | 4 |
-| `reviews`, `wishlists`, `achievements`, `comments` | Discovery and retention | 6 |
+| `reviews`, `wishlists`, `achievements`, `comments` | Discovery and retention. `comments` keeps its passage as Anchor columns (§6.1) and a `parent_id` for replies, and moves to new Revisions like Illustrations (§6.2); popular highlights count readers' synced Annotations, once Phase 6 decides whether readers opt in (D-044) | 6 |
 
 Reading Progress keeps two positions on purpose: the **furthest Anchor** gates spoiler-sensitive features to the Word (Invariant 6), while **`furthest_progression`** is a simple number for reviews ("read 80%") and refund rules.
 
@@ -816,6 +816,13 @@ export interface TableView {                         // a squeezed table, copied
   caption: string | null;
 }
 
+export interface Marker {                            // a button at the end of a paragraph (P1-COM-03)
+  id: string;
+  anchor: Anchor;                                    // it goes after the last Word of the Block holding the first
+  label: string; text: string;                       // its accessible name, and what it shows ("3")
+  icon: string;                                      // an SVG path; the app owns words and icons
+}
+
 // EngineOptions (besides layout, typography, theme, page turn, fonts, start):
 //   tableButton?: { label: string; icon: string }   // the "Open table" button's text and icon path (P1-RDR-12)
 
@@ -831,6 +838,7 @@ export interface EngineEvents {
     pointer: 'mouse' | 'touch' | 'pen'; preventDefault: () => void;
   };
   figureActivated: { id: string };
+  markerActivated: { id: string; clientRect: DOMRect }; // a paragraph's comment count, pressed (P1-COM-03)
   tableActivated: TableView;                         // "Open table" above a squeezed table (P1-RDR-12)
   tap: { x: number; y: number };                     // outside links and Words (tap zones, §9.2)
   keydown: KeyboardEvent;                            // keys pressed while focus is in the book
@@ -854,6 +862,7 @@ export interface ReaderEngine {
 
   setDecorations(group: string, items: Decoration[]): void; // replaces the group
   injectFigures(items: FigureInjection[]): void;            // replaces all figures; re-paginates, keeping place
+  setMarkers(group: string, items: Marker[]): void;         // replaces the group; re-paginates, keeping place
   relayout(change: () => void | Promise<void>): Promise<void>; // the mount element changes size (a panel opens)
 
   getVisibleRange(): VisibleRange | null;
@@ -873,6 +882,7 @@ export interface ReaderEngine {
 - Decorations should use the CSS Custom Highlight API where the engine allows it (supported in Chromium, Safari 17.2+ and Firefox 140+). It paints highlights without changing the DOM, so highlighting never triggers re-pagination.
 - The `focus` decoration (focus mode, P1-RDR-11) marks the paragraph to keep bright: the engine dims the Chapter's other innermost Blocks with opacity, set by attributes. Opacity never changes the layout, keeps the focused text's own colours (AA in every theme) and dims pictures too, which a highlight can't.
 - **Overview mode (P1-RDR-17):** `chapterPages` measures the layout the paginator already has (no new layout: never more than the current Chapter, §9.2), finding each page's first Word by binary search over the Chapter's Words; `null` in scroll mode and vertical writing. A spread is one page, as `pageInChapter` counts them. `drawPage` returns a page's lines of text (in runs of one computed style, each Word with its punctuation), its pictures (the Revision's own blob URLs only) and the boxes behind styled blocks, in page coordinates: what the page computed, never the Book's markup (Invariant 10), so the app draws it in its own document.
+- **Markers (P1-COM-03):** a paragraph's comment count is a button the engine puts at the end of the paragraph's Block, in the text (after a table, which can't hold one), so it moves with the paragraph, Tab reaches it in reading order, and a screen reader reads it after the paragraph. Its count is drawn by CSS from an attribute and it's `data-injected`, so it adds no text to the Book: copying, quotes, search and the word map never see it. Adding or removing one changes the layout, so the engine keeps the first visible Word on screen. The `popular` decoration (P1-COM-04) is a faint dotted underline painted like the others.
 - **Squeezed tables (P1-RDR-12, §4.10):** a table is squeezed when the page can't fit it without breaking its words (its narrowest layout with whole words is wider than the room it has). The engine checks each Chapter's tables after layout, when the fonts load, when a table's size changes and after a typography change, and puts an "Open table" row above each squeezed one (`data-injected`, so the word map skips it; foliate-js keeps the place as the layout changes). Pressing it emits `tableActivated` with a copy of the table for the app's viewer, rebuilt from an allowlist of elements and attributes with the computed look inlined, since Book content is untrusted (Invariant 10).
 
 ### 9.2 Layout and navigation
@@ -924,6 +934,8 @@ export interface ReaderPreferences {
   hintsSeen: string[];           // one-off hints dismissed ('illustrations', 'narration'), global only
   hideAiGenerated: boolean;      // P1-STO-05 (§10.6), global only
   readingStats: boolean;         // P1-RDR-15: keep stats, a streak and achievements on this device; on by default; global only
+  comments: boolean;             // P1-COM-03: other readers' comments; off by default; per Book only (D-044)
+  popularHighlights: boolean;    // P1-COM-04: passages many readers highlighted; off by default; per Book only
 }
 ```
 
@@ -1656,6 +1668,7 @@ Starts after the front-end phases 1.10–1.21 (or those the owner keeps, D-035) 
 | D-041 | **Share and colour (Phase 1.17; P1-RDR-16, P1-UI-04):** **a shared quote is at most about 60 Words**, then an ellipsis, for the picture and the text alike, so a share never gives away a page of an author's Book. **A custom page and text pair below WCAG AA can be kept after a warning**: it shows only in the editor's sample until the reader chooses "Use nearest readable colour" or "Keep these colours", since some readers need low contrast (light sensitivity). Also chosen in the phase, not by the owner (proposed in the Phase 1.17 PR): Custom is a fifth theme mode and colours only the reading page, the app taking the light or dark scheme that suits the page; the nearest readable colour keeps the hue and chroma and moves the lightness (HCT tone) of the colour changed last, just far enough; five suggested pairs; the card is a 1080 × 1350 PNG in the reader's font and page colours with the title and author, and no app name or link until the product is named (OPEN-07) and has public store pages (Phase 6); Android shares through the Share plugin, the web copies and downloads, and offers the browser's share sheet where it can send files | Accepted (owner decision, 17 Oct 2026; the rest proposed) |
 | D-042 | **Wishlists and reviews (Phase 1.18; P1-STO-06, P1-STO-07; simulated):** **a sale alert comes when a wishlisted Book's price falls below the price the reader last saw** (when they added it, or in their last alert): one message per drop, none for a rise, and none for a price they've already been told about. **A review can be marked "Contains spoilers"**: other readers see its words only when they choose to. Also chosen in the phase, not by the owner (proposed in the Phase 1.18 PR): the price compared is the Book alone (the Studio doesn't price Bundles; BACKLOG STO-01); owning a Book, however it was got, takes it off the wishlist; stars are required and words optional (up to 4,000 characters); a review's "how far" is the reader's furthest Reading Progress, sent by the device until Phase 2 syncs it, updated when they change the review, and 99% or more reads as finished; readers' reviews are a report target, and a moderator can approve, hide (only its writer still sees it, and editing doesn't bring it back), remove or warn; authors don't see reports on reviews of their own Books; the average shows on the Book page, not on store cards (BACKLOG STO-02) | Accepted (owner decision, 17 Oct 2026; the rest proposed) |
 | D-043 | **Look-up (Phase 1.19; P1-RDR-18), resolving OPEN-16:** **tap-to-define uses Open English WordNet** (the 2025 edition, CC BY 4.0, credited on every card), **offline and shipped with the app**: about 160,000 English words, modern ones included, with short definitions. Nothing the reader looks up leaves the device. **When a Word isn't in it, the card offers "Look up on Wiktionary"**, labelled as opening the web: only then, and only on that tap, does the Word leave the device. Not an online dictionary service (it would learn what readers look up, principle 6, and fail offline), not Wiktionary's data (CC BY-SA, and far bigger), not only the device's own (the web has none). Also chosen in the phase, not by the owner (proposed in the Phase 1.19 PR): the app keeps WordNet's **single Words** (69,862 headwords of its 161,875 entries; Define looks up one Word, and the tokeniser splits phrases and hyphenated entries), every meaning, the first example of each and one pronunciation per part of speech (British where given): 13 MB in 130 pieces, 4.1 MB compressed, so a look-up reads one piece of about 100 KB. A Word is found as spelt, then by WordNet's irregular forms ("went": go) and its rules ("antipathies": antipathy, "curiouser": curious), showing only the part of speech it's a form of. **Define is offered for one Word of an English Book** (or one that doesn't say its language). The card credits the source and links its licence. **Overview mode** (P1-RDR-17) shows only the current Chapter, opens from the page indicator and `O`, isn't offered when scrolling (no pages), shows a spread as one page, and offers Back after a jump | Accepted (owner decision, 17 Oct 2026; the rest proposed) |
+| D-044 | **Readers together (Phase 1.20; P1-COM-03, P1-COM-04; simulated):** **only readers who own the Book write comments and replies** (any Entitlement, a free one included); anyone who can open a Chapter, a sample reader too, reads its comments. **A comment or reply can be marked "Contains spoilers"**: other readers see its words only when they choose to. **Authors can turn readers' comments off for their own Book** (Studio → Details, on by default): every comment is hidden and none can be written; they're kept, so turning it on again brings them back. **A comment starts from "Comment" in the selection toolbar**, on the selected passage, or from "Add a comment" in a paragraph's comments; only paragraphs with comments show a count, so the page stays clean. Also chosen in the phase, not by the owner (proposed in the Phase 1.20 PR): both are switched on for one Book at a time (Reading preferences → Readers), which doesn't make the Book one with its own settings ("This book only") and isn't undone by resetting them; comments are grouped by the paragraph their passage starts in, and the count is comments plus replies; one level of replies (a reply to a reply joins the thread); writers delete their own (a comment with replies stays as "Comment deleted" above them) and can't edit; a comment by the Book's author says "Author"; comments are a report target the moderators approve, hide (only its writer still sees it), remove (with its replies) or warn about, and authors don't see reports on them; a comment whose passage a new Revision removes is kept but not shown; comments are only for catalogue Books, read as a reader. **Popular highlights** need at least 5 different readers (placeholder, `SIMULATION:`), count every reader whose highlight touches a passage, and never say who; the counts are seeded, so a reader's own highlights stay on their device (whether readers' highlights are counted, and whether they opt in, is Phase 6's to decide); Notes lists the ones the reader has reached (Invariant 6), most highlighted first, and a tap on an underlined Word says how many | Accepted (owner decision, 17 Oct 2026; the rest proposed) |
 
 ---
 
