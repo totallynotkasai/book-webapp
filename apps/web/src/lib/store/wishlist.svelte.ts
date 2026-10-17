@@ -32,10 +32,9 @@ export async function setWishlisted(book: { id: string }, on: boolean): Promise<
 
 /** Which Books are on the wishlist. Create it while a component initialises (it's a resource). */
 export class Wishlist {
-	#ids = resource(
-		async () => (await (await getBackend()).wishlist.list()).map((e) => e.book.id),
-		{ topics: ['wishlist', 'entitlements', 'session'] }
-	);
+	#ids = resource(async () => (await (await getBackend()).wishlist.list()).map((e) => e.book.id), {
+		topics: ['wishlist', 'entitlements', 'session']
+	});
 	/** Hearts already pressed, until the list has caught up. */
 	#pressed = new SvelteMap<string, boolean>();
 
