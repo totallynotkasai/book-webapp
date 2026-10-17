@@ -137,6 +137,19 @@ test.describe('overview mode (P1-RDR-17)', () => {
 		expect((await visibleWords(page)).first).toBe(first);
 	});
 
+	test('the pages follow a new layout while it’s open', async ({ page }) => {
+		await openReader(page, 'book-alice');
+		await openOverview(page);
+		const spreads = await thumbnails(page).count();
+		// Under 1024 px wide a page is no longer a spread: about twice as many pages.
+		await page.setViewportSize({ width: 800, height: 720 });
+		await expect.poll(() => thumbnails(page).count()).toBeGreaterThan(spreads);
+		const { count } = await pageNumbers(page);
+		await expect(thumbnails(page)).toHaveCount(count);
+		await expect(thumbnails(page).nth(0).locator('.line').first()).toBeAttached();
+		await expect(thumbnails(page).nth(1).locator('.line').first()).toBeAttached();
+	});
+
 	test('scrolling has no pages, so no overview', async ({ page }) => {
 		await openReader(page, 'book-alice');
 		await openPreferences(page, 'Page');

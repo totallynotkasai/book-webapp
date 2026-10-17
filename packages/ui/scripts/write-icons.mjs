@@ -60,7 +60,6 @@ const ICONS = [
 	'format_size',
 	'gavel',
 	'graphic_eq',
-	'grid_view',
 	'headphones',
 	'help',
 	'history',

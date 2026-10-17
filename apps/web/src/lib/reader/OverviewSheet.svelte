@@ -53,9 +53,10 @@
 		});
 	});
 
-	/** Draws a page once it's near the screen. */
+	/** Draws a page once it's near the screen, and again once the pages are new (a new layout). */
 	function lazily(index: number) {
 		return (node: HTMLElement) => {
+			void pages;
 			const observer = new IntersectionObserver(
 				(entries) => {
 					if (!entries.some((e) => e.isIntersecting) || drawings[index] !== undefined) return;
