@@ -6,6 +6,7 @@
 	import { roleLabels } from '$lib/format';
 	import { getBackend } from '$lib/services';
 	import { resource } from '$lib/state/resource.svelte';
+	import { preferences } from '$lib/state/preferences.svelte';
 	import { session } from '$lib/state/session.svelte';
 
 	// P1-APP-01: profile and the way into everything personal (IMPLEMENTATION-PLAN.md §5.1).
@@ -34,6 +35,15 @@
 			icon: 'inbox',
 			href: resolve('/you/inbox'),
 			show: flags.studio || flags.community || flags.admin
+		},
+		{
+			label: 'Your reading',
+			description: preferences.current.readingStats
+				? 'Time read, your streak and a few achievements, on this device'
+				: 'Reading stats are off',
+			icon: 'history',
+			href: resolve('/you/reading'),
+			show: true
 		},
 		{
 			label: 'Settings',
