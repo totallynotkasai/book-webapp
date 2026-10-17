@@ -2320,6 +2320,7 @@
 			accent: tokens['--reader-link']!
 		}}
 		font={prefs.fontFamily}
+		dir={manifest.dir}
 	/>
 {/if}
 

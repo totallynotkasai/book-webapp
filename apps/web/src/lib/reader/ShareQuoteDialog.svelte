@@ -26,9 +26,11 @@
 		source: QuoteSource;
 		colours: CardColours;
 		font: FontId;
+		/** The Book's writing direction. */
+		dir: 'ltr' | 'rtl';
 	}
 
-	let { open = $bindable(), quote, source, colours, font }: Props = $props();
+	let { open = $bindable(), quote, source, colours, font, dir }: Props = $props();
 
 	const platform = getPlatform();
 	let format = $state<'image' | 'text'>('image');
@@ -50,7 +52,7 @@
 		let url: string | undefined;
 		failed = false;
 		const uiFont = getComputedStyle(document.documentElement).getPropertyValue('--font-ui');
-		drawQuoteCard({ quote, source, colours, font, uiFont: uiFont.trim() || 'sans-serif' })
+		drawQuoteCard({ quote, source, colours, font, dir, uiFont: uiFont.trim() || 'sans-serif' })
 			.then((blob) => {
 				if (cancelled) return;
 				url = URL.createObjectURL(blob);
@@ -131,6 +133,7 @@
 		{:else}
 			<blockquote
 				class="text-card"
+				{dir}
 				style:background={colours.page}
 				style:color={colours.text}
 				style:font-family={fontStacks[font] ?? fontStacks.literata}

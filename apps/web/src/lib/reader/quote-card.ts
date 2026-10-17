@@ -35,6 +35,8 @@ export interface CardInput {
 	font: FontId;
 	/** The app's own font stack, for the author's name. */
 	uiFont: string;
+	/** The Book's writing direction: a right-to-left Book's card is drawn from the right. */
+	dir?: 'ltr' | 'rtl';
 }
 
 /** What the card is laid out as, separate from drawing it, so the layout can be tested. */
@@ -106,11 +108,16 @@ export async function drawQuoteCard(input: CardInput): Promise<Blob> {
 	};
 	const layout = layoutCard(input, measure);
 	const { colours } = input;
+	const rtl = input.dir === 'rtl';
+	// Where each line starts: the left margin, or the right one for a right-to-left Book.
+	const x = rtl ? CARD_WIDTH - PAD : PAD;
+	ctx.direction = rtl ? 'rtl' : 'ltr';
+	ctx.textAlign = 'start';
 
 	ctx.fillStyle = colours.page;
 	ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
 	ctx.fillStyle = colours.accent;
-	ctx.fillRect(PAD, PAD, 120, 8);
+	ctx.fillRect(rtl ? CARD_WIDTH - PAD - 120 : PAD, PAD, 120, 8);
 
 	ctx.textBaseline = 'top';
 	ctx.fillStyle = colours.text;
@@ -119,7 +126,7 @@ export async function drawQuoteCard(input: CardInput): Promise<Blob> {
 	// Half the leading above each line, as CSS sets it.
 	const leading = (lineHeight - layout.quoteSize) / 2;
 	layout.quoteLines.forEach((line, i) => {
-		ctx.fillText(line, PAD, layout.quoteTop + i * lineHeight + leading);
+		ctx.fillText(line, x, layout.quoteTop + i * lineHeight + leading);
 	});
 
 	const author = input.source.author.trim();
@@ -129,13 +136,13 @@ export async function drawQuoteCard(input: CardInput): Promise<Blob> {
 	ctx.fillStyle = colours.text;
 	ctx.font = titleFont(stack);
 	for (const line of layout.titleLines) {
-		ctx.fillText(line, PAD, y);
+		ctx.fillText(line, x, y);
 		y += TITLE_SIZE * 1.3;
 	}
 	if (author) {
 		ctx.fillStyle = colours.muted;
 		ctx.font = `${AUTHOR_SIZE}px ${input.uiFont}`;
-		ctx.fillText(author, PAD, y + 8, CARD_WIDTH - PAD * 2);
+		ctx.fillText(author, x, y + 8, CARD_WIDTH - PAD * 2);
 	}
 
 	return new Promise((resolve, reject) =>

@@ -13,7 +13,6 @@
 	} from '@book/core';
 	import { contrastLabels, fontLabels, fontStacks, themeModeLabels } from '@book/tokens';
 	import { SegmentedButton, Slider, Switch } from '@book/ui';
-	import CustomColoursPicker from '$lib/components/CustomColoursPicker.svelte';
 	import SeedPicker from '$lib/components/SeedPicker.svelte';
 	import { SPREAD_MIN_WIDTH } from './settings';
 
@@ -181,11 +180,14 @@
 			{/if}
 		</div>
 		{#if prefs.theme.mode === 'custom' && (prefs.theme.custom ?? readingColours)}
-			<CustomColoursPicker
-				value={prefs.theme.custom}
-				fallback={(prefs.theme.custom ?? readingColours)!}
-				onchange={(custom) => onchange({ theme: { custom } })}
-			/>
+			<!-- Loads on first use, so the reader's route doesn't carry it (DESIGN.md §12.3). -->
+			{#await import('$lib/components/CustomColoursPicker.svelte') then { default: CustomColoursPicker }}
+				<CustomColoursPicker
+					value={prefs.theme.custom}
+					fallback={(prefs.theme.custom ?? readingColours)!}
+					onchange={(custom) => onchange({ theme: { custom } })}
+				/>
+			{/await}
 		{/if}
 		<div class="field">
 			<span class="field-label">Contrast</span>
