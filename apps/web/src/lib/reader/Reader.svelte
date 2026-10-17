@@ -86,6 +86,7 @@
 	import ShortcutsDialog from './ShortcutsDialog.svelte';
 	import { BookStory, storyNudgeDue } from './story.svelte';
 	import { focusOnPage, ParagraphCache, paragraphAt, step, type Paragraph } from './focus';
+	import { quoteOf, type Quote } from './quote';
 	import type { SearchHit } from './search';
 	import type { BookSearch } from './search.svelte';
 	import TextDialog from './TextDialog.svelte';
@@ -305,6 +306,11 @@
 	let glossaryOpen = $state(false);
 	let glossaryEntry = $state.raw<GlossaryEntryAt | null>(null);
 	let GlossaryCardView = $state.raw<typeof import('./GlossaryCard.svelte').default>();
+
+	// ---- Share quote (P1-RDR-16): loads the first time a passage is shared ----
+	let shareOpen = $state(false);
+	let sharing = $state.raw<Quote | null>(null);
+	let ShareQuoteView = $state.raw<typeof import('./ShareQuoteDialog.svelte').default>();
 
 	// ---- The table viewer (P1-RDR-12): loads the first time a table is opened ----
 	let tableOpen = $state(false);
@@ -1664,6 +1670,17 @@
 		else snackbars.show('Couldn’t copy that. Try selecting it again.', { tone: 'error' });
 	}
 
+	async function shareFromToolbar() {
+		const current = toolbar;
+		if (!current) return;
+		const text =
+			current.kind === 'selection' ? current.text : current.annotation.anchor.quote.exact;
+		closeToolbar();
+		sharing = quoteOf(text);
+		ShareQuoteView ??= (await import('./ShareQuoteDialog.svelte')).default;
+		shareOpen = true;
+	}
+
 	async function removeFromToolbar() {
 		const current = toolbar;
 		if (!current || !notes) return;
@@ -2173,6 +2190,7 @@
 		onhighlight={(c) => void highlightWith(c)}
 		onnote={noteFromToolbar}
 		oncopy={() => void copyFromToolbar()}
+		onshare={() => void shareFromToolbar()}
 		onremove={() => void removeFromToolbar()}
 		onattach={creatorPack && toolbar.kind === 'selection' ? attachFromToolbar : undefined}
 		onglossary={selectedEntry ? () => void showGlossary(selectedEntry) : undefined}
@@ -2253,6 +2271,7 @@
 	{bookOnly}
 	{windowWidth}
 	{reducedMotion}
+	readingColours={{ page: tokens['--reader-background']!, text: tokens['--reader-text']! }}
 	onchange={change}
 	onbookonly={(on) => {
 		bookOnly = on;
@@ -2288,6 +2307,21 @@
 {/if}
 {#if TableViewerView}
 	<TableViewerView bind:open={tableOpen} view={table} />
+{/if}
+{#if ShareQuoteView && manifest}
+	<ShareQuoteView
+		bind:open={shareOpen}
+		quote={sharing}
+		source={{ title: manifest.title, author: manifest.creator }}
+		colours={{
+			page: tokens['--reader-background']!,
+			text: tokens['--reader-text']!,
+			muted: tokens['--reader-text-muted']!,
+			accent: tokens['--reader-link']!
+		}}
+		font={prefs.fontFamily}
+		dir={manifest.dir}
+	/>
 {/if}
 
 <Dialog

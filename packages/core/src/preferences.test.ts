@@ -94,6 +94,25 @@ describe('resolvePreferences', () => {
 	it('keeps a valid seed colour', () => {
 		expect(resolvePreferences({ theme: { seedColor: '#1b6b6b' } }).theme.seedColor).toBe('#1b6b6b');
 	});
+
+	it('keeps custom page and text colours, and only a whole valid pair (P1-UI-04)', () => {
+		const custom = { page: '#1f3d2b', text: '#f3ead3' };
+		expect(resolvePreferences({ theme: { mode: 'custom', custom } }).theme).toEqual({
+			mode: 'custom',
+			contrast: 'standard',
+			custom
+		});
+		// A Book's override can change the pair without losing the global seed.
+		const layered = resolvePreferences(
+			{ theme: { seedColor: '#1b6b6b', custom } },
+			{ theme: { mode: 'custom', custom: { page: '#000000', text: '#ffffff' } } }
+		);
+		expect(layered.theme.custom).toEqual({ page: '#000000', text: '#ffffff' });
+		expect(layered.theme.seedColor).toBe('#1b6b6b');
+		expect(
+			resolvePreferences({ theme: { custom: { page: 'green' } } }).theme.custom
+		).toBeUndefined();
+	});
 });
 
 describe('mergePreferencesPatch', () => {

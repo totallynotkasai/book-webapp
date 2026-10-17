@@ -15,7 +15,11 @@ import {
 	hexFromArgb,
 	type DynamicScheme
 } from '@material/material-color-utilities';
-import type { ContrastLevel, ReaderPreferences, ThemeMode } from '@book/core';
+import type { ContrastLevel, CustomColours, ReaderPreferences, ThemeMode } from '@book/core';
+import { isDarkColour } from './colour';
+import { customReaderTokens } from './custom-colours';
+
+export { contrastRatio, normaliseHex } from './colour';
 
 /**
  * Placeholder brand seed: a deep teal, chosen by the owner on 12 October 2026 until the product
@@ -44,6 +48,11 @@ export interface ThemeInput {
 	contrast: ContrastLevel;
 	/** Sepia reading surface over the light scheme. Ignored in dark mode. */
 	sepia?: boolean;
+	/**
+	 * The reader's own page and text colours (P1-UI-04): the reading surface, over the light or
+	 * dark scheme that suits the page (`mode`). The rest of the app keeps the seed's colours.
+	 */
+	custom?: CustomColours;
 }
 
 /** M3 contrast levels: 0 standard, 0.5 medium, 1 high. */
@@ -149,12 +158,23 @@ export function generateTheme(input: ThemeInput): ThemeTokens {
 		: get('surface-container');
 	tokens['--reader-block-border'] = sepia ? hct(SEPIA.hue, 18, 45) : get('outline');
 	tokens['--reader-link'] = get('primary');
+	// Custom colours (P1-UI-04) replace the reading surface and the highlights under its text.
+	if (input.custom)
+		Object.assign(tokens, customReaderTokens(input.custom, input.seed, HIGHLIGHT_HUES));
 	return tokens;
 }
 
-/** `system` follows the device; `sepia` is the light scheme with a sepia reading surface. */
-export function resolveSchemeMode(mode: ThemeMode, systemPrefersDark: boolean): SchemeMode {
-	if (mode === 'system') return systemPrefersDark ? 'dark' : 'light';
+/**
+ * `system` follows the device; `sepia` is the light scheme with a sepia reading surface;
+ * `custom` is the scheme that suits the reader's page colour (`system` until there is one).
+ */
+export function resolveSchemeMode(
+	mode: ThemeMode,
+	systemPrefersDark: boolean,
+	custom?: CustomColours
+): SchemeMode {
+	if (mode === 'custom' && custom) return isDarkColour(custom.page) ? 'dark' : 'light';
+	if (mode === 'system' || mode === 'custom') return systemPrefersDark ? 'dark' : 'light';
 	return mode === 'dark' ? 'dark' : 'light';
 }
 
@@ -163,11 +183,13 @@ export function themeFromPreferences(
 	theme: ReaderPreferences['theme'],
 	systemPrefersDark: boolean
 ): ThemeInput {
+	const custom = theme.mode === 'custom' ? theme.custom : undefined;
 	return {
 		seed: theme.seedColor ?? PLACEHOLDER_SEED,
-		mode: resolveSchemeMode(theme.mode, systemPrefersDark),
+		mode: resolveSchemeMode(theme.mode, systemPrefersDark, custom),
 		contrast: theme.contrast,
-		sepia: theme.mode === 'sepia'
+		sepia: theme.mode === 'sepia',
+		...(custom && { custom })
 	};
 }
 
@@ -177,25 +199,4 @@ export function tokensToCss(tokens: ThemeTokens, indent = '\t'): string {
 		.sort()
 		.map((name) => `${indent}${name}: ${tokens[name as keyof ThemeTokens]};`)
 		.join('\n');
-}
-
-/** WCAG 2.2 relative-luminance contrast ratio between two `#rrggbb` colours. */
-export function contrastRatio(a: string, b: string): number {
-	const luminance = (hex: string) => {
-		const [r, g, bl] = [1, 3, 5].map((i) => {
-			const c = parseInt(hex.slice(i, i + 2), 16) / 255;
-			return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-		}) as [number, number, number];
-		return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
-	};
-	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
-	return (hi + 0.05) / (lo + 0.05);
-}
-
-/** Parses `#rgb` or `#rrggbb` (from a colour input or typed by the user) to `#rrggbb`, or null. */
-export function normaliseHex(value: string): string | null {
-	const v = value.trim().toLowerCase();
-	if (/^#[0-9a-f]{6}$/.test(v)) return v;
-	const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(v);
-	return short ? `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}` : null;
 }

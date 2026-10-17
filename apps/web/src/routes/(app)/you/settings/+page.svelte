@@ -1,9 +1,16 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { contrastLevels, themeModes, type ContrastLevel, type ThemeMode } from '@book/core';
-	import { contrastLabels, PLACEHOLDER_SEED, themeModeLabels } from '@book/tokens';
+	import {
+		contrastLabels,
+		generateTheme,
+		PLACEHOLDER_SEED,
+		themeFromPreferences,
+		themeModeLabels
+	} from '@book/tokens';
 	import { Button, Card, Chip, prefersReducedMotion, SegmentedButton, Switch } from '@book/ui';
 	import { MediaQuery } from 'svelte/reactivity';
+	import CustomColoursPicker from '$lib/components/CustomColoursPicker.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import SeedPicker from '$lib/components/SeedPicker.svelte';
 	import ReadingControls from '$lib/reader/ReadingControls.svelte';
@@ -17,12 +24,24 @@
 	let windowWidth = $state(typeof innerWidth === 'number' ? innerWidth : 1024);
 	const reducedMotionQuery = new MediaQuery('prefers-reduced-motion: reduce');
 	const reducedMotion = $derived(reducedMotionQuery.current || prefersReducedMotion());
+	const systemDark = new MediaQuery('prefers-color-scheme: dark');
+	/** The reading page's colours now: where custom colours start (P1-UI-04). */
+	const readingColours = $derived.by(() => {
+		const tokens = generateTheme(themeFromPreferences(theme, systemDark.current));
+		return { page: tokens['--reader-background']!, text: tokens['--reader-text']! };
+	});
 
 	const modeOptions = themeModes.map((mode) => ({
 		value: mode,
 		label: themeModeLabels[mode],
 		icon: (
-			{ system: 'contrast', light: 'light_mode', dark: 'dark_mode', sepia: 'menu_book' } as const
+			{
+				system: 'contrast',
+				light: 'light_mode',
+				dark: 'dark_mode',
+				sepia: 'menu_book',
+				custom: 'palette'
+			} as const
 		)[mode]
 	}));
 	const contrastOptions = contrastLevels.map((level) => ({
@@ -51,10 +70,24 @@
 						label="Mode"
 						options={modeOptions}
 						value={theme.mode}
-						onchange={(mode: ThemeMode) => preferences.update({ theme: { mode } })}
+						onchange={(mode: ThemeMode) =>
+							preferences.update({
+								theme:
+									mode === 'custom' && !theme.custom ? { mode, custom: readingColours } : { mode }
+							})}
 					/>
-					<p class="hint">Sepia tints the reading page; the rest of the app stays light.</p>
+					<p class="hint">
+						Sepia and Custom change the reading page; the rest of the app stays light or dark to
+						suit it.
+					</p>
 				</div>
+				{#if theme.mode === 'custom'}
+					<CustomColoursPicker
+						value={theme.custom}
+						fallback={theme.custom ?? readingColours}
+						onchange={(custom) => preferences.update({ theme: { custom } })}
+					/>
+				{/if}
 				<div class="field">
 					<span class="field-label">Contrast</span>
 					<SegmentedButton

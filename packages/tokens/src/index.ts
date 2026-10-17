@@ -7,12 +7,15 @@ import type {
 } from '@book/core';
 
 export * from './theme';
+export * from './custom-colours';
+export { AA_NON_TEXT, AA_TEXT, AAA_TEXT, isDarkColour, mixColours } from './colour';
 
 export const themeModeLabels: Record<ThemeMode, string> = {
 	system: 'System',
 	light: 'Light',
 	dark: 'Dark',
-	sepia: 'Sepia'
+	sepia: 'Sepia',
+	custom: 'Custom'
 };
 
 export const contrastLabels: Record<ContrastLevel, string> = {

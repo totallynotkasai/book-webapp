@@ -10,6 +10,7 @@ import type {
 	FilesAdapter,
 	LifecycleAdapter,
 	Platform,
+	ShareAdapter,
 	SystemBarsAdapter
 } from './types';
 import {
@@ -40,6 +41,32 @@ const capacitorFiles: FilesAdapter = {
 		try {
 			await Share.share({ title: name, files: [written.uri], dialogTitle: `Save ${name}` });
 			return 'saved';
+		} catch {
+			return 'cancelled';
+		}
+	}
+};
+
+/**
+ * Android's share sheet (P1-RDR-16): the WebView has no Web Share API, so through the Share
+ * plugin, with a picture written to the app's cache first, as `saveFile` does.
+ */
+const capacitorShare: ShareAdapter = {
+	supported: true,
+	canShare: () => true,
+	async share({ title, text, url, file }) {
+		let files: string[] | undefined;
+		if (file) {
+			const written = await Filesystem.writeFile({
+				path: file.name,
+				directory: Directory.Cache,
+				data: await blobToBase64(file)
+			});
+			files = [written.uri];
+		}
+		try {
+			await Share.share({ title, text, url, files, dialogTitle: title });
+			return 'shared';
 		} catch {
 			return 'cancelled';
 		}
@@ -153,7 +180,8 @@ export function capacitorPlatform(): Platform {
 		// The Android WebView has no Web Speech API (ADR-006); WKWebView does.
 		speech: ios ? webSpeech() : nativeSpeech(),
 		files: capacitorFiles,
-		share: webShare,
+		// WKWebView has the Web Share API (files from iOS 15); the Android WebView has none.
+		share: ios ? webShare : capacitorShare,
 		haptics: webHaptics,
 		deepLinks: capacitorDeepLinks,
 		systemBars: ios ? webSystemBars : androidSystemBars,
