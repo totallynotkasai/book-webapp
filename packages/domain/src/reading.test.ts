@@ -1,18 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
-	achievements,
-	addDays,
 	DEFAULT_WORDS_PER_MINUTE,
 	defaultPace,
 	isReadingPace,
-	lastSevenDays,
 	localDate,
-	streaks,
 	timeLeftMs,
 	withPage,
-	wordsPerMinute,
-	type ReadingDayLike
+	wordsPerMinute
 } from './reading';
+import {
+	achievements,
+	addDays,
+	lastSevenDays,
+	streaks,
+	type ReadingDayLike
+} from './reading-stats';
 
 const MINUTE = 60_000;
 
