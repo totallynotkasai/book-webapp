@@ -52,6 +52,7 @@ const ICONS = [
 	'error',
 	'fast_forward',
 	'fast_rewind',
+	'favorite',
 	'file_open',
 	'filter_list',
 	'first_page',
@@ -91,6 +92,7 @@ const ICONS = [
 	'play_arrow',
 	'public',
 	'publish',
+	'rate_review',
 	'record_voice_over',
 	'refresh',
 	'remove',
@@ -127,6 +129,7 @@ const ICONS = [
 ];
 const FILLED = new Set([
 	'bookmark',
+	'favorite',
 	'library_books',
 	'storefront',
 	'edit_note',

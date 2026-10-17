@@ -29,6 +29,8 @@ const ROUTES = [
 	{ path: '/you/purchases', heading: 'Purchases and subscriptions' },
 	{ path: '/you/data', heading: 'Your data' },
 	{ path: '/you/reading', heading: 'Your reading' },
+	{ path: '/you/wishlist', heading: 'Wishlist' },
+	{ path: '/book/alices-adventures-in-wonderland', heading: "Alice's Adventures in Wonderland" },
 	{ path: '/dev', heading: 'Developer panel' },
 	{ path: '/dev/components', heading: 'Component gallery' }
 ];
@@ -164,6 +166,31 @@ for (const scheme of ['light', 'dark'] as const) {
 			await selectPhrase(page, 'Alice');
 			await page.getByRole('button', { name: 'Define' }).click();
 			await expect(page.getByRole('link', { name: 'Look up on Wiktionary' })).toBeVisible();
+			await expectNoViolations(page);
+		});
+
+		test('the review dialog and a reported review have no axe violations (P1-STO-07)', async ({
+			page
+		}) => {
+			await page.goto('/book/alices-adventures-in-wonderland');
+			await page.getByRole('button', { name: 'Write a review' }).click();
+			await expect(page.getByTestId('review-form')).toBeVisible();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			await page
+				.getByTestId('review')
+				.filter({ hasText: 'Mo' })
+				.first()
+				.getByRole('button', { name: 'Report' })
+				.click();
+			const report = page.getByRole('dialog');
+			await report.getByRole('radio', { name: /Spam/ }).check({ force: true });
+			await report.getByRole('button', { name: 'Report', exact: true }).click();
+			await expect(page.getByText('Reported. A moderator will look at it.')).toBeVisible();
+			await switchPersona(page, 'Moderator');
+			await page.goto('/admin');
+			await page.getByRole('link', { name: /Review of/ }).click();
+			await expect(page.getByTestId('flag-excerpt')).toBeVisible();
 			await expectNoViolations(page);
 		});
 

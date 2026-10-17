@@ -26,8 +26,10 @@ import {
 	shelfSchema,
 	subscriptionSchema,
 	tipInputSchema,
-	tipSchema
+	tipSchema,
+	wishlistEntrySchema
 } from '../store';
+import { bookReviewsSchema, reviewInputSchema, reviewSchema } from '../reviews';
 import {
 	bookSettingsInputSchema,
 	chapterNarrationInputSchema,
@@ -213,6 +215,19 @@ export const backendContract = {
 	inbox: {
 		list: { input: none, output: z.array(inboxMessageSchema) },
 		markRead: { input: slug, output: z.undefined() }
+	},
+	wishlist: {
+		list: { input: none, output: z.array(wishlistEntrySchema) },
+		add: { input: slug, output: wishlistEntrySchema },
+		remove: { input: slug, output: z.undefined() }
+	},
+	reviews: {
+		list: {
+			input: z.tuple([z.string().min(1), pageRequestSchema.optional()]),
+			output: bookReviewsSchema
+		},
+		save: { input: z.tuple([id, reviewInputSchema]), output: reviewSchema },
+		remove: { input: slug, output: z.undefined() }
 	},
 	moderation: {
 		listQueue: { input: optionalPage, output: pageSchema(flagSchema) },

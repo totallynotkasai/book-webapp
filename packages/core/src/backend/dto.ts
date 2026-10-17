@@ -133,8 +133,14 @@ export const libraryEntrySchema = z.object({
 });
 export type LibraryEntryDto = z.infer<typeof libraryEntrySchema>;
 
-/** What a Flag points at (§10.6, `moderation_flags.target_type`). */
-export const flagTargetTypeSchema = z.enum(['book', 'illustration_pack', 'audio_track', 'creator']);
+/** What a Flag points at (§10.6, `moderation_flags.target_type`); readers' reviews from P1-STO-07. */
+export const flagTargetTypeSchema = z.enum([
+	'book',
+	'illustration_pack',
+	'audio_track',
+	'creator',
+	'review'
+]);
 export type FlagTargetType = z.infer<typeof flagTargetTypeSchema>;
 
 /** The automatic and manual Flag rules (§10.6). */

@@ -15,3 +15,4 @@ export * from './story-text';
 export * from './releases';
 export * from './reading';
 export * from './reading-stats';
+export * from './opinions';

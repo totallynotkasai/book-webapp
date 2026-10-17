@@ -17,8 +17,10 @@
 	import CheckoutSheet from '$lib/store/CheckoutSheet.svelte';
 	import IllustrationPreviews from '$lib/store/IllustrationPreviews.svelte';
 	import NarrationSample from '$lib/store/NarrationSample.svelte';
+	import Reviews from '$lib/store/Reviews.svelte';
 	import SubscribeSheet from '$lib/store/SubscribeSheet.svelte';
 	import TipSheet from '$lib/store/TipSheet.svelte';
+	import { setWishlisted } from '$lib/store/wishlist.svelte';
 
 	// A Book page (P1-STO-01, P1-STO-02; plan §6 Phase 1.6 UX notes). The primary button is the
 	// Complete edition when there is one, "Book only" the second choice; the Layers section says
@@ -40,8 +42,18 @@
 			);
 			return { detail, sample, plans, subscribed };
 		},
-		{ topics: ['catalogue', 'entitlements', 'community'] }
+		{ topics: ['catalogue', 'entitlements', 'community', 'wishlist'] }
 	);
+
+	// The wishlist (P1-STO-06): the heart changes at once, then the page catches up.
+	let wishPressed = $state<boolean | null>(null);
+	async function toggleWishlist(detail: BookPageDto) {
+		const on = !(wishPressed ?? detail.wishlisted);
+		wishPressed = on;
+		await setWishlisted(detail, on);
+		await book.refresh();
+		wishPressed = null;
+	}
 
 	let checkoutOpen = $state(false);
 	let checkout = $state.raw<OfferDto | null>(null);
@@ -176,6 +188,15 @@
 								>{offer.label} · {formatPrice(offer.priceForYou)}</Button
 							>
 						{/each}
+						{#if !detail.inLibrary}
+							{@const wished = wishPressed ?? detail.wishlisted}
+							<Button
+								variant="outlined"
+								icon={wished ? 'favorite-fill' : 'favorite'}
+								aria-pressed={wished}
+								onclick={() => void toggleWishlist(detail)}>Wishlist</Button
+							>
+						{/if}
 						{#if detail.hasSample}
 							<Button
 								variant="text"
@@ -258,6 +279,8 @@
 					{/if}
 				</div>
 			</div>
+
+			<Reviews book={{ id: detail.id, title: detail.title }} />
 
 			<CheckoutSheet
 				bind:open={checkoutOpen}
