@@ -1,0 +1,10 @@
+Open English WordNet 2025 (https://en-word.net/), by John P. McCrae and the
+Open English WordNet contributors, based on Princeton WordNet 3.0
+(https://wordnet.princeton.edu/).
+
+Licensed under the Creative Commons Attribution 4.0 International licence:
+https://creativecommons.org/licenses/by/4.0/
+
+Changed for this app by tools/src/dictionary.ts: only single words, each meaning's
+first example and one pronunciation per part of speech, cut into pieces by word.
+Source: https://en-word.net/static/english-wordnet-2025-json.zip (SHA-256 7d749f6e2c39e6970e4997839dcf6e42fd281f3c2fae0171d2192bae8cfa4b51).

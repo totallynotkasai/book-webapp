@@ -7,13 +7,15 @@
 	"scripts": {
 		"layers": "tsx src/build-packs.ts",
 		"check": "tsc -p .",
-		"narration": "tsx src/align.ts"
+		"narration": "tsx src/align.ts",
+		"dictionary": "tsx src/dictionary.ts"
 	},
 	"dependencies": {
 		"@book/core": "*",
 		"@book/text-pipeline": "*",
 		"@book/alignment": "*",
-		"@book/domain": "*"
+		"@book/domain": "*",
+		"fflate": "0.8.3"
 	},
 	"devDependencies": {
 		"sharp": "0.35.5",
