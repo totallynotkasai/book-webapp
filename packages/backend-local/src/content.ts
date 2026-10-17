@@ -5,8 +5,9 @@
  * Reading a file needs a live token for that Revision (Invariant 16, simulated).
  *
  * A reader who doesn't own a Book may open its sample (P1-STO-01); an owner can't open a
- * serial's early-access Chapters without the author's subscription (P1-STO-04). Locked
- * Chapters are listed in the result and their files refused under the token.
+ * serial's early-access Chapters without the author's subscription (P1-STO-04), and nobody can
+ * open a Chapter still to come (P1-STU-06). Locked Chapters are listed in the result and their
+ * files refused under the token.
  *
  * A Book's current Revision is the one its author last published in the Studio (P1-STU-01) or,
  * until then, the one processed from its seeded EPUB. Readers' Anchors on an older Revision are
@@ -23,7 +24,13 @@ import {
 	type RevisionManifest,
 	type UserDto
 } from '@book/core';
-import { earlyAccessChapterIds, hasEntitlement, sampleChapterIds } from '@book/domain';
+import {
+	chaptersToCome,
+	earlyAccessChapterIds,
+	hasEntitlement,
+	releaseStates,
+	sampleChapterIds
+} from '@book/domain';
 import type { BackendDatabase, RevisionRecord } from './db';
 import type { StoredFiles } from './files';
 import type { Pipeline, ProcessedRevision } from './pipeline';
@@ -99,6 +106,8 @@ export interface ContentModule extends ContentApi {
 		studio?: RevisionRecord['studio']
 	): Promise<void>;
 	manifestOf(revisionId: string): Promise<RevisionManifest>;
+	/** The current Revision's Chapters still to come (P1-STU-06), with when each comes out. */
+	toCome(book: BookRecord, manifest: RevisionManifest): Promise<Map<string, Date>>;
 }
 
 export function createContentApi(deps: {
@@ -108,7 +117,10 @@ export function createContentApi(deps: {
 	loadFile: (url: string) => Promise<Uint8Array>;
 	pipeline: Pipeline;
 	files: StoredFiles;
-	/** Brings subscriptions up to date before early access is checked (P1-STO-04). */
+	/**
+	 * Brings subscriptions (P1-STO-04) and release schedules (P1-STU-06) up to date before early
+	 * access is checked.
+	 */
 	beforeAccess?: (userId: string) => Promise<void>;
 	/** Recaps and glossaries (P1-RDR-13). */
 	story?: Pick<StoryModule, 'forReader'>;
@@ -199,7 +211,17 @@ export function createContentApi(deps: {
 		return files;
 	}
 
-	/** Which Chapters this reader can't open: the rest of a sample, or early access. */
+	async function toCome(book: BookRecord, manifest: RevisionManifest) {
+		const releases = await db.getAllFromIndex('chapterReleases', 'bookId', book.id);
+		if (!releases.length) return new Map<string, Date>();
+		const published = new Set(manifest.chapters.map((c) => c.chapterId));
+		return chaptersToCome(releaseStates(manifest.chapters, releases, published), clock.now());
+	}
+
+	/**
+	 * Which Chapters this reader can't open: the rest of a sample, or early access, then the
+	 * Chapters still to come, which nobody can open and early access and samples leave out.
+	 */
 	async function lockedFor(
 		book: BookRecord,
 		manifest: RevisionManifest,
@@ -209,35 +231,59 @@ export function createContentApi(deps: {
 		const creator = await db.get('creators', book.creatorId);
 		const base = {
 			creatorName: creator?.displayName ?? '',
-			creatorHandle: creator?.handle ?? ''
+			creatorHandle: creator?.handle ?? '',
+			releaseAt: null
 		};
+		const coming = await toCome(book, manifest);
+		const out = manifest.chapters.filter((c) => !coming.has(c.chapterId));
+		const scheduled: LockedChapterDto[] = manifest.chapters.flatMap((c) => {
+			const at = coming.get(c.chapterId);
+			return at
+				? [
+						{
+							chapterId: c.chapterId,
+							reason: 'scheduled' as const,
+							freeAt: null,
+							planId: null,
+							...base,
+							releaseAt: at.toISOString()
+						}
+					]
+				: [];
+		});
 		if (!owns) {
-			const sample = new Set(sampleChapterIds(manifest.chapters));
-			return manifest.chapters
-				.filter((c) => !sample.has(c.chapterId))
-				.map((c) => ({
-					chapterId: c.chapterId,
-					reason: 'sample',
-					freeAt: null,
-					planId: null,
-					...base
-				}));
+			const sample = new Set(sampleChapterIds(out));
+			return [
+				...out
+					.filter((c) => !sample.has(c.chapterId))
+					.map((c) => ({
+						chapterId: c.chapterId,
+						reason: 'sample' as const,
+						freeAt: null,
+						planId: null,
+						...base
+					})),
+				...scheduled
+			];
 		}
 		const early = book.earlyAccess;
 		if (!early || clock.now().getTime() >= Date.parse(early.freeAt) || holds(early.productId)) {
-			return [];
+			return scheduled;
 		}
 		// SIMULATION (OPEN-10): the serial's newest Chapters wait for the author's subscribers.
 		const plan = (await db.getAllFromIndex('plans', 'creatorId', book.creatorId)).find((p) =>
 			p.benefits.some((b) => b.productId === early.productId)
 		);
-		return earlyAccessChapterIds(manifest.chapters, early.chapters).map((chapterId) => ({
-			chapterId,
-			reason: 'early_access',
-			freeAt: early.freeAt,
-			planId: plan?.id ?? null,
-			...base
-		}));
+		return [
+			...earlyAccessChapterIds(out, early.chapters).map((chapterId) => ({
+				chapterId,
+				reason: 'early_access' as const,
+				freeAt: early.freeAt,
+				planId: plan?.id ?? null,
+				...base
+			})),
+			...scheduled
+		];
 	}
 
 	async function ownsBook(userId: string, bookId: string): Promise<boolean> {
@@ -269,12 +315,13 @@ export function createContentApi(deps: {
 	 */
 	async function access(bookId: string, sample: boolean) {
 		const user = deps.requireUser();
+		// First, so the Book's early-access window is the one its latest release started.
+		await deps.beforeAccess?.(user.id);
 		const book = await db.get('books', bookId);
 		if (!book) throw new BackendError('NOT_FOUND', 'That book isn’t in the store.');
 		const product = (await db.getAll('products')).find(
 			(p) => p.kind === 'book' && p.refId === bookId
 		);
-		await deps.beforeAccess?.(user.id);
 		const entitlements = await db.getAllFromIndex('entitlements', 'userId', user.id);
 		const holds = (productId: string) =>
 			hasEntitlement(entitlements, user.id, productId, clock.now());
@@ -411,6 +458,7 @@ export function createContentApi(deps: {
 
 		currentRevisionId,
 		saveRevision,
-		manifestOf
+		manifestOf,
+		toCome
 	};
 }

@@ -28,6 +28,8 @@ export function createCatalogueApi(deps: {
 	currentUser: () => UserDto | null;
 	layers: Pick<LayersApi, 'list'>;
 	files: StoredFiles;
+	/** When a serial's next Chapter comes out, brought up to the clock (P1-STU-06). */
+	nextChapterAt?: (book: BookRecord) => Promise<string | null>;
 }): CatalogueApi & {
 	summaries(books: BookRecord[]): Promise<BookSummaryDto[]>;
 	coverUrl(book: BookRecord): Promise<string | null>;
@@ -173,10 +175,11 @@ export function createCatalogueApi(deps: {
 			if (!book || book.listingState !== 'listed') {
 				throw new BackendError('NOT_FOUND', 'That book isn’t in the store.');
 			}
-			const [l, layers, plans] = await Promise.all([
+			const [l, layers, plans, nextChapterAt] = await Promise.all([
 				lookups([book]),
 				deps.currentUser() ? deps.layers.list(book.id) : Promise.resolve([]),
-				db.getAllFromIndex('plans', 'creatorId', book.creatorId)
+				db.getAllFromIndex('plans', 'creatorId', book.creatorId),
+				deps.nextChapterAt?.(book) ?? Promise.resolve(null)
 			]);
 			const creator = l.creators.get(book.creatorId);
 			if (!creator) throw new BackendError('SERVER_ERROR', `Book ${book.id} has no Creator.`);
@@ -200,7 +203,8 @@ export function createCatalogueApi(deps: {
 				offers: offers(book, l),
 				hasSample: !!(book.epubUrl || book.currentRevisionId) && !base.inLibrary,
 				planIds: plans.map((p) => p.id),
-				isSerial: book.isSerial
+				isSerial: book.isSerial,
+				nextChapterAt
 			};
 		},
 

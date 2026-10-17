@@ -32,6 +32,7 @@ import { parseSeed, type Seed } from './seed';
 import { createCommunityApi } from './community';
 import { createInboxApi } from './inbox';
 import { createModerationApi } from './moderation';
+import { createReleases } from './releases';
 import { createStoryModule, seededStory } from './story';
 import { createStudioApi } from './studio';
 import { createSupportApi } from './support';
@@ -353,7 +354,10 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		db,
 		clock,
 		requireUser,
-		beforeAccess: (userId) => support.refresh(userId),
+		beforeAccess: async (userId) => {
+			await support.refresh(userId);
+			await releases.refresh();
+		},
 		loadFile,
 		pipeline,
 		files,
@@ -364,7 +368,17 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		db,
 		clock,
 		requireUser,
-		changed: () => events.emit('inbox')
+		changed: () => events.emit('inbox'),
+		beforeList: () => releases.refresh()
+	});
+	const releases = createReleases({
+		db,
+		clock,
+		content,
+		inbox,
+		changed: (...topics) => {
+			for (const topic of topics) events.emit(topic);
+		}
 	});
 	const moderation = createModerationApi({
 		db,
@@ -392,7 +406,11 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		clock,
 		currentUser: () => currentUser,
 		layers,
-		files
+		files,
+		nextChapterAt: async (book) => {
+			await releases.refresh();
+			return releases.nextChapterAt(book);
+		}
 	});
 	const studio = createStudioApi({
 		db,
@@ -406,6 +424,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		moderation,
 		inbox,
 		story,
+		releases,
 		changed: (...topics) => {
 			for (const topic of topics) events.emit(topic);
 		}
@@ -514,6 +533,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		async advanceClock(ms) {
 			await controls.setSimulation({ clockOffsetMs: simulation.clockOffsetMs + Math.round(ms) });
 			events.emit('entitlements');
+			// Chapters whose time has come are out, and followers told (P1-STU-06).
+			await releases.refresh();
 		},
 		async resetDemoData() {
 			await writeSeed(db, seed, profile);

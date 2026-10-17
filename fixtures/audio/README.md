@@ -28,3 +28,14 @@ The script (`fixtures/scripts/download-audio.mjs`) downloads the files one at a 
 ## Text edition (intentional mismatch)
 
 The reader worked from her own source text, which may differ from the Project Gutenberg text in `apps/web/static/books/alice.epub` (ebook #11) and the Standard Ebooks edition in `fixtures/epub/alice-standard-ebooks.epub`: punctuation, spelling, the odd word, and the spoken LibriVox preamble and closing at the start and end of each chapter, which are not in any text. That is intentional. DESIGN.md §12.2 wants a different source edition so the alignment tests meet realistic text/audio mismatches.
+
+## The status-window fixture, read by a Windows voice (P1-STU-07)
+
+`tools/align` for any Book is checked against a recording made for the status-window fixture: both Chapters read aloud by the on-device Windows voice Microsoft Hazel (en-GB). It isn't committed either. On Windows, make it and align it with:
+
+```bash
+node fixtures/scripts/speak-status-window.mjs
+npm run narration -- --epub fixtures/epub/status-window.epub --audio fixtures/audio/status-window/ch01.wav --chapter 1
+```
+
+(and the same for Chapter 2). The whisper.cpp transcripts and Sync Maps it writes beside the recording are copied to `fixtures/sync/status-window/` and committed, so the tests (`tests/align-any-book.test.ts`) need neither the voice nor whisper. Coverage on 17 Oct 2026: Chapter 1 0.980, Chapter 2 0.972.

@@ -176,6 +176,8 @@ export const bookPageSchema = bookDetailSchema.extend({
 	/** The Creator's plans, for "Subscribe" next to their name. */
 	planIds: z.array(id),
 	/** Its Chapters come out over time (a serial) and may be early access. */
-	isSerial: z.boolean()
+	isSerial: z.boolean(),
+	/** When its next scheduled Chapter comes out (P1-STU-06): "Next chapter: Friday 24 October". */
+	nextChapterAt: timestamp.nullable().default(null)
 });
 export type BookPageDto = z.infer<typeof bookPageSchema>;

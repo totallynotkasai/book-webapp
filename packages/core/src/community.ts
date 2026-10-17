@@ -127,6 +127,18 @@ export const flagDetailSchema = z.object({
 });
 export type FlagDetailDto = z.infer<typeof flagDetailSchema>;
 
+/**
+ * What an inbox message is about, for its link: something a Flag can be about, or a new Chapter
+ * of a Book (P1-STU-06), where `id` is the Book's.
+ */
+export const inboxAboutSchema = z.object({
+	type: z.enum([...flagTargetTypeSchema.options, 'chapter']),
+	id,
+	/** The Chapter, for `chapter`. */
+	chapterId: id.optional()
+});
+export type InboxAboutDto = z.infer<typeof inboxAboutSchema>;
+
 /** A message in a user's in-app inbox (plan §4.7: no email or push in the PoC). */
 export const inboxMessageSchema = z.object({
 	id,
@@ -135,7 +147,7 @@ export const inboxMessageSchema = z.object({
 	createdAt: timestamp,
 	read: z.boolean(),
 	/** What it's about, for a link. */
-	about: z.object({ type: flagTargetTypeSchema, id }).nullable()
+	about: inboxAboutSchema.nullable()
 });
 export type InboxMessageDto = z.infer<typeof inboxMessageSchema>;
 

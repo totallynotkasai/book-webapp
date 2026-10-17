@@ -63,6 +63,21 @@ export const revisionChangesSchema = z.object({
 });
 export type RevisionChangesDto = z.infer<typeof revisionChangesSchema>;
 
+/**
+ * When one of a Revision's Chapters comes out (P1-STU-06): `out` (readers have it);
+ * `with_version` (it comes out when this version is published); or `scheduled` for `releaseAt`.
+ * `scheduledAt` is the time the author chose: `releaseAt` is later only when the Chapter before
+ * it comes out later, since Chapters come out in order (or null when it follows one that does).
+ */
+export const chapterReleaseSchema = z.object({
+	state: z.enum(['out', 'with_version', 'scheduled']),
+	releaseAt: timestamp.nullable(),
+	scheduledAt: timestamp.nullable(),
+	/** It can still be given a time: it isn't out, isn't the first Chapter, and none after it is out. */
+	schedulable: z.boolean()
+});
+export type ChapterReleaseDto = z.infer<typeof chapterReleaseSchema>;
+
 export const studioRevisionSchema = z.object({
 	id,
 	bookId: id,
@@ -78,9 +93,31 @@ export const studioRevisionSchema = z.object({
 	/** Null for a Book's first Revision. */
 	changes: revisionChangesSchema.nullable(),
 	/** Its Chapters with Words, in reading order, for the report and the narration manager. */
-	chapters: z.array(z.object({ chapterId: id, title: z.string(), wordCount: int.nonnegative() }))
+	chapters: z.array(
+		z.object({
+			chapterId: id,
+			title: z.string(),
+			wordCount: int.nonnegative(),
+			release: chapterReleaseSchema.default({
+				state: 'out',
+				releaseAt: null,
+				scheduledAt: null,
+				schedulable: false
+			})
+		})
+	)
 });
 export type StudioRevisionDto = z.infer<typeof studioRevisionSchema>;
+
+/**
+ * Release a Chapter at a time (P1-STU-06), or with no time of its own (null): with its version
+ * when that isn't published yet, or now when readers have it.
+ */
+export const scheduleChapterInputSchema = z.object({
+	chapterId: id,
+	releaseAt: timestamp.nullable()
+});
+export type ScheduleChapterInput = z.infer<typeof scheduleChapterInputSchema>;
 
 /** The settings a Creator controls (P1-STU-02). */
 export const bookSettingsSchema = z.object({

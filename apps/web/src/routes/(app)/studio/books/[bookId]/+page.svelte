@@ -15,7 +15,7 @@
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import StatusView from '$lib/components/StatusView.svelte';
 	import { describeError } from '$lib/errors';
-	import { contentRatingLabels, formatDate, formatPrice } from '$lib/format';
+	import { contentRatingLabels, formatDate, formatDayTime, formatPrice } from '$lib/format';
 	import { getBackend } from '$lib/services';
 	import { resource } from '$lib/state/resource.svelte';
 	import { snackbars } from '$lib/state/snackbar.svelte';
@@ -23,6 +23,7 @@
 	import LayerDetailsDialog from '$lib/studio/LayerDetailsDialog.svelte';
 	import { parsePrice, priceText } from '$lib/studio/price';
 	import PublishDialog from '$lib/studio/PublishDialog.svelte';
+	import ReleaseDialog from '$lib/studio/ReleaseDialog.svelte';
 	import CurationPanel from '$lib/studio/CurationPanel.svelte';
 	import StoryPanel from '$lib/studio/StoryPanel.svelte';
 	import {
@@ -33,9 +34,9 @@
 	} from '$lib/studio/summaries';
 	import UploadDialog from '$lib/studio/UploadDialog.svelte';
 
-	// A Book in the Studio (P1-STU-01, P1-STU-02, P1-LAY-05, P1-STU-03, P1-STU-05): its versions
-	// with their ingest reports, its settings, its Illustration Packs and narration, and its story
-	// so far.
+	// A Book in the Studio (P1-STU-01, P1-STU-02, P1-LAY-05, P1-STU-03, P1-STU-05, P1-STU-06): its
+	// versions with their ingest reports and Chapters to come, its settings, its Illustration Packs
+	// and narration, and its story so far.
 	const bookId = $derived(page.params.bookId ?? '');
 	const book = resource(async () => (await getBackend()).studio.getBook(bookId), {
 		topics: ['studio']
@@ -46,6 +47,11 @@
 	let uploadOpen = $state(false);
 	let publishOpen = $state(false);
 	let publishing = $state.raw<StudioRevisionDto | null>(null);
+	let releaseOpen = $state(false);
+	let releasing = $state.raw<{
+		chapter: StudioRevisionDto['chapters'][number];
+		published: boolean;
+	} | null>(null);
 	let layerOpen = $state(false);
 	let layerKind = $state<'pack' | 'track'>('pack');
 	function newLayer(kind: 'pack' | 'track') {
@@ -57,6 +63,30 @@
 		`${resolve('/read/[bookId]', { bookId })}?preview=${encodeURIComponent(revisionId)}${
 			chapterId ? `&chapter=${encodeURIComponent(chapterId)}` : ''
 		}`;
+
+	/** A version's Chapters still to come (P1-STU-06): new ones, or scheduled ones. */
+	const toCome = (revision: StudioRevisionDto) =>
+		revision.state === 'ready' || revision.state === 'published'
+			? revision.chapters.filter((c) => c.release.state !== 'out')
+			: [];
+
+	function releaseText(
+		chapter: StudioRevisionDto['chapters'][number],
+		chapters: StudioRevisionDto['chapters']
+	): string {
+		const { release } = chapter;
+		if (release.state === 'with_version') return 'Comes out with this version';
+		if (!release.releaseAt) return '';
+		const at = formatDayTime(release.releaseAt);
+		if (release.scheduledAt === release.releaseAt) return `Comes out ${at}`;
+		// Pulled later by the Chapter before it: Chapters come out in order.
+		const index = chapters.indexOf(chapter);
+		const before = chapters
+			.slice(0, index)
+			.reverse()
+			.find((c) => c.release.releaseAt === release.releaseAt);
+		return before ? `Comes out ${at}, with “${before.title}”` : `Comes out ${at}`;
+	}
 
 	function warningsBySeverity(warnings: IngestWarning[]) {
 		return [...warnings].sort(
@@ -242,6 +272,41 @@
 											<p class="report-line">{reportLine(revision.report)}</p>
 											{#if revision.state === 'ready'}
 												<p class="changes">{changeSummary(revision, detail)}</p>
+											{/if}
+											{#if toCome(revision).length}
+												<div class="to-come" data-testid="chapters-to-come">
+													<p class="label">
+														{revision.state === 'ready' ? 'New chapters' : 'Chapters to come'}
+													</p>
+													<ul>
+														{#each toCome(revision) as chapter (chapter.chapterId)}
+															<li data-testid="chapter-release" data-state={chapter.release.state}>
+																<span class="layer-text">
+																	<span class="name">{chapter.title}</span>
+																	<span class="meta">{releaseText(chapter, revision.chapters)}</span
+																	>
+																</span>
+																{#if chapter.release.schedulable}
+																	<Button
+																		variant="text"
+																		icon="schedule"
+																		aria-label={`When “${chapter.title}” comes out`}
+																		onclick={() => {
+																			releasing = {
+																				chapter,
+																				published: revision.state === 'published'
+																			};
+																			releaseOpen = true;
+																		}}
+																		>{chapter.release.state === 'scheduled'
+																			? 'Change'
+																			: 'Schedule'}</Button
+																	>
+																{/if}
+															</li>
+														{/each}
+													</ul>
+												</div>
 											{/if}
 											{#if revision.report.warnings.length}
 												<details class="warnings">
@@ -493,6 +558,12 @@
 				onuploaded={() => (tab = 'versions')}
 			/>
 			<PublishDialog bind:open={publishOpen} book={detail} revision={publishing} />
+			<ReleaseDialog
+				bind:open={releaseOpen}
+				bookId={detail.id}
+				chapter={releasing?.chapter ?? null}
+				published={releasing?.published ?? false}
+			/>
 			<LayerDetailsDialog
 				bind:open={layerOpen}
 				kind={layerKind}
@@ -580,6 +651,31 @@
 
 	.changes {
 		color: var(--md-sys-color-on-surface-variant);
+	}
+
+	.to-come {
+		display: grid;
+		gap: var(--space-1);
+	}
+
+	.to-come .label {
+		margin: 0;
+	}
+
+	.to-come ul {
+		display: grid;
+		gap: var(--space-1);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.to-come li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
 	}
 
 	.warnings summary {

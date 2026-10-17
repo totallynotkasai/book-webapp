@@ -57,6 +57,7 @@ import {
 	ratingSummary,
 	submission,
 	lowConfidenceRegions,
+	matchSyncMapWords,
 	money,
 	PLACEHOLDER_SPLITS,
 	publishProblems,
@@ -87,6 +88,7 @@ import type {
 	ProductRecord
 } from './seed';
 import type { InboxModule } from './inbox';
+import type { ReleasesModule } from './releases';
 import type { ModerationModule } from './moderation';
 import type { SupportModule } from './support';
 
@@ -124,6 +126,8 @@ export interface StudioDeps {
 	inbox: InboxModule;
 	/** Recaps and glossaries (P1-STU-05). */
 	story: StoryModule;
+	/** Serial release schedules (P1-STU-06). */
+	releases: ReleasesModule;
 	changed: (...topics: BackendTopic[]) => void;
 }
 
@@ -290,6 +294,11 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 		const state = stateOf(record, book);
 		const manifest =
 			state === 'processing' || state === 'failed' ? null : await manifestOrNull(record.id);
+		// When each Chapter comes out (P1-STU-06), for the version readers have and those to come.
+		const releases =
+			manifest && (state === 'published' || state === 'ready')
+				? await deps.releases.forStudio(book, manifest)
+				: null;
 		return {
 			id: record.id,
 			bookId: record.bookId,
@@ -302,7 +311,17 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			changes: record.studio?.changes ?? null,
 			chapters: (manifest?.chapters ?? [])
 				.filter((c) => c.linear && c.wordCount > 0)
-				.map((c) => ({ chapterId: c.chapterId, title: c.title, wordCount: c.wordCount }))
+				.map((c) => ({
+					chapterId: c.chapterId,
+					title: c.title,
+					wordCount: c.wordCount,
+					release: releases?.get(c.chapterId) ?? {
+						state: 'out' as const,
+						releaseAt: null,
+						scheduledAt: null,
+						schedulable: false
+					}
+				}))
 		};
 	}
 
@@ -1018,6 +1037,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 	return {
 		async listBooks(page) {
 			const user = requireCreator();
+			await deps.releases.refresh();
 			const books = (await db.getAllFromIndex('books', 'creatorId', user.creatorId)).sort((a, b) =>
 				a.title.localeCompare(b.title)
 			);
@@ -1038,6 +1058,7 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 
 		async getBook(bookId) {
 			const { book } = await ownBook(bookId);
+			await deps.releases.refresh();
 			return detail(book);
 		},
 
@@ -1147,12 +1168,14 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				}
 			}
 			if (changes.earlyAccessChapters !== undefined) {
-				// SIMULATION (OPEN-10): the newest Chapters, for 30 days after the latest publish.
+				// SIMULATION (OPEN-10): the newest Chapters, for 30 days after the latest release.
 				next.earlyAccess =
 					changes.earlyAccessChapters > 0
 						? {
 								chapters: changes.earlyAccessChapters,
-								freeAt: earlyAccessFreeAt(await latestPublish(book)),
+								freeAt: earlyAccessFreeAt(
+									(await deps.releases.latestRelease(bookId)) ?? (await latestPublish(book))
+								),
 								productId: await earlyAccessProduct(user, book)
 							}
 						: null;
@@ -1197,9 +1220,18 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 			}
 			const problems = publishProblems({ state, aiUse: input.aiUse });
 			if (problems.length) throw validation(problems.join(' '));
+			const manifest = await content.manifestOf(record.id);
+			// A Chapter still to come can't sit between Chapters readers have (P1-STU-06).
+			const stuck = await deps.releases.stuck(book, manifest);
+			if (stuck.length) {
+				throw validation(
+					`“${stuck[0]}” has a release time, but chapters after it are already out. Remove its time, so it comes out with this version, and publish again.`
+				);
+			}
 			const now = clock.now().toISOString();
 			const previousId =
 				book.currentRevisionId ?? (book.epubUrl ? await content.currentRevisionId(book) : null);
+			const previousManifest = previousId ? await content.manifestOf(previousId) : null;
 			if (previousId) {
 				const previous = await db.get('revisions', previousId);
 				if (previous?.studio) {
@@ -1213,7 +1245,6 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				...record,
 				studio: { ...record.studio!, state: 'published', publishedAt: now, aiUse: input.aiUse }
 			});
-			const manifest = await content.manifestOf(record.id);
 			// Automatic Flags (§10.6): an upload burst or a detector score on unlabelled content holds it.
 			const check = await deps.moderation.checkPublish({
 				type: 'book',
@@ -1233,18 +1264,39 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 					? 'held'
 					: book.listingState === 'draft'
 						? 'listed'
-						: book.listingState,
-				earlyAccess: book.earlyAccess
-					? { ...book.earlyAccess, freeAt: earlyAccessFreeAt(now) }
-					: null
+						: book.listingState
 			};
 			await db.put('books', next);
 			await moveLayers(next, record.id);
 			// Recaps and glossary find their names in the new text (P1-STU-05 acceptance).
 			await deps.story.moveTo(bookId, record.id);
 			if (check.hold) await heldNotice(book.creatorId, 'book', bookId, book.title);
+			// New Chapters come out now or when scheduled, and restart early access (P1-STU-06).
+			await deps.releases.published(next, previousManifest, manifest);
 			deps.changed('studio', 'catalogue');
 			return detail(next);
+		},
+
+		async scheduleChapter(bookId, input) {
+			const { book } = await ownBook(bookId);
+			await requireActive();
+			await deps.releases.refresh();
+			const currentId =
+				book.currentRevisionId ?? (book.epubUrl ? await content.currentRevisionId(book) : null);
+			const current = currentId ? await content.manifestOf(currentId) : null;
+			if (current?.chapters.some((c) => c.chapterId === input.chapterId)) {
+				await deps.releases.schedule(book, current, true, input.chapterId, input.releaseAt);
+				return detail(book);
+			}
+			// A Chapter only in an uploaded version: its newest processed one.
+			for (const record of await revisionsOf(book)) {
+				if (stateOf(record, book) !== 'ready') continue;
+				const manifest = await content.manifestOf(record.id);
+				if (!manifest.chapters.some((c) => c.chapterId === input.chapterId)) continue;
+				await deps.releases.schedule(book, manifest, false, input.chapterId, input.releaseAt);
+				return detail(book);
+			}
+			throw new BackendError('NOT_FOUND', 'That chapter isn’t in this book.');
 		},
 
 		async previewRevision(bookId, revisionId): Promise<OpenBookDto> {
@@ -1505,6 +1557,12 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				throw validation('That file isn’t a Sync Map from tools/align (DESIGN.md §7.2).');
 			}
 			const wordIds = (await chapterWords(file.revisionId)).get(chapter.chapterId) ?? [];
+			// tools/align numbers a later version's Words afresh: match them by position (P1-STU-07).
+			map = matchSyncMapWords(map, {
+				revisionId: file.revisionId,
+				chapterId: chapter.chapterId,
+				wordIds
+			});
 			const problems = syncMapProblems(map, {
 				revisionId: file.revisionId,
 				chapterId: chapter.chapterId,

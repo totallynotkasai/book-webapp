@@ -10,7 +10,7 @@
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import StatusView from '$lib/components/StatusView.svelte';
 	import { flags } from '$lib/flags';
-	import { contentRatingLabels, formatPrice } from '$lib/format';
+	import { contentRatingLabels, formatDay, formatPrice } from '$lib/format';
 	import { getBackend } from '$lib/services';
 	import { preferences } from '$lib/state/preferences.svelte';
 	import { resource } from '$lib/state/resource.svelte';
@@ -148,6 +148,11 @@
 						{#if detail.isSerial}<Badge tone="primary" icon="schedule">Serial</Badge>{/if}
 						<Badge tone="simulated" icon="science">Simulated store</Badge>
 					</div>
+					{#if detail.nextChapterAt}
+						<p class="next-chapter" data-testid="next-chapter">
+							<Icon name="schedule" size={18} /> Next chapter: {formatDay(detail.nextChapterAt)}
+						</p>
+					{/if}
 					{#if detail.contentWarnings.length}
 						<p class="warnings">
 							<Icon name="warning" size={18} /> Contains: {detail.contentWarnings.join(', ')}
@@ -325,12 +330,18 @@
 	}
 
 	.warnings,
-	.note {
+	.note,
+	.next-chapter {
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
 		margin: 0;
 		color: var(--md-sys-color-on-surface-variant);
+	}
+
+	.next-chapter {
+		color: var(--md-sys-color-on-surface);
+		font-weight: var(--md-sys-typescale-weight-medium);
 	}
 
 	.description {

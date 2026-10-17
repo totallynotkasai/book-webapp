@@ -69,6 +69,44 @@ function editedStatusWindow(): Uint8Array {
 	return zipSync(out);
 }
 
+/** The status-window fixture with a third Chapter at the end: a serial's next one (P1-STU-06). */
+function extendedStatusWindow(): Uint8Array {
+	const files = unzipSync(statusWindow);
+	const out: Zippable = { mimetype: [files.mimetype!, { level: 0 }] };
+	const edit = (path: string, from: string, to: string) => {
+		const text = strFromU8(files[path]!);
+		if (!text.includes(from)) throw new Error(`${path} has no ${from}`);
+		return strToU8(text.replace(from, to));
+	};
+	for (const [path, data] of Object.entries(files)) {
+		if (path === 'mimetype') continue;
+		out[path] = path.endsWith('.opf')
+			? edit(
+					path,
+					'<itemref idref="chapter-2"/>',
+					'<itemref idref="chapter-2"/><itemref idref="chapter-3"/>'
+				)
+			: path.endsWith('nav.xhtml')
+				? edit(path, '</ol>', '<li><a href="text/chapter-3.xhtml">3. The Next Map</a></li></ol>')
+				: data;
+	}
+	const opf = Object.keys(out).find((p) => p.endsWith('.opf'))!;
+	out[opf] = strToU8(
+		strFromU8(out[opf] as Uint8Array).replace(
+			'</manifest>',
+			'<item id="chapter-3" href="text/chapter-3.xhtml" media-type="application/xhtml+xml"/></manifest>'
+		)
+	);
+	out['OEBPS/text/chapter-3.xhtml'] = strToU8(
+		'<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html>' +
+			'<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"><head><title>Chapter 3</title></head>' +
+			'<body><section><h1>Chapter 3: The Next Map</h1>' +
+			'<p>Mara unrolled a clean sheet and began the map of the mill road, one careful line at a time.</p>' +
+			'</section></body></html>'
+	);
+	return zipSync(out);
+}
+
 describeBackendContract(
 	'backend-local',
 	async ({ clock }) => (await makeLocal({ clock })).backend,
@@ -76,6 +114,7 @@ describeBackendContract(
 		studio: {
 			book: statusWindow,
 			edited: editedStatusWindow(),
+			extended: extendedStatusWindow(),
 			names: { inFirstChapter: 'Mara Quill', inSecondChapter: 'Mill Floor' }
 		}
 	}
@@ -454,5 +493,39 @@ describe('the seeded story so far (P1-STU-05, P1-RDR-13)', () => {
 		expect(story.recaps.some((r) => locked.has(r.chapterId))).toBe(false);
 		expect(story.glossary.map((e) => e.id)).not.toContain('entry-isolde-vell');
 		await expectBackendError(backend.content.storySoFar('book-unknown'), 'NOT_FOUND');
+	});
+});
+
+describe('tools/align for any Book (P1-STU-07)', () => {
+	it('the Studio imports the Sync Map tools/align wrote for the status-window fixture', async () => {
+		const { backend } = await makeLocal();
+		await backend.session.signInAs('author');
+		const upload = await backend.studio.upload(new Blob([statusWindow]));
+		for (let i = 0; i < 400; i++) {
+			const book = await backend.studio.getBook(upload.bookId);
+			if (book.revisions[0]!.state !== 'processing') break;
+			await new Promise((resolve) => setTimeout(resolve, 25));
+		}
+		await backend.studio.publishRevision(upload.bookId, { revisionId: upload.id, aiUse: 'none' });
+		const track = await backend.studio.createTrack(upload.bookId, { narrator: 'Hazel (Windows)' });
+		const syncMap: unknown = JSON.parse(
+			readFileSync(
+				join(
+					fileURLToPath(new URL('../../../fixtures/sync/status-window', import.meta.url)),
+					'ch01.sync.json'
+				),
+				'utf8'
+			)
+		);
+		// Any audio the Studio can play stands in for the recording (git-ignored).
+		const audio = new Blob([new TextEncoder().encode('RIFF$\u0000\u0000\u0000WAVEfmt ')]);
+		const narrated = await backend.studio.setChapterNarration(track.id, {
+			chapterId: 'text/chapter-1.xhtml',
+			audio,
+			syncMap
+		});
+		const chapter = narrated.chapters.find((c) => c.chapterId === 'text/chapter-1.xhtml')!;
+		expect(chapter.status).toBe('ready');
+		expect(chapter.coverage).toBeGreaterThanOrEqual(0.95);
 	});
 });

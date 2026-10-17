@@ -40,6 +40,7 @@ import {
 	migrateAnchorsResultSchema,
 	planInputSchema,
 	publishRevisionInputSchema,
+	scheduleChapterInputSchema,
 	studioBookDetailSchema,
 	studioBookSchema,
 	studioPackSchema,
@@ -149,6 +150,10 @@ export const backendContract = {
 		updateBook: { input: z.tuple([id, bookSettingsInputSchema]), output: studioBookDetailSchema },
 		publishRevision: {
 			input: z.tuple([id, publishRevisionInputSchema]),
+			output: studioBookDetailSchema
+		},
+		scheduleChapter: {
+			input: z.tuple([id, scheduleChapterInputSchema]),
 			output: studioBookDetailSchema
 		},
 		previewRevision: { input: z.tuple([id, id.optional()]), output: openBookSchema },
