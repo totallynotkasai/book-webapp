@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+	bookOnlyOf,
 	clampFontScale,
 	defaultReaderPreferences,
 	mergePreferencesPatch,
-	resolvePreferences
+	resolvePreferences,
+	withoutBookOnly
 } from './preferences';
 
 describe('defaultReaderPreferences (§9.4)', () => {
@@ -26,8 +28,30 @@ describe('defaultReaderPreferences (§9.4)', () => {
 			deviceVoice: { rate: 1, voices: {} },
 			hintsSeen: [],
 			hideAiGenerated: false,
-			readingStats: true
+			readingStats: true,
+			comments: false,
+			popularHighlights: false
 		});
+	});
+});
+
+describe('per-Book-only preferences (D-044)', () => {
+	it('a global value is ignored; a Book’s override decides', () => {
+		const global = { comments: true, popularHighlights: true, fontScale: 1.2 };
+		expect(resolvePreferences(withoutBookOnly(global))).toMatchObject({
+			comments: false,
+			popularHighlights: false,
+			fontScale: 1.2
+		});
+		expect(resolvePreferences(withoutBookOnly(global), { comments: true }).comments).toBe(true);
+	});
+
+	it('are kept apart from a Book’s other settings', () => {
+		const book = { comments: true, layout: 'scroll', popularHighlights: false };
+		expect(withoutBookOnly(book)).toEqual({ layout: 'scroll' });
+		expect(bookOnlyOf(book)).toEqual({ comments: true, popularHighlights: false });
+		expect(bookOnlyOf({ comments: 'yes' })).toEqual({});
+		expect(withoutBookOnly(undefined)).toEqual({});
 	});
 });
 

@@ -1251,12 +1251,23 @@
 		);
 	});
 
+	/** Comments that couldn't load say so once (offline, say): the book reads on without them. */
+	let commentsProblemShown = false;
+
 	// The Chapter on screen: its comments, and its paragraphs to group them by.
 	$effect(() => {
 		const chapterId = visible?.chapterId;
 		const source = together;
 		if (!commentsOn || !source || !chapterId || !engine) return;
-		void source.loadChapter(chapterId);
+		void source.loadChapter(chapterId).then(() => {
+			const problem = source.errors.get(chapterId);
+			if (!problem || commentsProblemShown) return;
+			commentsProblemShown = true;
+			snackbars.show(`Comments couldn’t load. ${problem.title}.`, {
+				tone: 'error',
+				action: { label: 'Try again', run: () => void source.loadChapter(chapterId, true) }
+			});
+		});
 		if (untrack(() => commentParagraphs.has(chapterId))) return;
 		paragraphCache()
 			.get(chapterId)

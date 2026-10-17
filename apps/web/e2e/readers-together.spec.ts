@@ -209,6 +209,17 @@ test.describe('paragraph comments (P1-COM-03)', () => {
 	});
 });
 
+test('offline, comments say they couldn’t load, and the Book reads on', async ({ page }) => {
+	await openReader(page, 'book-alice');
+	await page.evaluate(() => (globalThis.__BOOK_E2E_SIMULATION__!.offline = true));
+	await setReaders(page, 'Readers’ comments', true);
+	await expect(page.getByText('Comments couldn’t load. You’re offline.')).toBeVisible();
+	await expect(markers(page)).toHaveCount(0);
+	await page.evaluate(() => (globalThis.__BOOK_E2E_SIMULATION__!.offline = false));
+	await page.getByRole('button', { name: 'Try again' }).click();
+	await expect(markers(page).first()).toBeAttached();
+});
+
 test.describe('popular highlights (P1-COM-04)', () => {
 	test('turn them on and find the most highlighted line, only once it’s reached', async ({
 		page
