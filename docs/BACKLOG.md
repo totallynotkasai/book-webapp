@@ -65,6 +65,15 @@ Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 
 
 ---
 
+## Store
+
+| ID | Item | Deferred from | Why deferred, and what brings it back |
+|---|---|---|---|
+| STO-01 | **Sale alerts on the Complete edition:** a wishlisted Book's Bundle getting cheaper alerts its readers too, not only the Book alone | P1-STO-06 | Authors set only the Book's own price in the Studio; Bundle prices are seeded. Brought back when the Studio prices Bundles (Phase 4) |
+| STO-02 | **Ratings on store cards:** a Book's average stars on its card in the store and search, not only on its page | P1-STO-07 | Kept off the cards so the PoC review can ask whether readers want them at all. Brought back if testers look for them |
+
+---
+
 ## Android
 
 | ID | Item | Deferred from | Why deferred, and what brings it back |
