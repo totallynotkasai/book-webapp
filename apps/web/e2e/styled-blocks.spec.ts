@@ -98,7 +98,8 @@ test.describe('on a small phone at 200%', () => {
 	});
 });
 
-test('the status-window fixture stays readable in light, dark and sepia at 200%', async ({
+// P1-UI-04's acceptance adds custom colours: the reader's own page and text, light and dark.
+test('the status-window fixture stays readable in light, dark, sepia and custom colours at 200%', async ({
 	page
 }) => {
 	test.slow();
@@ -115,9 +116,19 @@ test('the status-window fixture stays readable in light, dark and sepia at 200%'
 	await expect(size).toHaveAttribute('aria-valuetext', '200%');
 	await page.keyboard.press('Escape');
 
-	for (const mode of ['Light', 'Dark', 'Sepia'] as const) {
+	for (const [mode, pair] of [
+		['Light'],
+		['Dark'],
+		['Sepia'],
+		['Custom', 'Cream on forest green'],
+		['Custom', 'Black on yellow']
+	] as const) {
 		await openPreferences(page, 'Theme');
-		await page.getByRole('radiogroup', { name: 'Mode' }).getByRole('radio', { name: mode }).click();
+		await page
+			.getByRole('radiogroup', { name: 'Mode' })
+			.getByRole('radio', { name: mode, exact: true })
+			.click();
+		if (pair) await page.getByRole('button', { name: pair }).click();
 		await page.keyboard.press('Escape');
 		for (const chapter of ['1. Status', '2. Edge Cases']) {
 			await showChrome(page);
@@ -125,7 +136,9 @@ test('the status-window fixture stays readable in light, dark and sepia at 200%'
 			await page.getByRole('button', { name: chapter }).click();
 			await settled(page);
 			const worst = await worstBlockContrast(await bookFrame(page));
-			expect(worst.ratio, `${mode}, ${chapter}: ${worst.where}`).toBeGreaterThanOrEqual(4.5);
+			expect(worst.ratio, `${pair ?? mode}, ${chapter}: ${worst.where}`).toBeGreaterThanOrEqual(
+				4.5
+			);
 		}
 	}
 });

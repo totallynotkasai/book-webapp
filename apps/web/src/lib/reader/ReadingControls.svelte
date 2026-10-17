@@ -7,11 +7,13 @@
 		LINE_HEIGHT,
 		PARAGRAPH_SPACING,
 		themeModes,
+		type CustomColours,
 		type ReaderPreferences,
 		type ReaderPreferencesPatch
 	} from '@book/core';
 	import { contrastLabels, fontLabels, fontStacks, themeModeLabels } from '@book/tokens';
 	import { SegmentedButton, Slider, Switch } from '@book/ui';
+	import CustomColoursPicker from '$lib/components/CustomColoursPicker.svelte';
 	import SeedPicker from '$lib/components/SeedPicker.svelte';
 	import { SPREAD_MIN_WIDTH } from './settings';
 
@@ -25,9 +27,11 @@
 		onchange: (changes: ReaderPreferencesPatch) => void;
 		windowWidth: number;
 		reducedMotion: boolean;
+		/** The reading page's colours now: where custom colours start (P1-UI-04). */
+		readingColours?: CustomColours;
 	}
 
-	let { group, prefs, onchange, windowWidth, reducedMotion }: Props = $props();
+	let { group, prefs, onchange, windowWidth, reducedMotion, readingColours }: Props = $props();
 
 	const pct = (v: number) => `${Math.round(v * 100)}%`;
 </script>
@@ -162,10 +166,27 @@
 			<SegmentedButton
 				label="Mode"
 				value={prefs.theme.mode}
-				onchange={(mode) => onchange({ theme: { mode } })}
+				onchange={(mode) =>
+					onchange({
+						theme:
+							// Custom starts from the page as it is, so nothing jumps until a colour changes.
+							mode === 'custom' && !prefs.theme.custom && readingColours
+								? { mode, custom: readingColours }
+								: { mode }
+					})}
 				options={themeModes.map((mode) => ({ value: mode, label: themeModeLabels[mode] }))}
 			/>
+			{#if prefs.theme.mode === 'custom'}
+				<p class="hint">Your colours are for the reading page; the app keeps its own.</p>
+			{/if}
 		</div>
+		{#if prefs.theme.mode === 'custom' && (prefs.theme.custom ?? readingColours)}
+			<CustomColoursPicker
+				value={prefs.theme.custom}
+				fallback={(prefs.theme.custom ?? readingColours)!}
+				onchange={(custom) => onchange({ theme: { custom } })}
+			/>
+		{/if}
 		<div class="field">
 			<span class="field-label">Contrast</span>
 			<SegmentedButton

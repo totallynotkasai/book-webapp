@@ -20,7 +20,8 @@ export const fontIds = [
 ] as const;
 export type FontId = (typeof fontIds)[number];
 
-export const themeModes = ['system', 'light', 'dark', 'sepia'] as const;
+/** `custom`: the reader's own page and text colours (P1-UI-04), in `theme.custom`. */
+export const themeModes = ['system', 'light', 'dark', 'sepia', 'custom'] as const;
 export type ThemeMode = (typeof themeModes)[number];
 
 export const contrastLevels = ['standard', 'medium', 'high'] as const;
@@ -40,10 +41,22 @@ export type SleepTimerChoice = (typeof sleepTimerChoices)[number];
 
 const HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;
 
+/**
+ * The reader's own page and text colours (P1-UI-04), as `#rrggbb`. A pair below WCAG AA is
+ * stored only once the reader has chosen to keep it after a warning (D-041).
+ */
+const customColoursSchema = z.object({
+	page: z.string().regex(HEX_COLOUR),
+	text: z.string().regex(HEX_COLOUR)
+});
+export type CustomColours = z.infer<typeof customColoursSchema>;
+
 const themeSchema = z.object({
 	mode: z.enum(themeModes).catch('system'),
 	contrast: z.enum(contrastLevels).catch('standard'),
-	seedColor: z.string().regex(HEX_COLOUR).optional().catch(undefined)
+	seedColor: z.string().regex(HEX_COLOUR).optional().catch(undefined),
+	/** Used when `mode` is `custom`; kept while another mode is chosen, for next time. */
+	custom: customColoursSchema.optional().catch(undefined)
 });
 
 const narrationSchema = z.object({

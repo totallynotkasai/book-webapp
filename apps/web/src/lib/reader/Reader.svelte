@@ -2253,6 +2253,7 @@
 	{bookOnly}
 	{windowWidth}
 	{reducedMotion}
+	readingColours={{ page: tokens['--reader-background']!, text: tokens['--reader-text']! }}
 	onchange={change}
 	onbookonly={(on) => {
 		bookOnly = on;

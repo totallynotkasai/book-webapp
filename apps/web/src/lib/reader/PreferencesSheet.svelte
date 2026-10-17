@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ReaderPreferences, ReaderPreferencesPatch } from '@book/core';
+	import type { CustomColours, ReaderPreferences, ReaderPreferencesPatch } from '@book/core';
 	import { AdaptiveSheet, Button, Switch, Tabs } from '@book/ui';
 	import ReadingControls from './ReadingControls.svelte';
 
@@ -18,6 +18,8 @@
 		onreset: () => void;
 		windowWidth: number;
 		reducedMotion: boolean;
+		/** The reading page's colours now: where custom colours start (P1-UI-04). */
+		readingColours: CustomColours;
 	}
 
 	let {
@@ -28,7 +30,8 @@
 		onbookonly,
 		onreset,
 		windowWidth,
-		reducedMotion
+		reducedMotion,
+		readingColours
 	}: Props = $props();
 
 	let tab = $state<'text' | 'page' | 'theme'>('text');
@@ -66,6 +69,7 @@
 					{onchange}
 					{windowWidth}
 					{reducedMotion}
+					{readingColours}
 				/>
 			</div>
 		{/snippet}
