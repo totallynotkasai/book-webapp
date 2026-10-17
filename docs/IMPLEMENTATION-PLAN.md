@@ -1,6 +1,6 @@
 # Implementation plan: from groundwork to a product you can try
 
-> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · v1.2 · 16 October 2026: Phase 1.10 PoC review fixes (D-033) · v1.3 · 16 October 2026: front end first, phases 1.11–1.21 before any backend (D-035) · v1.4 · 16 October 2026: Phase 1.11 done; the device voice (D-036, ADR-006) · v1.5 · 16 October 2026: Phase 1.12 done; search and focus mode · v1.6 · 16 October 2026: Phase 1.13 done; the table viewer, the sleep timer and the phone's top bar (D-037) · v1.7 · 17 October 2026: Phase 1.14 done; the story so far (D-038) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
+> **Status:** Accepted v1 · 11 October 2026 · v1.1 · 13 October 2026: Phase 2 split into phases 2.1–2.13 (D-032) · v1.2 · 16 October 2026: Phase 1.10 PoC review fixes (D-033) · v1.3 · 16 October 2026: front end first, phases 1.11–1.21 before any backend (D-035) · v1.4 · 16 October 2026: Phase 1.11 done; the device voice (D-036, ADR-006) · v1.5 · 16 October 2026: Phase 1.12 done; search and focus mode · v1.6 · 16 October 2026: Phase 1.13 done; the table viewer, the sleep timer and the phone's top bar (D-037) · v1.7 · 17 October 2026: Phase 1.14 done; the story so far (D-038) · v1.8 · 17 October 2026: phases 1.15–1.17 done; serials, your reading, share quote and custom colours (D-039 to D-041) · Companion to [DESIGN.md](DESIGN.md) v0.3, which stays the source of truth.
 > **Purpose:** the order of work that takes the repo from today's groundwork to a build the owner can use on desktop and on their Android phone to try every area of the product (reading, Illustrations, narration, notes, store, Creator Studio, community and moderation) with **no backend**, built so a real backend later replaces the simulated one without rewriting the app. Then, in phases 2.1–2.13, the real backend: accounts, sync across devices, author publishing and a free library.
 > **How it fits with DESIGN.md:** DESIGN.md §13 defines every task (its dependencies and acceptance criteria). This plan splits DESIGN.md's Phases 0, 1 and 2 into smaller phases that each end in something to try, and adds the architecture detail, UX notes and Try-it checklists. Decisions D-021 to D-024 and D-032 (DESIGN.md §16) record what this plan changed. iOS work is in [BACKLOG.md](BACKLOG.md).
 
@@ -32,7 +32,7 @@
 | **1.14** The story so far (simulated) | Authors write recaps and a glossary; readers see only what they’ve reached | P1-STU-05, P1-RDR-13 | Done (17 Oct 2026; notes in §6) |
 | **1.15** Serials (simulated) | Scheduled Chapter releases with follower messages; align your own narration | P1-STU-06, P1-STU-07 | Done (17 Oct 2026; notes in §6) |
 | **1.16** Your reading | Time left in the Chapter and the Book; stats and streaks you can switch off | P1-RDR-14, P1-RDR-15 | Done (17 Oct 2026; notes in §6) |
-| **1.17** Share and colour | Share a quote as a card; your own page and text colours | P1-RDR-16, P1-UI-04 | Not started |
+| **1.17** Share and colour | Share a quote as a card; your own page and text colours | P1-RDR-16, P1-UI-04 | Done (17 Oct 2026; notes in §6) |
 | **1.18** Wishlists and reviews (simulated) | A wishlist with sale alerts; reviews that show how far the reviewer read | P1-STO-06, P1-STO-07 | Not started |
 | **1.19** Overview and look-up | Page thumbnails to scan a Chapter; look up a Word | P1-RDR-17, P1-RDR-18 | Not started |
 | **1.20** Readers together (simulated) | Paragraph comments and popular highlights, both off by default | P1-COM-03, P1-COM-04 | Not started |
@@ -1032,6 +1032,29 @@ Every front-end feature worth building without a real backend, before any backen
 **Try it**
 - Select a sentence in *Alice* and share it as an image to yourself on your phone.
 - Set a dark green page with cream text; try a pair that fails AA.
+
+**Done (17 Oct 2026): what was built and how it differs from the plan.** The Try-it items and both tasks' acceptance criteria are Playwright specs in Chromium and WebKit (`apps/web/e2e/share-colour.spec.ts`; a phone browser's Web Share API stands in for a share sheet), with axe on the colour editor (and its warning) and the share dialog in light and dark (`accessibility.spec.ts`), and the status-window fixture at 200% in two custom pairs (`styled-blocks.spec.ts`). The rules are unit tests: `custom-colours.test.ts` in `@book/tokens` (the nearest readable colour, and every derived colour on 400 random pairs that meet AA) and `quote.test.ts` and `quote-card.test.ts` in the app. On the Android emulator, Share opened the share sheet with the card and the quote's text. The owner chose before the work started (D-041): **a shared quote is at most about 60 Words**, and **a pair below AA can be kept after a warning**. Notes and deviations:
+
+*P1-UI-04 (custom colours):*
+- **Custom is a fifth theme mode** (System, Light, Dark, Sepia, Custom) under Reading preferences → Theme and Settings → Appearance, where the UX notes put it. Like sepia it **colours only the reading page**: the app and the reader's bars take the light or dark scheme that suits the page, in the seed's colours. Like every theme setting it can be set for one Book. Stored as `theme.custom` in Reader Preferences (merged over defaults: no migration) and kept while another mode is chosen.
+- **The editor:** a page and a text colour, each a hex field with a round swatch that opens the device's colour picker; a sample paragraph in the pair; the ratio ("Contrast 9.95:1") and its grade (AAA, AA or below AA, the grade a live region). **A pair that meets AA is saved as it's picked, so the page changes live. One below AA shows only in the sample**, with a warning and two buttons: **Use nearest readable colour** (the same hue and chroma, lighter or darker, whichever is the smaller change in HCT tone, for the colour changed last) and **Keep these colours** (D-041). The sample is hidden from screen readers; the ratio says it in words.
+- **Not in the plan: five suggested pairs** to start from, each a reason readers change colours: cream on forest green, brown on parchment, amber on black (night), black on yellow (low vision), navy on pale blue. All are 7:1 or more.
+- **Styled blocks stay readable (§9.6):** muted text and links meet AA on the page, styled blocks' backgrounds step away from the text (so the text keeps its contrast), borders meet 3:1, and the five highlight colours keep the text readable; for a pair kept below AA each is at least as readable as the pair. Unit-tested on 400 random pairs; in E2E the status-window fixture at 200% meets AA in cream on forest green and black on yellow.
+- **Switching to Custom starts from the page as it is,** so nothing changes until a colour does.
+- The editor loads when Custom is first chosen in the reader.
+
+*P1-RDR-16 (share quote):*
+- **Share quote** is in the selection toolbar, for a selection and for a highlight. It opens a dialog previewing the card as a **Picture** or as **Text**.
+- **The picture:** 1080 × 1350 (4:5, shown whole by messaging and social apps on a phone), in the reader's reading font and page colours (custom ones too): an accent bar in the link colour, the passage as large as fits, then the title in italics and the author. A Book's own font (Publisher default) can't be drawn outside the Book, so Literata stands in. A right-to-left Book's card is drawn from the right. Alt text: "Quote from *title* by *author*: *the passage*".
+- **The text:** the passage in quotation marks (dialogue keeps its own), then "— Lewis Carroll, Alice's Adventures in Wonderland".
+- **Exactly the snapped Words,** spacing tidied. **Past 60 Words** (counted as the tokeniser does, near enough: an apostrophe joins, a hyphen or dash splits) the passage stops with "…", and the dialog says long passages are shortened.
+- **On Android** Share sends the picture and the text through the Share plugin (the WebView has no Web Share API). **On the web:** Copy picture (where the browser can put images on the clipboard), Copy text and Download; **not in the plan: Share too, where the browser can share files,** as phones' browsers can.
+- **No app name or link on the card:** the product isn't named (OPEN-07) and has no public store pages until Phase 6.
+- The dialog and the card's drawing load on first use.
+- **Backlog:** IOS-17 (share quote on an iPhone).
+
+*Also:*
+- **Bundle:** the reader route is 232.4 KB of its 250 KB budget (gzipped), up 2.8 KB from Phase 1.16: the colour rules, which every theme now runs through, the passage rules and the toolbar's button.
 
 ### Phase 1.18 — Wishlists and reviews (simulated)
 

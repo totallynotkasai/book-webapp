@@ -41,6 +41,7 @@ Suggested order when picked up: IOS-01, IOS-02, IOS-04, IOS-05, then the rest.
 | IOS-14 | Sign in with Apple, and the App Store's rules on sign-in options | P2-AUTH-01 | Phase 2; DESIGN.md §5.2 already flags the App Store sign-in rules |
 | IOS-15 | The device voice on an iPhone: WKWebView's Web Speech API, its voices and Word boundaries, and whether it speaks with the screen locked; update ADR-006 | P1-LAY-08 | Needs a real iPhone. Playwright's WebKit on Windows has no Web Speech API, so CI uses a stand-in |
 | IOS-16 | The sleep timer on an iPhone: iOS ignores an audio element's `volume`, so narration stops on time but doesn't fade out; and with the screen locked the WebView's timer may not run until the native player of IOS-04 counts it, as Android's does | P1-LAY-09 | Comes with IOS-04 (native narration on iOS) |
+| IOS-17 | Share quote on an iPhone: WKWebView's Web Share API with the card as a file (iOS 15+), copying the picture, and the card's reading fonts on the canvas | P1-RDR-16 | Needs a real iPhone; Safari on an iPhone uses the same web code |
 
 Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 4).
 

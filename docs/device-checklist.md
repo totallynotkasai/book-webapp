@@ -72,6 +72,15 @@ The **Emulator** column has the results from 16 October 2026 (owner build, `book
 | **Listening with the screen locked counts:** after 20 minutes of narration with the phone locked, You → Your reading has about 20 minutes more, "of it listening" | *Alice* as the Author, Chapter I: Listen, lock the phone, unlock after 20 minutes, open You → Your reading | ☐ | ☐ |
 | Turning "Keep reading stats" off hides them, and reading on adds nothing | You → Your reading | Web E2E | ☐ |
 
+## Share and colour (Phase 1.17)
+
+| Check | How | Emulator | Phone |
+|---|---|---|---|
+| **Share a sentence of *Alice* as a picture to yourself:** the share sheet shows the card and the quote; the picture arrives whole, in the reader's colours and font | Long-press a sentence, Share quote, Share, pick Messages or Gmail | ✓ the share sheet ("Sharing image", the card and the quote's text); not sent on | ☐ |
+| The same as text: the quote, then "— Lewis Carroll, Alice's Adventures in Wonderland" | Share quote → Text → Share | ☐ | ☐ |
+| **Custom colours:** a dark green page with cream text; the bars behind the status and navigation bars follow the page; a pair below AA shows the warning and leaves the page as it was | Reading preferences → Theme → Custom; type `#1f3d2b` and `#f3ead3`, then a darker green text | Web E2E | ☐ |
+| The round swatch at the end of each colour field opens Android's colour picker | Tap it | ☐ | ☐ (if nothing opens, the hex field and the suggestions still work) |
+
 ## Android behaviour
 
 | Check | How | Emulator | Phone |
