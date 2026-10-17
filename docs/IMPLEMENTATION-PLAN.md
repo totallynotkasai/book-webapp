@@ -975,6 +975,7 @@ Every front-end feature worth building without a real backend, before any backen
 *Also:*
 - **Bundle:** the reader route is 227.8 KB of its 250 KB budget (gzipped), up 0.5 KB from Phase 1.14: the notes for Chapters still to come.
 - **Not checked on the Android emulator:** nothing in this phase is native.
+- **Testing on this PC:** the whole suite passed in Chromium and WebKit (336 tests, 2 skipped), the WebKit narration specs included.
 
 ### Phase 1.16 — Your reading
 
