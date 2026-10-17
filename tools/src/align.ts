@@ -1,12 +1,14 @@
 /**
  * `tools/align` (P1-LAY-03, DESIGN.md §7.2): aligns the LibriVox *Alice* narration to the
  * catalogue Revision and writes the demo Audio Track: a Sync Map per Chapter and `track.json`.
- * Grew from the P0-06 spike; ADR-003 has the measurements behind its choices.
+ * Grew from the P0-06 spike; ADR-003 has the measurements behind its choices. With `--epub`, it
+ * aligns a recording of any Book's Chapter instead (P1-STU-07; see align-book.ts).
  *
  *   npm run narration                       # chapters 1–3
  *   npm run narration -- --chapters 1,2     # some chapters
  *   npm run narration -- --force            # transcode and transcribe again (needs whisper.cpp)
  *   options: --models base.en,small.en  --model base.en  --threads 8
+ *   npm run narration -- --epub my-book.epub --audio chapter-3.mp3 --chapter 3
  *
  * Per Chapter:
  *   1. ffmpeg: MP3 → 16 kHz mono WAV for whisper, and → AAC .m4a, mono, 64 kbps, loudness-
@@ -19,13 +21,9 @@
  *      in the audio. The `--model` Sync Map is written to apps/web/static/demo/sync/alice/.
  *      Coverage must reach 0.95 (P1-LAY-03), or the run fails.
  *
- * Tools: FFMPEG (default `ffmpeg` on PATH), WHISPER_CLI (default
- * ~/.book-tools/whisper-blas/Release/whisper-cli.exe, then `whisper-cli`), WHISPER_MODELS
- * (folder with ggml-<model>.bin; default ~/.book-tools/downloads).
+ * Tools: ffmpeg and whisper.cpp, found as audio.ts says.
  */
-import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
 	alignChapter,
@@ -34,12 +32,27 @@ import {
 	startBias,
 	timingAccuracy,
 	toSyncMap,
-	wordsFromWhisper,
 	type ChapterWord
 } from '@book/alignment';
 import { AUDIO_TRACK_FILE_VERSION, audioTrackFileSchema } from '@book/core';
 import type { RevisionChapter } from '@book/text-pipeline';
+import {
+	readWav,
+	round,
+	run,
+	toWhisperWav,
+	transcodeForPlayback,
+	transcriptWords,
+	whisper,
+	type Transcript
+} from './audio';
 import { loadBook, ROOT } from './book';
+
+if (process.argv.includes('--epub')) {
+	// Any Book's Chapter (P1-STU-07).
+	await import('./align-book');
+	process.exit(0);
+}
 
 const TRACK_ID = 'track-alice-librivox-shallenberg';
 const AUDIO_IN = join(ROOT, 'fixtures/audio/alice');
@@ -48,7 +61,6 @@ const AUDIO_OUT = join(ROOT, 'apps/web/static/demo/audio/alice');
 const SYNC_OUT = join(ROOT, 'apps/web/static/demo/sync/alice');
 const TRANSCRIPTS = join(ROOT, 'fixtures/sync/transcripts');
 const REPORT = join(ROOT, 'fixtures/sync/alice-report.json');
-const LOUDNESS = 'I=-18:TP=-1.5:LRA=11';
 /** Never shift Words by more than this when removing whisper's start bias. */
 const MAX_BIAS_MS = 300;
 const MIN_COVERAGE = 0.95;
@@ -66,117 +78,22 @@ const primary = option('model', 'base.en');
 const threads = Number(option('threads', '8'));
 if (!models.includes(primary)) models.push(primary);
 
-const FFMPEG = process.env.FFMPEG ?? 'ffmpeg';
-const WHISPER_CLI =
-	process.env.WHISPER_CLI ??
-	[join(homedir(), '.book-tools/whisper-blas/Release/whisper-cli.exe')].find(existsSync) ??
-	'whisper-cli';
-const MODELS = process.env.WHISPER_MODELS ?? join(homedir(), '.book-tools/downloads');
-
-function run(command: string, args: string[]) {
-	const result = spawnSync(command, args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
-	if (result.error) throw new Error(`${command}: ${result.error.message}`);
-	if (result.status !== 0) {
-		throw new Error(`${command} exited with ${result.status}\n${result.stderr?.slice(-2000)}`);
-	}
-	return result;
-}
-
-/** 16-bit PCM samples from a WAV file (any chunk layout), for the pause analysis. */
-function readWav(path: string): { rate: number; samples: Int16Array } {
-	const buffer = readFileSync(path);
-	const rate = buffer.readUInt32LE(24);
-	let offset = 12;
-	while (offset < buffer.length - 8) {
-		const id = buffer.toString('ascii', offset, offset + 4);
-		const size = buffer.readUInt32LE(offset + 4);
-		if (id === 'data') {
-			const end = Math.min(buffer.length, offset + 8 + size);
-			const bytes = buffer.buffer.slice(buffer.byteOffset + offset + 8, buffer.byteOffset + end);
-			return { rate, samples: new Int16Array(bytes, 0, Math.floor(bytes.byteLength / 2)) };
-		}
-		offset += 8 + size + (size % 2);
-	}
-	throw new Error(`No data chunk in ${path}`);
-}
-
-function transcodeForPlayback(mp3: string, m4a: string) {
-	// Pass 1 measures loudness; pass 2 applies it linearly (no pumping), §7.2 step 1.
-	const probe = spawnSync(
-		FFMPEG,
-		['-hide_banner', '-i', mp3, '-af', `loudnorm=${LOUDNESS}:print_format=json`, '-f', 'null', '-'],
-		{ encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
-	);
-	if (probe.error) throw new Error(`ffmpeg not found (set FFMPEG): ${probe.error.message}`);
-	const m = JSON.parse(
-		probe.stderr.slice(probe.stderr.lastIndexOf('{'), probe.stderr.lastIndexOf('}') + 1)
-	) as Record<string, string>;
-	const filter =
-		`loudnorm=${LOUDNESS}:measured_I=${m.input_i}:measured_TP=${m.input_tp}` +
-		`:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true`;
-	run(FFMPEG, [
-		...['-hide_banner', '-loglevel', 'error', '-y', '-i', mp3, '-map_metadata', '-1', '-vn'],
-		...['-af', filter, '-ac', '1', '-ar', '44100', '-c:a', 'aac', '-b:a', '64k'],
-		...['-movflags', '+faststart', m4a]
-	]);
-}
-
-interface Transcript {
-	model: string;
-	durationMs: number;
-	threads: number;
-	wallMs: number;
-	cpuMs: number | null;
-	/** [text, dtwStartMs, dtwEndMs, tokenStartMs, tokenEndMs, confidence × 1000] */
-	words: [string, number, number, number, number, number][];
-}
-
 function transcribe(n: number, model: string, wav: string, durationMs: number): Transcript {
 	const cache = join(TRANSCRIPTS, `alice-ch${pad(n)}.${model}.json`);
 	if (existsSync(cache) && !force) return JSON.parse(readFileSync(cache, 'utf8')) as Transcript;
-	const outBase = join(WORK, `ch${pad(n)}.${model}`);
-	// -ojf: JSON with every token; --dtw: token onsets from the alignment heads; -nfa: DTW needs
-	// flash attention off in whisper.cpp 1.9.
-	const flags = ['-l', 'en', '-t', String(threads), '-ojf', '-np', '-nfa', '--dtw', model];
-	console.log(`  whisper ${model} (${threads} threads)…`);
-	const started = performance.now();
-	run(WHISPER_CLI, ['-m', join(MODELS, `ggml-${model}.bin`), '-f', wav, '-of', outBase, ...flags]);
-	const wallMs = Math.round(performance.now() - started);
-	const raw = JSON.parse(readFileSync(`${outBase}.json`, 'utf8'));
-	const dtw = wordsFromWhisper(raw, 'dtw');
-	const token = wordsFromWhisper(raw, 'token');
-	const transcript = {
+	const transcript = whisper({
 		model,
-		whisper: 'whisper.cpp 1.9.4 (whisper-blas-bin-x64, CPU + OpenBLAS)',
-		flags,
-		chapter: n,
+		wav,
+		outBase: join(WORK, `ch${pad(n)}.${model}`),
 		durationMs,
 		threads,
-		wallMs,
-		cpuMs: null,
-		words: dtw.map((w, i) => [
-			w.text,
-			w.startMs,
-			w.endMs,
-			token[i]!.startMs,
-			token[i]!.endMs,
-			Math.round(w.confidence * 1000)
-		])
-	};
+		lang: 'en',
+		extra: { chapter: n }
+	});
 	mkdirSync(TRANSCRIPTS, { recursive: true });
 	writeFileSync(cache, `${JSON.stringify(transcript)}\n`);
-	return transcript as unknown as Transcript;
+	return transcript;
 }
-
-const transcriptWords = (t: Transcript, timing: 'dtw' | 'token') =>
-	t.words.map(([text, ds, de, ts, te, c]) => ({
-		text,
-		startMs: timing === 'dtw' ? ds : ts,
-		endMs: timing === 'dtw' ? de : te,
-		confidence: c / 1000
-	}));
-
-const round = (x: number, digits = 4) => Math.round(x * 10 ** digits) / 10 ** digits;
 
 // ---------------------------------------------------------------------------------------------
 
@@ -215,10 +132,7 @@ for (const n of chapters) {
 	}
 	const wav = join(WORK, `ch${pad(n)}.16k.wav`);
 	if (!existsSync(wav) || force) {
-		run(FFMPEG, [
-			...['-hide_banner', '-loglevel', 'error', '-y', '-i', mp3],
-			...['-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', wav]
-		]);
+		toWhisperWav(mp3, wav);
 	}
 	const pcm = readWav(wav);
 	const durationMs = Math.round((pcm.samples.length / pcm.rate) * 1000);

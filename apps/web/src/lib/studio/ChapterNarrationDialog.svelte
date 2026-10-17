@@ -67,6 +67,14 @@
 	size="medium"
 >
 	<div class="form" data-testid="chapter-narration">
+		{#if chapter}
+			<p class="how">
+				<code
+					>npm run narration -- --epub book.epub --audio recording.mp3 --chapter {chapter.chapterId}</code
+				>
+				writes both: <code>recording.m4a</code> and <code>recording.sync.json</code>.
+			</p>
+		{/if}
 		<label class="file">
 			<span class="label">Audio (M4A, MP3, WAV or Ogg)</span>
 			<input
@@ -116,5 +124,11 @@
 	.problem {
 		margin: 0;
 		color: var(--md-sys-color-error);
+	}
+
+	.how {
+		margin: 0;
+		overflow-wrap: anywhere;
+		color: var(--md-sys-color-on-surface-variant);
 	}
 </style>

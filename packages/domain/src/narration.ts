@@ -73,6 +73,33 @@ export function lowConfidenceRegions(words: readonly SyncMapWord[], mergeGap = 3
 }
 
 /**
+ * A Sync Map `tools/align` made from a later version's EPUB (P1-STU-07), with WordIds matched to
+ * the Revision's. The tool numbers the EPUB's Words as a Book's first version would; a later
+ * version keeps earlier WordIds and gives new Words new ones (§6.2), so they differ. Its
+ * `revisionId` is the file's SHA-256, so the same file means the same Words in the same order,
+ * and they're matched by position. Returns the map unchanged when it already uses the
+ * Revision's WordIds, or when it can't be matched (another file or Chapter, or another count).
+ */
+export function matchSyncMapWords<M extends Pick<SyncMap, 'revisionId' | 'chapterId' | 'words'>>(
+	map: M,
+	chapter: { revisionId: string; chapterId: string; wordIds: readonly number[] }
+): M {
+	if (map.revisionId !== chapter.revisionId || map.chapterId !== chapter.chapterId) return map;
+	const known = new Set(chapter.wordIds);
+	if (map.words.every((w) => known.has(w[0]))) return map;
+	// The tool's own numbering, in reading order: one per Word of the Chapter.
+	const own = [...new Set(map.words.map((w) => w[0]))].sort((a, b) => a - b);
+	if (own.length !== map.words.length || own.length !== chapter.wordIds.length) return map;
+	const position = new Map(own.map((id, i) => [id, i]));
+	return {
+		...map,
+		words: map.words.map(
+			(w) => [chapter.wordIds[position.get(w[0])!]!, w[1], w[2], w[3]] as SyncMapWord
+		)
+	};
+}
+
+/**
  * Why an uploaded Sync Map can't be used for a Chapter, in words a creator can act on; empty
  * when it can. It must be for this Revision and Chapter and name only the Chapter's Words.
  */

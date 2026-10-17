@@ -3,7 +3,7 @@
  * text-pipeline), so Anchors made here match the Revision readers open.
  */
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RevisionManifest } from '@book/core';
 import {
@@ -25,7 +25,7 @@ export async function loadBook(
 	epub = 'apps/web/static/books/alice.epub',
 	bookId = 'book-alice'
 ): Promise<LoadedBook> {
-	const result = await ingestEpub(new Uint8Array(readFileSync(join(ROOT, epub))), { bookId });
+	const result = await ingestEpub(new Uint8Array(readFileSync(resolve(ROOT, epub))), { bookId });
 	const files = new Map(result.files.map((f) => [f.path, new TextDecoder().decode(f.data)]));
 	const revision = readRevisionWords((path) => files.get(path));
 	return { manifest: result.manifest, revision, index: new RevisionIndex(revision) };

@@ -106,9 +106,10 @@
 			{/if}
 
 			<p class="intro">
-				For each chapter, add its audio and the Sync Map <code>tools/align</code> made from it (<code
-					>npm run narration</code
-				>). Below 90% of words heard clearly, a chapter needs review.
+				For each chapter, add its audio and the Sync Map <code>tools/align</code> makes from it,
+				with the EPUB of the version readers have:
+				<code>npm run narration -- --epub book.epub --audio recording.mp3 --chapter 3</code>. Below
+				90% of words heard clearly, a chapter needs review.
 			</p>
 
 			<ul class="chapters">
@@ -213,6 +214,7 @@
 
 	.intro {
 		margin: 0;
+		overflow-wrap: anywhere;
 		color: var(--md-sys-color-on-surface-variant);
 	}
 

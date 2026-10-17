@@ -367,6 +367,50 @@ export function describeStudioContract(ctx: Context): void {
 			const after = await backend.studio.getTrack(track.id);
 			expect(after.chapters.find((c) => c.chapterId === first.chapterId)!.status).toBe('stale');
 		});
+
+		it('matches a later version’s Sync Map from tools/align to its WordIds by position (P1-STU-07)', async () => {
+			const backend = ctx.backend();
+			const { book } = await publishedBook();
+			const upload = await backend.studio.upload(blob(ctx.fixtures.edited), { bookId: book.id });
+			await processed(book.id, upload.id);
+			await backend.studio.publishRevision(book.id, { revisionId: upload.id, aiUse: 'none' });
+			// The edited Chapter: its new Words have new WordIds, its others the first version's.
+			const first = await wordsOf(book.id, 0);
+			const track = await backend.studio.createTrack(book.id, { narrator: 'A Narrator' });
+			// tools/align numbers the file's Words itself, in reading order; one is guessed.
+			const words: SyncMapWord[] = first.index.words.map((_, i) => [
+				1_000_000 + i,
+				i * 300,
+				i * 300 + 280,
+				i === 3 ? SYNC_MAP_INTERPOLATED : 0
+			]);
+			const syncMap = {
+				version: 1,
+				trackId: 'from-tools-align',
+				revisionId: upload.id,
+				chapterId: first.chapterId,
+				audioKey: 'audio.m4a',
+				durationMs: words.length * 300,
+				coverage: 1 - 1 / words.length,
+				words
+			};
+			await backend.studio.setChapterNarration(track.id, {
+				chapterId: first.chapterId,
+				audio: blob(WAV),
+				syncMap
+			});
+			const review = await backend.studio.reviewChapter(track.id, first.chapterId);
+			expect(review.regions.map((r) => r.firstWordId)).toEqual([first.index.words[3]![0]]);
+			// Another count of Words can't be matched.
+			await expectBackendError(
+				backend.studio.setChapterNarration(track.id, {
+					chapterId: first.chapterId,
+					audio: blob(WAV),
+					syncMap: { ...syncMap, words: words.slice(1) }
+				}),
+				'VALIDATION_FAILED'
+			);
+		});
 	});
 
 	describe('studio: the story so far (P1-STU-05, P1-RDR-13)', () => {

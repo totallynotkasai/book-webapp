@@ -12,7 +12,8 @@
 	"dependencies": {
 		"@book/core": "*",
 		"@book/text-pipeline": "*",
-		"@book/alignment": "*"
+		"@book/alignment": "*",
+		"@book/domain": "*"
 	},
 	"devDependencies": {
 		"sharp": "0.35.5",

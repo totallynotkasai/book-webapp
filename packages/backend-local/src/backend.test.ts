@@ -495,3 +495,37 @@ describe('the seeded story so far (P1-STU-05, P1-RDR-13)', () => {
 		await expectBackendError(backend.content.storySoFar('book-unknown'), 'NOT_FOUND');
 	});
 });
+
+describe('tools/align for any Book (P1-STU-07)', () => {
+	it('the Studio imports the Sync Map tools/align wrote for the status-window fixture', async () => {
+		const { backend } = await makeLocal();
+		await backend.session.signInAs('author');
+		const upload = await backend.studio.upload(new Blob([statusWindow]));
+		for (let i = 0; i < 400; i++) {
+			const book = await backend.studio.getBook(upload.bookId);
+			if (book.revisions[0]!.state !== 'processing') break;
+			await new Promise((resolve) => setTimeout(resolve, 25));
+		}
+		await backend.studio.publishRevision(upload.bookId, { revisionId: upload.id, aiUse: 'none' });
+		const track = await backend.studio.createTrack(upload.bookId, { narrator: 'Hazel (Windows)' });
+		const syncMap: unknown = JSON.parse(
+			readFileSync(
+				join(
+					fileURLToPath(new URL('../../../fixtures/sync/status-window', import.meta.url)),
+					'ch01.sync.json'
+				),
+				'utf8'
+			)
+		);
+		// Any audio the Studio can play stands in for the recording (git-ignored).
+		const audio = new Blob([new TextEncoder().encode('RIFF$\u0000\u0000\u0000WAVEfmt ')]);
+		const narrated = await backend.studio.setChapterNarration(track.id, {
+			chapterId: 'text/chapter-1.xhtml',
+			audio,
+			syncMap
+		});
+		const chapter = narrated.chapters.find((c) => c.chapterId === 'text/chapter-1.xhtml')!;
+		expect(chapter.status).toBe('ready');
+		expect(chapter.coverage).toBeGreaterThanOrEqual(0.95);
+	});
+});

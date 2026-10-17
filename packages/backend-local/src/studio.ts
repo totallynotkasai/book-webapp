@@ -57,6 +57,7 @@ import {
 	ratingSummary,
 	submission,
 	lowConfidenceRegions,
+	matchSyncMapWords,
 	money,
 	PLACEHOLDER_SPLITS,
 	publishProblems,
@@ -1556,6 +1557,12 @@ export function createStudioApi(deps: StudioDeps): StudioApi {
 				throw validation('That file isn’t a Sync Map from tools/align (DESIGN.md §7.2).');
 			}
 			const wordIds = (await chapterWords(file.revisionId)).get(chapter.chapterId) ?? [];
+			// tools/align numbers a later version's Words afresh: match them by position (P1-STU-07).
+			map = matchSyncMapWords(map, {
+				revisionId: file.revisionId,
+				chapterId: chapter.chapterId,
+				wordIds
+			});
 			const problems = syncMapProblems(map, {
 				revisionId: file.revisionId,
 				chapterId: chapter.chapterId,
