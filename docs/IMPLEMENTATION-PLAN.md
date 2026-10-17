@@ -1097,6 +1097,7 @@ Every front-end feature worth building without a real backend, before any backen
 - **Bundle:** the reader route is 233.8 KB of its 250 KB budget (gzipped), up 1.4 KB from Phase 1.17, though nothing in the reader changed: the reader route carries the app's icons and `@book/core`'s schemas (BACKLOG RDR-03), and this phase added three icons and the new schemas.
 - **Not checked on the Android emulator:** nothing in this phase is native. The phone checks are on `docs/device-checklist.md`.
 - No OPEN item is touched.
+- **Testing on this PC:** the whole suite in Chromium and WebKit, both build profiles: 385 passed and 2 skipped. One Chromium notes spec (`annotations.spec.ts`, pressing the selection toolbar's Highlight blue) timed out under 4-worker load and passed 3 times out of 3 when run again alone; nothing in this phase touches the reader.
 
 ### Phase 1.19 — Overview and look-up
 
