@@ -25,6 +25,7 @@ import type {
 	EngineEvents,
 	EngineOptions,
 	FigureInjection,
+	Marker,
 	PageDrawing,
 	PageTurn,
 	PublicationHandle,
@@ -85,6 +86,13 @@ interface MeasuredPages {
 
 type Listeners = { [E in EngineEvent]: Set<(payload: EngineEvents[E]) => void> };
 
+/** A marker's button in the book (P1-COM-03), holding its ID; styled in styles.ts. */
+const MARKER = 'data-rd-marker';
+const XHTML_NS = 'http://www.w3.org/1999/xhtml';
+const SVG_NS = 'http://www.w3.org/2000/svg';
+/** Blocks a button can't go inside: it goes after them. */
+const TABLE_PARTS = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr']);
+
 /** Waits for layout to settle: two frames, or a timer when frames are paused (hidden tabs). */
 function settle(): Promise<void> {
 	return new Promise((resolve) => {
@@ -132,6 +140,9 @@ export class FoliateEngine implements ReaderEngine {
 	#pageTurn: PageTurn = 'slide';
 	#decorations = new Map<string, Decoration[]>();
 	#figures: FigureInjection[] = [];
+	#markers = new Map<string, Marker[]>();
+	/** What each Chapter document has had placed, so an unchanged set isn't placed again. */
+	#placedMarkers = new WeakMap<Document, string>();
 	#tableButton: EngineOptions['tableButton'];
 	#listeners: Listeners = {
 		relocated: new Set(),
@@ -139,6 +150,7 @@ export class FoliateEngine implements ReaderEngine {
 		wordActivated: new Set(),
 		contextMenu: new Set(),
 		figureActivated: new Set(),
+		markerActivated: new Set(),
 		tableActivated: new Set(),
 		tap: new Set(),
 		keydown: new Set(),
@@ -259,6 +271,7 @@ export class FoliateEngine implements ReaderEngine {
 		const map = await this.#map(doc, index);
 		this.#paintDecorations(doc, map);
 		this.#placeFigures(doc, map);
+		this.#placeMarkers(doc, map);
 		this.#watchTables(doc);
 
 		// foliate-js scrolls to whatever gains focus, so Tab can reach a link on another page. A
@@ -283,7 +296,9 @@ export class FoliateEngine implements ReaderEngine {
 		let dragFrom: [Node, number] | null = null;
 		doc.addEventListener('mousedown', (event) => {
 			if (event.button !== 0 || event.detail > 1 || pointer !== 'mouse') return;
-			if ((event.target as Element | null)?.closest?.(`a[href], [${TABLE_ROW}]`)) return;
+			if ((event.target as Element | null)?.closest?.(`a[href], [${TABLE_ROW}], [${MARKER}]`)) {
+				return;
+			}
 			const point = caretPoint(doc, event.clientX, event.clientY);
 			const selection = doc.getSelection();
 			if (!point || !selection) return;
@@ -471,6 +486,14 @@ export class FoliateEngine implements ReaderEngine {
 		const figure = target?.closest?.('figure[data-injected]');
 		if (figure) {
 			this.#emit('figureActivated', { id: figure.getAttribute('data-injected')! });
+			return;
+		}
+		const marker = target?.closest?.(`[${MARKER}]`);
+		if (marker) {
+			this.#emit('markerActivated', {
+				id: marker.getAttribute(MARKER)!,
+				clientRect: toTop(marker.getBoundingClientRect(), doc)
+			});
 			return;
 		}
 		const open = target?.closest?.(`[${TABLE_ROW}] button`);
@@ -967,6 +990,70 @@ export class FoliateEngine implements ReaderEngine {
 			this.#placeFigures(current.doc, map);
 			this.#paginator?.render();
 		});
+	}
+
+	setMarkers(group: string, items: Marker[]): void {
+		this.#markers.set(group, items);
+		const current = this.#current();
+		const map = current && this.#maps.get(current.doc);
+		if (!current || !map) return;
+		if (this.#markersKey(map) === this.#placedMarkers.get(current.doc)) return;
+		// A marker takes room at the end of its paragraph: lay out again around the first visible Word.
+		void this.#keepPosition(() => this.#placeMarkers(current.doc, map));
+	}
+
+	/** The markers for a Chapter, by where each goes: in the Book's order. */
+	#markersFor(map: DocWordMap): { marker: Marker; index: number }[] {
+		return [...this.#markers.values()].flat().flatMap((marker) => {
+			const { anchor } = marker;
+			if (anchor.revisionId !== this.#manifest.revisionId) return [];
+			const index = map.words.indexOfOrdinal(
+				anchor.kind === 'point' ? anchor.ordinal : anchor.startOrdinal
+			);
+			return index >= 0 ? [{ marker, index }] : [];
+		});
+	}
+
+	#markersKey(map: DocWordMap): string {
+		return JSON.stringify(
+			this.#markersFor(map).map(({ marker, index }) => [
+				marker.id,
+				index,
+				marker.label,
+				marker.text
+			])
+		);
+	}
+
+	/**
+	 * Each marker as a button at the end of its Block, after its last Word (inside the Block, so it
+	 * stays beside the paragraph; after a table, which can't hold one). Its count is drawn by CSS
+	 * from an attribute, so it adds no text to the Book (`data-injected` keeps it out of the word
+	 * map besides).
+	 */
+	#placeMarkers(doc: Document, map: DocWordMap) {
+		for (const old of doc.querySelectorAll(`[${MARKER}]`)) old.remove();
+		this.#placedMarkers.set(doc, this.#markersKey(map));
+		for (const { marker, index } of this.#markersFor(map)) {
+			const block = map.blockElement(index);
+			if (!block) continue;
+			const button = doc.createElementNS(XHTML_NS, 'button');
+			button.setAttribute('type', 'button');
+			button.setAttribute('data-injected', 'marker');
+			button.setAttribute(MARKER, marker.id);
+			button.setAttribute('aria-label', marker.label);
+			button.setAttribute('data-rd-count', marker.text);
+			const svg = doc.createElementNS(SVG_NS, 'svg');
+			svg.setAttribute('viewBox', '0 -960 960 960');
+			svg.setAttribute('aria-hidden', 'true');
+			svg.setAttribute('focusable', 'false');
+			const path = doc.createElementNS(SVG_NS, 'path');
+			path.setAttribute('d', marker.icon);
+			svg.append(path);
+			button.append(svg);
+			if (TABLE_PARTS.has(block.localName)) block.closest('table')?.after(button);
+			else block.append(button);
+		}
 	}
 
 	relayout(change: () => void | Promise<void>): Promise<void> {

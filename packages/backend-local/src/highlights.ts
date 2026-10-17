@@ -32,16 +32,15 @@ export function createHighlightsApi(deps: {
 				}
 				return placed;
 			});
-			const counted = highlights.flatMap(({ readerId, place }) =>
+			// Each reader counted once: a seeded crowd is that many readers.
+			const counted = highlights.flatMap(({ readerId, readers, place }) =>
 				place.anchor && place.status !== 'orphaned' && readable(place.chapterId)
-					? [
-							{
-								readerId,
-								chapterId: place.chapterId,
-								startOrdinal: place.anchor.startOrdinal,
-								endOrdinal: place.anchor.endOrdinal
-							}
-						]
+					? Array.from({ length: readers }, (_, n) => ({
+							readerId: n ? `${readerId}+${n}` : readerId,
+							chapterId: place.chapterId,
+							startOrdinal: place.anchor!.startOrdinal,
+							endOrdinal: place.anchor!.endOrdinal
+						}))
 					: []
 			);
 			const text = await placements.textOf(revisionId);

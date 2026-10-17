@@ -19,6 +19,7 @@
 		book: 'Book',
 		illustration_pack: 'Illustration pack',
 		review: 'Review',
+		comment: 'Comment',
 		audio_track: 'Narration',
 		creator: 'Creator'
 	} as const;

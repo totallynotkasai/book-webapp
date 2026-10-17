@@ -125,11 +125,17 @@ export interface CommentRecord {
 	place: Placement | null;
 }
 
-/** Another reader's highlight, only ever counted (P1-COM-04): who it was never leaves the backend. */
+/**
+ * Other readers' highlight of a passage, only ever counted (P1-COM-04): who never leaves the
+ * backend. Seeded ones stand for a crowd of readers who each highlighted the same Words.
+ */
 export interface SharedHighlightRecord {
 	id: string;
 	bookId: string;
+	/** The reader, or for a seeded crowd its first; the others are `<readerId>+<n>`. */
 	readerId: string;
+	/** How many different readers highlighted it: 1, or a seeded crowd. */
+	readers: number;
 	place: Placement;
 }
 

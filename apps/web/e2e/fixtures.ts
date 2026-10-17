@@ -180,7 +180,7 @@ export async function settled(page: Page) {
 }
 
 /** Opens the reading preferences sheet on a tab. */
-export async function openPreferences(page: Page, tab: 'Text' | 'Page' | 'Theme') {
+export async function openPreferences(page: Page, tab: 'Text' | 'Page' | 'Theme' | 'Readers') {
 	await showChrome(page);
 	await readerAction(page, 'Reading preferences');
 	await page.getByRole('tab', { name: tab }).click();

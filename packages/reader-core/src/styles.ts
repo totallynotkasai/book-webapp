@@ -30,6 +30,7 @@ ${[1, 2, 3, 4, 5]
 ::highlight(rd-underline-${n}){text-decoration:underline 2px var(--md-sys-color-highlight-${n});text-underline-offset:3px}`
 	)
 	.join('\n')}
+::highlight(rd-popular){text-decoration:underline dotted 2px color-mix(in srgb,var(--reader-text) 55%,transparent);text-underline-offset:4px}
 ::highlight(rd-narration){background-color:color-mix(in srgb,var(--md-sys-color-primary) 26%,transparent);color:inherit}
 ::highlight(rd-search){background-color:var(--md-sys-color-tertiary-container);color:var(--md-sys-color-on-tertiary-container)}`;
 }
@@ -85,7 +86,12 @@ ${important(`[data-rd-table]{all:initial;display:flex;justify-content:flex-end;m
 [data-rd-table] button{all:initial;display:inline-flex;align-items:center;min-height:48px;cursor:pointer;-webkit-tap-highlight-color:transparent;font:500 max(13px,.7rem)/1.2 'Arial Rounded MT','Arial Rounded MT Std',Nunito,system-ui,sans-serif;color:var(--md-sys-color-on-secondary-container)}
 [data-rd-table] button>span{all:initial;display:inline-flex;align-items:center;gap:.35em;padding:.4em .9em .4em .65em;border-radius:999px;background:var(--md-sys-color-secondary-container);font:inherit;color:inherit}
 [data-rd-table] svg{all:initial;width:1.3em;height:1.3em;fill:currentColor}
-[data-rd-table] button:focus-visible>span{outline:2px solid var(--md-sys-color-primary);outline-offset:2px}`)}
+[data-rd-table] button:focus-visible>span{outline:2px solid var(--md-sys-color-primary);outline-offset:2px}
+[data-rd-marker]{all:initial;position:relative;display:inline-flex;align-items:center;gap:.2em;margin-inline-start:.4em;padding:.15em .5em;border-radius:999px;vertical-align:.05em;background:var(--md-sys-color-secondary-container);color:var(--md-sys-color-on-secondary-container);font:600 max(12px,.7rem)/1 'Arial Rounded MT','Arial Rounded MT Std',Nunito,system-ui,sans-serif;text-indent:0;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+[data-rd-marker]::before{content:'';position:absolute;left:50%;top:50%;width:max(100%,48px);height:48px;transform:translate(-50%,-50%)}
+[data-rd-marker]::after{content:attr(data-rd-count)}
+[data-rd-marker] svg{all:initial;width:1.15em;height:1.15em;fill:currentColor}
+[data-rd-marker]:focus-visible{outline:2px solid var(--md-sys-color-primary);outline-offset:2px}`)}
 figure[data-injected]{margin:1em 0;text-align:center;break-inside:avoid;-webkit-column-break-inside:avoid}
 figure[data-injected] img{max-height:60vh;width:auto;cursor:zoom-in;border-radius:6px}
 figure[data-injected].full-page{break-before:column;break-after:column;display:flex;flex-direction:column;justify-content:center;height:90vh;margin:0}

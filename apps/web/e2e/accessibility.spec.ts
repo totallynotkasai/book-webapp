@@ -3,6 +3,7 @@ import { silentNarration } from './audio';
 import {
 	expect,
 	expectNoViolations,
+	openPreferences,
 	openReader,
 	selectPhrase,
 	settled,
@@ -213,6 +214,39 @@ for (const scheme of ['light', 'dark'] as const) {
 			await selectPhrase(page, 'Saltgate Bridge');
 			await page.getByRole('button', { name: 'In the glossary' }).click();
 			await expect(page.getByTestId('glossary-card')).toBeVisible();
+			await expectNoViolations(page);
+		});
+
+		test('comments and popular highlights have no axe violations (P1-COM-03, P1-COM-04)', async ({
+			page
+		}) => {
+			await openReader(page, 'book-alice');
+			await openPreferences(page, 'Readers');
+			await page.getByRole('switch', { name: 'Readers’ comments' }).click();
+			await page.getByRole('switch', { name: 'Popular highlights' }).click();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			// The counts in the text are buttons in the Book's frame, checked with the page.
+			const frame = page.frames().find((f) => f.url().startsWith('blob:'))!;
+			await frame.locator('[data-rd-marker]').first().click();
+			const sheet = page.getByTestId('comments-sheet');
+			await expect(sheet.getByTestId('comment').first()).toBeVisible();
+			await expectNoViolations(page);
+			await sheet.getByRole('button', { name: 'Reply', exact: true }).first().click();
+			await expect(page.getByRole('textbox', { name: 'Your reply' })).toBeFocused();
+			await expectNoViolations(page);
+			await sheet.getByRole('button', { name: 'Report' }).first().click();
+			await expect(page.getByTestId('report-dialog')).toBeVisible();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			await page.keyboard.press('Escape');
+			await expect(sheet).toBeHidden();
+			await selectPhrase(page, 'without pictures or');
+			await expect(page.getByTestId('popular-readers')).toBeVisible();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			await page.keyboard.press('n');
+			await expect(page.getByTestId('popular-list').getByRole('button').first()).toBeVisible();
 			await expectNoViolations(page);
 		});
 

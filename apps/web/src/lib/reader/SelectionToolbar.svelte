@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { HighlightColour } from '@book/core';
 	import { highlightLabels } from '@book/tokens';
-	import { IconButton } from '@book/ui';
+	import { Icon, IconButton } from '@book/ui';
+	import { readersLabel } from './together';
 
 	/**
 	 * The selection toolbar (P1-RDR-06, DESIGN.md §9.3; plan §6 Phase 1.3 UX notes): floats above
@@ -34,6 +35,10 @@
 		onglossary?: () => void;
 		/** The selection is one Word of an English Book: look it up (P1-RDR-18). */
 		ondefine?: () => void;
+		/** Comments are on for the Book and the reader can write: comment on it (P1-COM-03). */
+		oncomment?: () => void;
+		/** How many readers highlighted it, when it's a popular highlight (P1-COM-04); 0 if not. */
+		readers?: number;
 		onclose: () => void;
 	}
 
@@ -53,6 +58,8 @@
 		onattach,
 		onglossary,
 		ondefine,
+		oncomment,
+		readers = 0,
 		onclose
 	}: Props = $props();
 
@@ -143,6 +150,11 @@
 	style:left={`${position.left}px`}
 	{onkeydown}
 >
+	{#if readers > 0}
+		<p class="readers" data-testid="popular-readers">
+			<Icon name="ink_highlighter" size={16} />{readersLabel(readers)}
+		</p>
+	{/if}
 	<div class="swatches">
 		{#each COLOURS as c (c)}
 			<button
@@ -159,6 +171,9 @@
 	<IconButton icon="edit_note" label={hasNote ? 'Edit note' : 'Add note'} onclick={onnote} />
 	<IconButton icon="content_copy" label="Copy" onclick={oncopy} />
 	<IconButton icon="share" label="Share quote" onclick={onshare} />
+	{#if oncomment}
+		<IconButton icon="add_comment" label="Comment" onclick={oncomment} />
+	{/if}
 	{#if ondefine}
 		<IconButton icon="dictionary" label="Define" onclick={ondefine} />
 	{/if}
@@ -198,6 +213,18 @@
 	.swatches {
 		display: flex;
 		gap: 2px;
+	}
+
+	/* A popular highlight's count (P1-COM-04): a line of its own above the buttons. */
+	.readers {
+		display: flex;
+		flex-basis: 100%;
+		justify-content: center;
+		align-items: center;
+		gap: var(--space-1);
+		margin: var(--space-1) 0 0;
+		color: var(--md-sys-color-on-surface-variant);
+		font-size: var(--md-sys-typescale-body-small-size);
 	}
 
 	.swatch {

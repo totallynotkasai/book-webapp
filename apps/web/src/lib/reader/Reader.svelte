@@ -22,6 +22,7 @@
 	import {
 		createEngine,
 		type ChapterPages,
+		type ChapterText,
 		type ReaderEngine,
 		type TableView,
 		type VisibleRange
@@ -46,7 +47,7 @@
 		type MenuItem
 	} from '@book/ui';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
-	import { MediaQuery } from 'svelte/reactivity';
+	import { MediaQuery, SvelteMap } from 'svelte/reactivity';
 	import { copyText } from '$lib/clipboard';
 	import BookmarkRibbon from '$lib/components/BookmarkRibbon.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
@@ -88,6 +89,18 @@
 	import { BookStory, storyNudgeDue } from './story.svelte';
 	import { focusOnPage, ParagraphCache, paragraphAt, step, type Paragraph } from './focus';
 	import { quoteOf, type Quote } from './quote';
+	import type { BookTogether } from './together.svelte';
+	import {
+		commentCountLabel,
+		commentedParagraphs,
+		paragraphAnchor,
+		paragraphStart,
+		popularAt,
+		popularReached,
+		popularReaders,
+		tidyPassage,
+		type CommentedParagraph
+	} from './together';
 	import type { SearchHit } from './search';
 	import type { BookSearch } from './search.svelte';
 	import TextDialog from './TextDialog.svelte';
@@ -324,6 +337,23 @@
 	let defining = $state('');
 	let DefineCardView = $state.raw<typeof import('./DefineCard.svelte').default>();
 
+	// ---- Readers together (P1-COM-03, P1-COM-04): other readers' comments and popular
+	// highlights, each switched on for this Book only (D-044); the sheet loads on first use ----
+	let together = $state.raw<BookTogether>();
+	/** Each Chapter's paragraphs, once its comments are wanted: what they're grouped by. */
+	const commentParagraphs = new SvelteMap<string, Paragraph[]>();
+	let commentsOpen = $state(false);
+	/** The paragraph the sheet is for, and where a new comment there goes. */
+	let commentsAt = $state.raw<{
+		chapterId: string;
+		index: number;
+		passage: RangeAnchor;
+		selected: boolean;
+		composing: boolean;
+		text: string;
+	} | null>(null);
+	let CommentsView = $state.raw<typeof import('./CommentsSheet.svelte').default>();
+
 	// ---- The table viewer (P1-RDR-12): loads the first time a table is opened ----
 	let tableOpen = $state(false);
 	let table = $state.raw<TableView | null>(null);
@@ -381,6 +411,34 @@
 		if (anchor.startOrdinal !== anchor.endOrdinal) return null;
 		return toolbar.kind === 'selection' ? toolbar.text : anchor.quote.exact;
 	});
+	/** Other readers' comments and highlights are for catalogue Books, read as a reader (D-044). */
+	const togetherHere = $derived(opened?.source === 'catalogue' && !studioMode);
+	const commentsOn = $derived(togetherHere && prefs.comments);
+	const popularOn = $derived(togetherHere && prefs.popularHighlights);
+	const popularPassages = $derived(popularOn ? (together?.popular?.passages ?? []) : []);
+	/** Each Chapter's paragraphs with comments, once both its comments and its paragraphs are in. */
+	const commented = $derived.by(() => {
+		const out: { chapterId: string; paragraphs: CommentedParagraph[] }[] = [];
+		if (!commentsOn || !together) return out;
+		for (const [chapterId, chapter] of together.chapters) {
+			const list = commentParagraphs.get(chapterId);
+			if (list && chapter.revisionId === manifest?.revisionId) {
+				out.push({ chapterId, paragraphs: commentedParagraphs(chapter.comments, list) });
+			}
+		}
+		return out;
+	});
+	/** How many readers highlighted the toolbar's passage, if it's popular (P1-COM-04). */
+	const toolbarReaders = $derived(
+		toolbar && popularPassages.length
+			? popularReaders(
+					popularPassages,
+					toolbar.kind === 'selection' ? toolbar.anchor : toolbar.annotation.anchor
+				)
+			: 0
+	);
+	/** "Comment" in the toolbar: comments on, and this reader can write here (D-044). */
+	const canCommentHere = $derived(commentsOn && !!together?.canComment);
 	const tokens = $derived(themeTokensOf(prefs, systemDark.current));
 	const themeStyle = $derived(
 		Object.entries(tokens)
@@ -575,6 +633,7 @@
 		narration?.destroy();
 		speech?.destroy();
 		search?.destroy();
+		together?.destroy();
 		clearTimeout(backTimer);
 		clearTimeout(narrationHintTimer);
 		destroyed = true;
@@ -759,7 +818,14 @@
 					return;
 				}
 				const annotation = notes?.at(anchor.ordinal);
-				if (!annotation) return;
+				if (!annotation) {
+					// A popular highlight (P1-COM-04): its toolbar says how many readers highlighted it.
+					const popular = popularAt(popularPassages, anchor.ordinal);
+					if (!popular) return;
+					tapConsumed = true;
+					void showPopular(popular.anchor, clientRect);
+					return;
+				}
 				tapConsumed = true;
 				toolbar = {
 					kind: 'annotation',
@@ -767,6 +833,11 @@
 					rect: engine?.rectOf(annotation.anchor) ?? clientRect,
 					pointer: coarsePointer.current ? 'touch' : 'mouse'
 				};
+			}),
+			e.on('markerActivated', ({ id }) => {
+				// A paragraph's comment count (P1-COM-03): `<chapterId>#<paragraph index>`.
+				const at = id.lastIndexOf('#');
+				void openComments(id.slice(0, at), Number(id.slice(at + 1)));
 			}),
 			e.on('contextMenu', (menu) => {
 				// Touch keeps Android's own long-press selection (ADR-004); the toolbar follows it.
@@ -1159,6 +1230,212 @@
 		glossaryOpen = true;
 	}
 
+	// ---- Readers together (P1-COM-03, P1-COM-04; D-044) ----
+
+	// Loaded and started the first time either is on for this Book; nothing is fetched while both
+	// are off.
+	let togetherLoading = false;
+	$effect(() => {
+		if (phase.kind !== 'ready' || together || togetherLoading || (!commentsOn && !popularOn)) {
+			return;
+		}
+		togetherLoading = true;
+		void Promise.all([getBackend(), import('./together.svelte')]).then(
+			([backend, { BookTogether }]) => {
+				if (!destroyed && !together) together = new BookTogether(backend, bookId);
+			},
+			(error) => {
+				togetherLoading = false;
+				console.warn('Comments and popular highlights didn’t load', error);
+			}
+		);
+	});
+
+	// The Chapter on screen: its comments, and its paragraphs to group them by.
+	$effect(() => {
+		const chapterId = visible?.chapterId;
+		const source = together;
+		if (!commentsOn || !source || !chapterId || !engine) return;
+		void source.loadChapter(chapterId);
+		if (untrack(() => commentParagraphs.has(chapterId))) return;
+		paragraphCache()
+			.get(chapterId)
+			.then(
+				(list) => void commentParagraphs.set(chapterId, list),
+				() => {}
+			);
+	});
+
+	$effect(() => {
+		const source = together;
+		if (popularOn && source) void source.loadPopular();
+	});
+
+	// Each paragraph with comments says how many, after its last Word.
+	$effect(() => {
+		const book = manifest;
+		const items = book
+			? commented.flatMap(({ chapterId, paragraphs }) =>
+					paragraphs
+						.filter((p) => p.count > 0)
+						.map((p) => ({
+							id: `${chapterId}#${p.index}`,
+							anchor: paragraphStart(p.paragraph, book),
+							label: commentCountLabel(p.count),
+							text: String(p.count),
+							icon: iconPaths['chat_bubble-fill']
+						}))
+				)
+			: [];
+		if (phase.kind !== 'ready' || !engine) return;
+		engine.setMarkers('comments', items);
+	});
+
+	// Popular highlights: a faint dotted underline under each passage.
+	$effect(() => {
+		const passages = popularPassages;
+		if (phase.kind !== 'ready' || !engine) return;
+		engine.setDecorations(
+			'popular',
+			passages.map((p, i) => ({ id: `popular-${i}`, anchor: p.anchor, style: 'popular' as const }))
+		);
+	});
+
+	/** The popular passages the reader has reached, most highlighted first, for Notes (Invariant 6). */
+	const popularList = $derived(
+		popularOn && manifest
+			? popularReached(
+					popularPassages,
+					reachedOrdinal(manifest.revisionId, furthestAtOpen, furthestSeen)
+				)
+			: undefined
+	);
+
+	/**
+	 * Chapters' Words as the page has them, with their punctuation, to quote other readers'
+	 * passages: the backend's quotes are its Words alone.
+	 */
+	const pageWords = new SvelteMap<string, ChapterText>();
+	$effect(() => {
+		const wanted = new Set([
+			...(popularList ?? []).map((p) => p.chapterId),
+			...(commentsAt ? [commentsAt.chapterId] : [])
+		]);
+		if (phase.kind !== 'ready' || !engine) return;
+		for (const chapterId of wanted) {
+			if (untrack(() => pageWords.has(chapterId))) continue;
+			engine.chapterText(chapterId).then(
+				(text) => void pageWords.set(chapterId, text),
+				() => {}
+			);
+		}
+	});
+
+	/** A passage's Words as the page has them, or its quote until they're in. */
+	function passageText(anchor: RangeAnchor): string {
+		const chapter = manifest && chapterForOrdinal(manifest.chapters, anchor.startOrdinal);
+		const text = chapter && pageWords.get(chapter.chapterId);
+		if (!text) return anchor.quote.exact;
+		return tidyPassage(
+			text.texts
+				.slice(anchor.startOrdinal - text.firstOrdinal, anchor.endOrdinal - text.firstOrdinal + 1)
+				.join(' ')
+		);
+	}
+
+	/** A tap on a popular highlight: the toolbar for its passage, its Words as the page has them. */
+	async function showPopular(anchor: RangeAnchor, at: DOMRect) {
+		const chapter = manifest && chapterForOrdinal(manifest.chapters, anchor.startOrdinal);
+		if (!engine || !chapter) return;
+		const words = await engine.chapterText(chapter.chapterId);
+		const from = anchor.startOrdinal - words.firstOrdinal;
+		const to = anchor.endOrdinal - words.firstOrdinal + 1;
+		const text = tidyPassage(words.texts.slice(from, to).join(' '));
+		const quote = {
+			exact: text,
+			prefix: words.texts
+				.slice(Math.max(0, from - 8), from)
+				.join(' ')
+				.slice(-32),
+			suffix: words.texts
+				.slice(to, to + 8)
+				.join(' ')
+				.slice(0, 32)
+		};
+		toolbar = {
+			kind: 'selection',
+			anchor: { ...anchor, quote },
+			text,
+			rect: engine.rectOf(anchor) ?? at,
+			pointer: coarsePointer.current ? 'touch' : 'mouse'
+		};
+	}
+
+	/**
+	 * A paragraph's comments (P1-COM-03), the sheet loading the first time. From "Comment" in the
+	 * toolbar, `from` is the selection, and the sheet starts in the new comment's box.
+	 */
+	async function openComments(chapterId: string, index: number, from?: RangeAnchor) {
+		const source = together;
+		if (!engine || !manifest || !source) return;
+		try {
+			CommentsView ??= (await import('./CommentsSheet.svelte')).default;
+		} catch (error) {
+			console.error(error);
+			snackbars.show('Comments couldn’t open. Check your connection and try again.', {
+				tone: 'error'
+			});
+			return;
+		}
+		const [list, text] = await Promise.all([
+			paragraphCache().get(chapterId),
+			engine.chapterText(chapterId)
+		]);
+		const paragraph = list[index];
+		if (!paragraph) return;
+		const words = text.texts.slice(
+			paragraph.first - text.firstOrdinal,
+			paragraph.last - text.firstOrdinal + 1
+		);
+		if (!commentParagraphs.has(chapterId)) commentParagraphs.set(chapterId, list);
+		void source.loadChapter(chapterId);
+		commentsAt = {
+			chapterId,
+			index,
+			passage: from ?? paragraphAnchor(paragraph, manifest, words.slice(0, 12)),
+			selected: !!from,
+			composing: !!from,
+			text: words.join(' ')
+		};
+		closeToolbar();
+		commentsOpen = true;
+	}
+
+	/** "Comment" in the selection toolbar: the sheet for the passage's paragraph (D-044). */
+	async function commentFromToolbar() {
+		const current = toolbar;
+		if (!current || !manifest) return;
+		const anchor = current.kind === 'selection' ? current.anchor : current.annotation.anchor;
+		const chapter = chapterForOrdinal(manifest.chapters, anchor.startOrdinal);
+		if (!chapter) return;
+		closeToolbar();
+		const list = await paragraphCache().get(chapter.chapterId);
+		const index = paragraphAt(list, anchor.startOrdinal);
+		if (index >= 0) await openComments(chapter.chapterId, index, anchor);
+	}
+
+	/** The open sheet's paragraph: its comments as last fetched. */
+	const sheetComments = $derived(
+		commentsAt
+			? (commented
+					.find((c) => c.chapterId === commentsAt!.chapterId)
+					?.paragraphs.find((p) => p.index === commentsAt!.index)?.comments ?? [])
+			: []
+	);
+	const sheetChapter = $derived(
+		commentsAt ? together?.chapters.get(commentsAt.chapterId) : undefined
+	);
+
 	// ---- Illustrations: loading, the panels' room, and in-text figures ----
 
 	/** Pictures and narration are extra: the book reads fine without them (offline, an import). */
@@ -1547,7 +1824,8 @@
 			tableOpen ||
 			glossaryOpen ||
 			defineOpen ||
-			overviewOpen
+			overviewOpen ||
+			commentsOpen
 		);
 	}
 
@@ -1556,8 +1834,12 @@
 		if (phase.kind !== 'ready' || anyOverlayOpen()) return;
 		const target = event.target as HTMLElement | null;
 		if (target?.closest?.('input, textarea, [role="slider"]')) return;
-		// The "Open table" button in the book presses with Enter and Space, not turn the page.
-		if ((event.key === ' ' || event.key === 'Enter') && target?.closest?.('[data-rd-table]')) {
+		// The book's own buttons ("Open table", a paragraph's comments) press with Enter and Space,
+		// not turn the page.
+		if (
+			(event.key === ' ' || event.key === 'Enter') &&
+			target?.closest?.('[data-rd-table], [data-rd-marker]')
+		) {
 			return;
 		}
 		const forward = isRtl ? 'ArrowLeft' : 'ArrowRight';
@@ -2234,6 +2516,9 @@
 		story={story && (story.story || story.status === 'error') ? story : undefined}
 		{storyAt}
 		{storyHidden}
+		popular={popularList}
+		popularMin={together?.popular?.minReaders}
+		{passageText}
 		titleOf={(chapterId) => {
 			const c = manifest.chapters.find((ch) => ch.chapterId === chapterId);
 			return c ? chapterTitleAt(manifest, c.firstOrdinal) : '';
@@ -2279,6 +2564,8 @@
 		onattach={creatorPack && toolbar.kind === 'selection' ? attachFromToolbar : undefined}
 		onglossary={selectedEntry ? () => void showGlossary(selectedEntry) : undefined}
 		ondefine={definable ? () => void defineFromToolbar() : undefined}
+		oncomment={canCommentHere ? () => void commentFromToolbar() : undefined}
+		readers={toolbarReaders}
 		onclose={closeToolbar}
 	/>
 {/if}
@@ -2366,6 +2653,10 @@
 		void preferences.resetBook();
 		bookOnly = false;
 	}}
+	together={togetherHere
+		? { commentsAllowed: together?.allowed, minReaders: together?.popular?.minReaders }
+		: undefined}
+	ontogether={(changes) => void preferences.updateBookOnly(changes)}
 />
 <ShortcutsDialog bind:open={shortcutsOpen} />
 {#if search && SearchView}
@@ -2404,6 +2695,32 @@
 {/if}
 {#if DefineCardView}
 	<DefineCardView bind:open={defineOpen} text={defining} />
+{/if}
+{#if CommentsView && commentsAt && together}
+	{@const at = commentsAt}
+	{@const source = together}
+	{@const paragraph = commentParagraphs.get(at.chapterId)?.[at.index]}
+	<CommentsView
+		bind:open={commentsOpen}
+		comments={sheetComments}
+		paragraph={paragraph ?? { first: at.passage.startOrdinal, last: at.passage.endOrdinal }}
+		paragraphText={at.text}
+		passage={{ anchor: at.passage, selected: at.selected }}
+		{passageText}
+		composing={at.composing}
+		allowed={sheetChapter?.allowed ?? true}
+		canComment={sheetChapter?.canComment ?? false}
+		{storeHref}
+		error={source.errors.get(at.chapterId) ?? null}
+		onretry={() => void source.loadChapter(at.chapterId, true)}
+		onadd={async (input) => {
+			await source.add(input);
+		}}
+		onreply={async (commentId, input) => {
+			await source.reply(commentId, input);
+		}}
+		onremove={(commentId) => source.remove(commentId, at.chapterId)}
+	/>
 {/if}
 {#if ShareQuoteView && manifest}
 	<ShareQuoteView

@@ -20,6 +20,7 @@ const source = join(
 /** Each name gets an outlined form; names in FILLED also get `<name>-fill` (selected states). */
 const ICONS = [
 	'add',
+	'add_comment',
 	'add_photo_alternate',
 	'admin_panel_settings',
 	'arrow_back',
@@ -38,6 +39,7 @@ const ICONS = [
 	'check_circle',
 	'chevron_left',
 	'chevron_right',
+	'chat_bubble',
 	'close',
 	'cloud_off',
 	'content_copy',
@@ -96,6 +98,7 @@ const ICONS = [
 	'record_voice_over',
 	'refresh',
 	'remove',
+	'reply',
 	'reorder',
 	'report',
 	'schedule',
@@ -140,7 +143,8 @@ const FILLED = new Set([
 	'image',
 	'photo_library',
 	'play_arrow',
-	'headphones'
+	'headphones',
+	'chat_bubble'
 ]);
 
 function pathOf(file) {

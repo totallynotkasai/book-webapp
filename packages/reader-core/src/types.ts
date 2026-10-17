@@ -38,9 +38,11 @@ export interface VisibleRange {
 
 /**
  * `focus` (P1-RDR-11) marks the passage to keep bright: every other paragraph of the Chapter is
- * dimmed. The rest are painted over the text without changing the layout.
+ * dimmed. `popular` (P1-COM-04) is a faint dotted underline: a passage many readers highlighted.
+ * The rest are painted over the text without changing the layout.
  */
-export type DecorationStyle = 'highlight' | 'underline' | 'narration' | 'search' | 'focus';
+export type DecorationStyle =
+	'highlight' | 'underline' | 'narration' | 'search' | 'focus' | 'popular';
 
 export interface Decoration {
 	id: string;
@@ -48,6 +50,23 @@ export interface Decoration {
 	style: DecorationStyle;
 	/** A token name such as `highlight-3`, never a raw colour. */
 	color?: string;
+}
+
+/**
+ * A small button at the end of a paragraph (P1-COM-03: how many comments it has): in the text,
+ * after its last Word, so it moves with the paragraph and comes after it in reading order. Its
+ * count is drawn by CSS, so it's never part of the Book's text (copying, quotes, the word map).
+ */
+export interface Marker {
+	id: string;
+	/** It goes at the end of the Block holding the Anchor's first Word. */
+	anchor: Anchor;
+	/** Its accessible name, such as "3 comments on this paragraph". The app owns the words. */
+	label: string;
+	/** What it shows beside its icon, such as "3". */
+	text: string;
+	/** An icon's SVG path in a `0 -960 960 960` viewBox. */
+	icon: string;
 }
 
 export interface FigureInjection {
@@ -194,6 +213,8 @@ export interface EngineEvents {
 		preventDefault: () => void;
 	};
 	figureActivated: { id: string };
+	/** A marker was pressed (P1-COM-03), by tap, click or keyboard: where it is on screen. */
+	markerActivated: { id: string; clientRect: DOMRect };
 	/** "Open table" was pressed above a squeezed table (P1-RDR-12): a copy for the viewer. */
 	tableActivated: TableView;
 	/** A tap outside any link or Word, in top-level coordinates (tap zones, §9.2). */
@@ -226,6 +247,11 @@ export interface ReaderEngine {
 	setDecorations(group: string, items: Decoration[]): void;
 	/** Replaces all injected figures (`in-text` Illustrations, §8.2); re-paginates, keeping place. */
 	injectFigures(items: FigureInjection[]): void;
+	/**
+	 * Replaces a group's markers (e.g. `comments`, P1-COM-03); re-paginates, keeping place, when
+	 * the Chapter on screen gains or loses one.
+	 */
+	setMarkers(group: string, items: Marker[]): void;
 	/**
 	 * Re-lays out around a change to the element the book is mounted in (a panel opening beside
 	 * it), keeping the first visible Word on screen (§9.1). `change` makes the change.

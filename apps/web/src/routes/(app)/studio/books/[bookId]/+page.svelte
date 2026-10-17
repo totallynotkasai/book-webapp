@@ -105,6 +105,7 @@
 	let earlyAccess = $state('0');
 	let communityPolicy = $state<CommunityPolicy>('closed');
 	let refuseAi = $state(false);
+	let readerComments = $state(true);
 	let saving = $state(false);
 	let loadedFor = '';
 
@@ -126,6 +127,7 @@
 		earlyAccess = String(s.earlyAccessChapters);
 		communityPolicy = s.communityPolicy;
 		refuseAi = s.communityAi === 'refused';
+		readerComments = s.readerComments;
 	}
 
 	const parsedPrice = $derived(parsePrice(price));
@@ -148,7 +150,8 @@
 				isSerial,
 				earlyAccessChapters: isSerial ? Math.max(0, Math.min(10, Number(earlyAccess) || 0)) : 0,
 				communityPolicy,
-				communityAi: refuseAi ? 'refused' : 'allowed'
+				communityAi: refuseAi ? 'refused' : 'allowed',
+				readerComments
 			});
 			fill(detail);
 			snackbars.show('Saved.');
@@ -451,6 +454,15 @@
 								label="Refuse AI-generated community content"
 								checked={refuseAi}
 								onchange={(v) => (refuseAi = v)}
+							/>
+							<!-- Readers' comments on paragraphs (P1-COM-03, D-044): on unless the author turns them off. -->
+							<Switch
+								label="Readers’ comments"
+								description={readerComments
+									? 'Readers who have your book can comment on its paragraphs. Each reader chooses whether to see them.'
+									: 'Comments are hidden and no new ones can be written. Turn this on again and they come back.'}
+								checked={readerComments}
+								onchange={(v) => (readerComments = v)}
 							/>
 							<div class="actions">
 								<Button type="submit" pending={saving} disabled={!title.trim() || !parsedPrice}

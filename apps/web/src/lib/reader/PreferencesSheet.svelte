@@ -20,6 +20,17 @@
 		reducedMotion: boolean;
 		/** The reading page's colours now: where custom colours start (P1-UI-04). */
 		readingColours: CustomColours;
+		/**
+		 * Other readers' comments and popular highlights (P1-COM-03, P1-COM-04), for a catalogue
+		 * Book: switched on for this Book only (D-044). Absent for the reader's own imports.
+		 */
+		together?: {
+			/** The author lets readers comment; undefined until known. */
+			commentsAllowed: boolean | undefined;
+			/** The fewest readers a popular highlight needs, once known. */
+			minReaders: number | undefined;
+		};
+		ontogether?: (changes: { comments?: boolean; popularHighlights?: boolean }) => void;
 	}
 
 	let {
@@ -31,10 +42,12 @@
 		onreset,
 		windowWidth,
 		reducedMotion,
-		readingColours
+		readingColours,
+		together,
+		ontogether
 	}: Props = $props();
 
-	let tab = $state<'text' | 'page' | 'theme'>('text');
+	let tab = $state<'text' | 'page' | 'theme' | 'readers'>('text');
 </script>
 
 <AdaptiveSheet bind:open title="Reading preferences" height="half" scrim={false}>
@@ -58,19 +71,42 @@
 		items={[
 			{ value: 'text', label: 'Text' },
 			{ value: 'page', label: 'Page' },
-			{ value: 'theme', label: 'Theme' }
+			{ value: 'theme', label: 'Theme' },
+			...(together ? [{ value: 'readers' as const, label: 'Readers' }] : [])
 		]}
 	>
 		{#snippet panel(value)}
 			<div class="panel">
-				<ReadingControls
-					group={value as 'text' | 'page' | 'theme'}
-					{prefs}
-					{onchange}
-					{windowWidth}
-					{reducedMotion}
-					{readingColours}
-				/>
+				{#if value === 'readers' && together}
+					<!-- Other readers, quiet by default (P1-COM-03, P1-COM-04, D-044). -->
+					<div class="readers">
+						<p class="hint">For this book only. Both stay off until you turn them on.</p>
+						<Switch
+							label="Readers’ comments"
+							description={together.commentsAllowed === false
+								? 'The author has turned comments off for this book.'
+								: 'A count beside each paragraph other readers have commented on. Tap it to read, reply or add your own.'}
+							checked={prefs.comments && together.commentsAllowed !== false}
+							disabled={together.commentsAllowed === false}
+							onchange={(comments) => ontogether?.({ comments })}
+						/>
+						<Switch
+							label="Popular highlights"
+							description={`A faint dotted line under passages ${together.minReaders ? `at least ${together.minReaders}` : 'many'} readers highlighted. It never says who.`}
+							checked={prefs.popularHighlights}
+							onchange={(popularHighlights) => ontogether?.({ popularHighlights })}
+						/>
+					</div>
+				{:else}
+					<ReadingControls
+						group={value as 'text' | 'page' | 'theme'}
+						{prefs}
+						{onchange}
+						{windowWidth}
+						{reducedMotion}
+						{readingColours}
+					/>
+				{/if}
 			</div>
 		{/snippet}
 	</Tabs>
@@ -90,5 +126,16 @@
 
 	.panel {
 		padding-top: var(--space-4);
+	}
+
+	.readers {
+		display: grid;
+		gap: var(--space-4);
+	}
+
+	.hint {
+		margin: 0;
+		color: var(--md-sys-color-on-surface-variant);
+		font-size: var(--md-sys-typescale-body-small-size);
 	}
 </style>

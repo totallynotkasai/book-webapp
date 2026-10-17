@@ -193,22 +193,21 @@ async function writeSeed(db: BackendDatabase, seed: Seed, profile: Profile): Pro
 			});
 		}
 	}
-	// Popular highlights (P1-COM-04): one highlight per seeded reader, each a different reader.
+	// Popular highlights (P1-COM-04): each entry a crowd of different readers.
 	for (const entry of seed.popularHighlights) {
-		for (let n = 1; n <= entry.readers; n++) {
-			await tx.objectStore('sharedHighlights').put({
-				id: `${entry.id}|${n}`,
-				bookId: entry.bookId,
-				readerId: `${entry.id}|reader-${n}`,
-				place: {
-					revisionId: null,
-					chapterId: entry.chapterId,
-					anchor: null,
-					status: 'ok',
-					passage: entry.passage
-				}
-			});
-		}
+		await tx.objectStore('sharedHighlights').put({
+			id: entry.id,
+			bookId: entry.bookId,
+			readerId: `${entry.id}|reader`,
+			readers: entry.readers,
+			place: {
+				revisionId: null,
+				chapterId: entry.chapterId,
+				anchor: null,
+				status: 'ok',
+				passage: entry.passage
+			}
+		});
 	}
 	await tx.objectStore('meta').put({ key: 'seedVersion', value: seed.version });
 	await tx.objectStore('meta').put({ key: 'seedProfile', value: profile });
