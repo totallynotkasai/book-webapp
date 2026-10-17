@@ -255,6 +255,25 @@ const flagRecord = z.object({
 	detectorScore: z.number().min(0).max(1).nullable().default(null)
 });
 
+/**
+ * A Book's published story so far (P1-STU-05): recaps by Chapter and glossary entries, written
+ * by its author. First appearances are found in the text the first time it's read.
+ */
+const storyRecord = z.object({
+	bookId: id,
+	aiUse: aiUseSchema,
+	publishedAt: z.iso.datetime(),
+	recaps: z.array(z.object({ chapterId: id, text: z.string().trim().min(1).max(2000) })),
+	glossary: z.array(
+		z.object({
+			id,
+			name: z.string().trim().min(1).max(80),
+			aliases: z.array(z.string().trim().min(1).max(80)).default([]),
+			description: z.string().trim().min(1).max(1000)
+		})
+	)
+});
+
 /** Seeded ratings and follows by readers who aren't Personas (plan §4.7, "Other people"). */
 const ratingRecord = z.object({ layerId: id, userId: id, stars: z.number().int().min(1).max(5) });
 const followRecord = z.object({ userId: id, creatorId: id });
@@ -276,7 +295,8 @@ export const seedSchema = z.object({
 	/** Open items for the admin review queue (P1-APP-01); P1-ADM-01 adds the rules that raise them. */
 	flags: z.array(flagRecord).default([]),
 	ratings: z.array(ratingRecord).default([]),
-	follows: z.array(followRecord).default([])
+	follows: z.array(followRecord).default([]),
+	stories: z.array(storyRecord).default([])
 });
 
 export type Seed = z.infer<typeof seedSchema>;
@@ -294,6 +314,7 @@ export type FlagRecord = z.infer<typeof flagRecord>;
 export type StoredFileRef = z.infer<typeof storedFileRef>;
 export type RatingRecord = z.infer<typeof ratingRecord> & { id: string; createdAt: string };
 export type FollowRecord = z.infer<typeof followRecord> & { id: string; createdAt: string };
+export type SeedStoryRecord = z.infer<typeof storyRecord>;
 
 export class SeedError extends Error {
 	constructor(readonly problems: string[]) {
@@ -436,6 +457,16 @@ export function parseSeed(raw: unknown): Seed {
 			problems.push(`entitlements.${i}.userId: no persona user "${e.userId}"`);
 		if (!products.has(e.productId))
 			problems.push(`entitlements.${i}.productId: no product "${e.productId}"`);
+	});
+
+	for (const dup of duplicates(seed.stories.map((s) => s.bookId))) {
+		problems.push(`stories: two stories for book "${dup}"`);
+	}
+	seed.stories.forEach((story, i) => {
+		if (!books.has(story.bookId)) problems.push(`stories.${i}.bookId: no book "${story.bookId}"`);
+		for (const dup of duplicates(story.glossary.map((e) => e.id))) {
+			problems.push(`stories.${i}.glossary: duplicate id "${dup}"`);
+		}
 	});
 
 	seed.flags.forEach((f, i) => {

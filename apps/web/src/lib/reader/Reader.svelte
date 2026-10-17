@@ -25,6 +25,12 @@
 		type TableView,
 		type VisibleRange
 	} from '@book/reader-core';
+	import {
+		glossaryEntryFor,
+		reachedOrdinal,
+		storySoFarAt,
+		type GlossaryEntryAt
+	} from '@book/domain';
 	import { highlightLabels } from '@book/tokens';
 	import {
 		Badge,
@@ -76,6 +82,7 @@
 	import type { BookSpeech } from './speech.svelte';
 	import { layoutOf, pageTurnOf, themeTokensOf, typographyOf } from './settings';
 	import ShortcutsDialog from './ShortcutsDialog.svelte';
+	import { BookStory, storyNudgeDue } from './story.svelte';
 	import { focusOnPage, ParagraphCache, paragraphAt, step, type Paragraph } from './focus';
 	import type { SearchHit } from './search';
 	import type { BookSearch } from './search.svelte';
@@ -89,6 +96,7 @@
 	 * Pictures (§8.2) and narration (§8.3) come from the Book's Layers; any Book can also be read
 	 * aloud by the device's own voice (P1-LAY-08), with a sleep timer (P1-LAY-09). Search
 	 * (P1-RDR-10), focus mode (P1-RDR-11) and the table viewer (P1-RDR-12) load on first use.
+	 * A catalogue Book's story so far (P1-RDR-13) is in Contents, up to where the reader has got.
 	 */
 	/**
 	 * `sample`: "Read sample" for a Book the reader doesn't own (P1-STO-01). `preview`: a Creator
@@ -284,6 +292,18 @@
 	let searchOrigin: PointAnchor | null = null;
 	let resultShownAt = 0;
 
+	// ---- The story so far (P1-RDR-13): recaps and glossary up to where the reader has got ----
+	let story = $state.raw<BookStory>();
+	/** The saved furthest position when the Book opened (Invariant 6 counts it as reached). */
+	let furthestAtOpen = $state.raw<PointAnchor | null>(null);
+	/** The furthest Word on screen this session. */
+	let furthestSeen = $state.raw<PointAnchor | null>(null);
+	/** When the reader last read this Book, for the catch-up nudge. */
+	let lastReadAt: string | undefined;
+	let glossaryOpen = $state(false);
+	let glossaryEntry = $state.raw<GlossaryEntryAt | null>(null);
+	let GlossaryCardView = $state.raw<typeof import('./GlossaryCard.svelte').default>();
+
 	// ---- The table viewer (P1-RDR-12): loads the first time a table is opened ----
 	let tableOpen = $state(false);
 	let table = $state.raw<TableView | null>(null);
@@ -313,6 +333,21 @@
 
 	const prefs = $derived(preferences.forBook);
 	const manifest = $derived(opened?.manifest);
+	/** What the reader sees of the story so far: nothing from ahead of them (Invariant 6). */
+	const storyAt = $derived.by(() => {
+		const s = story?.story;
+		if (!s || !manifest) return null;
+		const reached = reachedOrdinal(manifest.revisionId, furthestAtOpen, furthestSeen);
+		return storySoFarAt(s, manifest, reached);
+	});
+	/** The reader hides AI-generated content (§10.6), and the author's story is. */
+	const storyHidden = $derived(story?.story?.aiUse === 'generated' && prefs.hideAiGenerated);
+	/** The selection names a glossary entry the reader has met: the toolbar offers it. */
+	const selectedEntry = $derived(
+		toolbar?.kind === 'selection' && storyAt && !storyHidden
+			? glossaryEntryFor(toolbar.text, storyAt)
+			: undefined
+	);
 	const tokens = $derived(themeTokensOf(prefs, systemDark.current));
 	const themeStyle = $derived(
 		Object.entries(tokens)
@@ -515,6 +550,8 @@
 			await notes.load();
 			const progress = await stores.progress.get(bookId);
 			saver = studioMode ? undefined : new ProgressSaver(stores, bookId, progress);
+			furthestAtOpen = progress?.furthest ?? null;
+			lastReadAt = progress?.updatedAt;
 			const fontFaceCss = await fontsLoading;
 			engine = await engineLoading;
 			listen(engine);
@@ -540,6 +577,7 @@
 			if (openAtChapter) await engine.goTo({ chapterId: openAtChapter });
 			void loadLayers(book);
 			void loadSpeech(book);
+			void loadStory(book);
 			applied = {
 				typography: JSON.stringify(typographyOf(prefs)),
 				layout: layoutOf(prefs, windowWidth, windowHeight),
@@ -570,6 +608,13 @@
 			e.on('relocated', (range) => {
 				const previous = visible;
 				visible = range;
+				if (
+					!furthestSeen ||
+					furthestSeen.revisionId !== range.last.revisionId ||
+					range.last.ordinal > furthestSeen.ordinal
+				) {
+					furthestSeen = range.last;
+				}
 				if (toolbar && range.first.ordinal !== previous?.first.ordinal) closeToolbar();
 				saver?.record(range);
 				if (range.cause === 'turn' || range.cause === 'scroll') chrome = false;
@@ -997,6 +1042,37 @@
 		}
 	}
 
+	// ---- The story so far (P1-RDR-13) ----
+
+	/**
+	 * A catalogue Book's recaps and glossary, fetched once, so the sheet works offline from then
+	 * on. A reader back after a week or more is offered them, if there's something to show.
+	 */
+	async function loadStory(book: OpenedBook) {
+		if (book.source !== 'catalogue' || studioMode) return;
+		const loading = new BookStory(await getBackend(), bookId);
+		story = loading;
+		await loading.load();
+		if (
+			storyNudgeDue(lastReadAt, Date.now()) &&
+			storyAt &&
+			!storyHidden &&
+			(storyAt.recaps.length > 0 || storyAt.glossary.length > 0)
+		) {
+			snackbars.show('Back after a while? Catch up with the story so far.', {
+				action: { label: 'Story so far', run: () => openContents('story') }
+			});
+		}
+	}
+
+	async function showGlossary(entry: GlossaryEntryAt) {
+		closeToolbar();
+		glossaryEntry = entry;
+		// Loads the first time it's used.
+		GlossaryCardView ??= (await import('./GlossaryCard.svelte')).default;
+		glossaryOpen = true;
+	}
+
 	// ---- Illustrations: loading, the panels' room, and in-text figures ----
 
 	/** Pictures and narration are extra: the book reads fine without them (offline, an import). */
@@ -1353,7 +1429,8 @@
 			layersOpen ||
 			cardOpen ||
 			lightboxOpen ||
-			tableOpen
+			tableOpen ||
+			glossaryOpen
 		);
 	}
 
@@ -1971,7 +2048,26 @@
 		designs={ownedDesigns}
 		designOf={(b) => designOf(b)}
 		ondesignbookmark={(b, productId) => void notes?.designBookmark(b.id, productId)}
+		story={story && (story.story || story.status === 'error') ? story : undefined}
+		{storyAt}
+		{storyHidden}
+		titleOf={(chapterId) => {
+			const c = manifest.chapters.find((ch) => ch.chapterId === chapterId);
+			return c ? chapterTitleAt(manifest, c.firstOrdinal) : '';
+		}}
 	/>
+	{#if GlossaryCardView}
+		<GlossaryCardView
+			bind:open={glossaryOpen}
+			entry={glossaryEntry}
+			where={glossaryEntry
+				? chapterTitleAt(manifest, glossaryEntry.firstAppearance.startOrdinal)
+				: ''}
+			onfirst={() => {
+				if (glossaryEntry) void jump(glossaryEntry.firstAppearance);
+			}}
+		/>
+	{/if}
 {/if}
 
 <SubscribeSheet
@@ -1997,6 +2093,7 @@
 		oncopy={() => void copyFromToolbar()}
 		onremove={() => void removeFromToolbar()}
 		onattach={creatorPack && toolbar.kind === 'selection' ? attachFromToolbar : undefined}
+		onglossary={selectedEntry ? () => void showGlossary(selectedEntry) : undefined}
 		onclose={closeToolbar}
 	/>
 {/if}

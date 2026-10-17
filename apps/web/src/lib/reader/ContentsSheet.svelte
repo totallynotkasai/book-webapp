@@ -7,18 +7,21 @@
 		PlacedBookmark,
 		TocEntry
 	} from '@book/core';
+	import type { StoryAt } from '@book/domain';
 	import { highlightLabels } from '@book/tokens';
-	import { AdaptiveSheet, Chip, Icon, IconButton, Menu, Tabs } from '@book/ui';
+	import { AdaptiveSheet, Chip, Icon, IconButton, Menu, Skeleton, Tabs } from '@book/ui';
 	import BookmarkRibbon from '$lib/components/BookmarkRibbon.svelte';
 	import { tick } from 'svelte';
 	import type { BookNotes } from './notes.svelte';
+	import type { BookStory } from './story.svelte';
 
 	/**
 	 * Contents, notes and bookmarks in one sheet (§4.1, §9.3; plan §6 Phase 1.3 UX notes): a side
 	 * sheet from the start edge on wider screens, full height on phones. One button opens it, so a
-	 * phone's top bar keeps room for the Bookmark, Illustrations and Aa buttons.
+	 * phone's top bar keeps room for the Bookmark, Illustrations and Aa buttons. A catalogue Book
+	 * whose author has published recaps and a glossary also has the story so far (P1-RDR-13).
 	 */
-	export type ContentsTab = 'contents' | 'notes' | 'bookmarks';
+	export type ContentsTab = 'contents' | 'notes' | 'bookmarks' | 'story';
 
 	interface Props {
 		open: boolean;
@@ -41,6 +44,13 @@
 		designs?: BookmarkDesignDto[];
 		designOf?: (bookmark: PlacedBookmark) => BookmarkDesignDto | undefined;
 		ondesignbookmark?: (bookmark: PlacedBookmark, designProductId: string) => void;
+		/** The story so far (P1-RDR-13), when the Book has one, and what the reader has reached of it. */
+		story?: BookStory;
+		storyAt?: StoryAt | null;
+		/** The reader hides AI-generated content, and the story is (§10.6). */
+		storyHidden?: boolean;
+		/** A Chapter's title, as the contents name it. */
+		titleOf?: (chapterId: string) => string;
 	}
 
 	let {
@@ -61,8 +71,20 @@
 		onlocked,
 		designs = [],
 		designOf,
-		ondesignbookmark
+		ondesignbookmark,
+		story,
+		storyAt = null,
+		storyHidden = false,
+		titleOf = () => ''
 	}: Props = $props();
+
+	// The story so far loads the first time its tab is opened (new reader features load on first use).
+	let StoryView = $state.raw<typeof import('./StorySoFarPanel.svelte').default>();
+	$effect(() => {
+		if (open && tab === 'story' && !StoryView) {
+			void import('./StorySoFarPanel.svelte').then((m) => (StoryView = m.default));
+		}
+	});
 
 	let filter = $state<HighlightColour | null>(null);
 	let list = $state<HTMLElement>();
@@ -99,11 +121,13 @@
 <AdaptiveSheet bind:open title="Contents and notes" hideTitle side="start" height="full">
 	<Tabs
 		label="Contents and notes"
+		class="contents-tabs"
 		bind:value={tab}
 		items={[
 			{ value: 'contents', label: 'Contents' },
 			{ value: 'notes', label: 'Notes' },
-			{ value: 'bookmarks', label: 'Bookmarks' }
+			{ value: 'bookmarks', label: 'Bookmarks' },
+			...(story ? [{ value: 'story' as const, label: 'Story so far' }] : [])
 		]}
 	>
 		{#snippet panel(value)}
@@ -237,6 +261,12 @@
 						</ul>
 					</section>
 				{/if}
+			{:else if value === 'story' && story}
+				{#if StoryView}
+					<StoryView {story} at={storyAt} hidden={storyHidden} {titleOf} {titleAt} onjump={jump} />
+				{:else}
+					<div class="loading" aria-busy="true"><Skeleton height="4rem" shape="block" /></div>
+				{/if}
 			{:else}
 				<h2 class="visually-hidden">Bookmarks</h2>
 				{#if !notes?.liveBookmarks.length}
@@ -295,6 +325,25 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
+	}
+
+	/* The sheet is narrow at every size: the tab row runs edge to edge with a little less room
+	   round each tab, so all four fit side by side, on a 360 px phone too. Larger text scrolls. */
+	:global(.contents-tabs) > :global([role='tablist']) {
+		margin-inline: calc(-1 * var(--space-5));
+	}
+
+	:global(.contents-tabs) :global(button.tab) {
+		padding-inline: var(--space-3);
+	}
+
+	:global(.contents-tabs) :global(button.tab[data-state='active'])::after {
+		right: var(--space-3);
+		left: var(--space-3);
+	}
+
+	.loading {
+		padding: var(--space-3);
 	}
 
 	.toc {

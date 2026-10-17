@@ -32,6 +32,7 @@ import { parseSeed, type Seed } from './seed';
 import { createCommunityApi } from './community';
 import { createInboxApi } from './inbox';
 import { createModerationApi } from './moderation';
+import { createStoryModule, seededStory } from './story';
 import { createStudioApi } from './studio';
 import { createSupportApi } from './support';
 import {
@@ -141,6 +142,7 @@ async function writeSeed(db: BackendDatabase, seed: Seed, profile: Profile): Pro
 		}
 	}
 	for (const flag of seed.flags) await tx.objectStore('flags').put(flag);
+	for (const story of seed.stories) await tx.objectStore('stories').put(seededStory(story));
 	// Other readers' ratings and follows (plan §4.7: "other people" come from seed data).
 	for (const rating of seed.ratings) {
 		await tx.objectStore('ratings').put({
@@ -338,6 +340,15 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		}
 		return options.loadFile(url);
 	}
+	const story = createStoryModule({
+		db,
+		clock,
+		pipeline,
+		files,
+		changed: (...topics) => {
+			for (const topic of topics) events.emit(topic);
+		}
+	});
 	const content = createContentApi({
 		db,
 		clock,
@@ -345,7 +356,8 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		beforeAccess: (userId) => support.refresh(userId),
 		loadFile,
 		pipeline,
-		files
+		files,
+		story
 	});
 	const layers = createLayersApi({ db, clock, requireUser, loadFile, content, files });
 	const inbox = createInboxApi({
@@ -393,6 +405,7 @@ export async function createLocalBackend(options: LocalBackendOptions): Promise<
 		support,
 		moderation,
 		inbox,
+		story,
 		changed: (...topics) => {
 			for (const topic of topics) events.emit(topic);
 		}

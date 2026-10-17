@@ -72,6 +72,22 @@ export async function prepareIllustration(file: Blob): Promise<ImageUpload> {
 	}
 }
 
+/** A glossary entry's picture (P1-STU-05): one variant, at most 640 px wide, for a small card. */
+export async function prepareGlossaryPicture(file: Blob): Promise<ImageUpload> {
+	const bitmap = await decode(file);
+	try {
+		const width = Math.min(bitmap.width, WIDTHS[0]!);
+		return {
+			width: bitmap.width,
+			height: bitmap.height,
+			dominant: dominant(bitmap),
+			variants: [{ width, file: await draw(bitmap, width) }]
+		};
+	} finally {
+		bitmap.close();
+	}
+}
+
 /** A cover: one picture, at most 1200 px wide. */
 export async function prepareCover(file: Blob): Promise<Blob> {
 	const bitmap = await decode(file);
