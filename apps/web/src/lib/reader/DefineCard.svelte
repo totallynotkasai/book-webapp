@@ -78,7 +78,9 @@
 		{@const credit = view.credit}
 		<p class="credit">
 			{verb}
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a page on the web, not the app's -->
 			<a href={credit.url} target="_blank" rel="noopener noreferrer">{credit.source}</a>
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a page on the web, not the app's -->
 			(<a href={credit.licenceUrl} target="_blank" rel="noopener noreferrer">{credit.licence}</a>)
 		</p>
 	{/if}
