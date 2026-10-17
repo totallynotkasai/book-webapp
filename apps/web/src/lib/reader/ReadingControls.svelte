@@ -150,6 +150,12 @@
 			checked={prefs.focusMode}
 			onchange={(focusMode) => onchange({ focusMode })}
 		/>
+		<Switch
+			label="Time left"
+			description="How long the rest of the chapter takes at your own pace, beside the page number. It learns your pace on this device; turned off, it stops."
+			checked={prefs.timeLeft}
+			onchange={(timeLeft) => onchange({ timeLeft })}
+		/>
 	{:else}
 		<div class="field">
 			<span class="field-label">Mode</span>

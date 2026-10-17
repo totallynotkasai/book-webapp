@@ -13,3 +13,4 @@ export * from './text-start';
 export * from './story';
 export * from './story-text';
 export * from './releases';
+export * from './reading';
