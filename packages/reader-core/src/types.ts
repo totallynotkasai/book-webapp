@@ -120,6 +120,53 @@ export interface TableView {
 	caption: string | null;
 }
 
+/**
+ * The current Chapter's pages as they're laid out now, for overview mode (P1-RDR-17): display
+ * only, never stored (Invariant 1). A spread is one page, as `pageInChapter` counts them.
+ */
+export interface ChapterPages {
+	chapterId: string;
+	/** A page's size on screen, in CSS pixels. */
+	width: number;
+	height: number;
+	/** The page's colour behind the text. */
+	background: string;
+	dir: 'ltr' | 'rtl';
+	/** The page on screen. */
+	current: number;
+	/** Each page's first Word, or null for a page without one (a picture on its own). */
+	pages: { first: PointAnchor | null }[];
+}
+
+/**
+ * What's on one page, to draw it small (P1-RDR-17): positions in CSS pixels from the page's top
+ * left. Text and the look the page computed, never the Book's markup (Invariant 10).
+ */
+export interface PageDrawing {
+	/** Text styles: a CSS `font`, a colour, and any `text-transform` and `letter-spacing`. */
+	styles: { font: string; color: string; transform: string; spacing: string }[];
+	/** Boxes behind styled blocks and rules (§9.6), outermost first. */
+	boxes: PageBox[];
+	/** Pictures: the Revision's own image (a blob URL), or null for a placeholder (SVG, video). */
+	images: (PageRect & { src: string | null })[];
+	/** Lines of text, each in runs of one style; `justify` fills the line's width. */
+	lines: (PageRect & { justify: boolean; runs: { text: string; style: number }[] })[];
+}
+
+export interface PageRect {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+export interface PageBox extends PageRect {
+	background: string;
+	/** A CSS `border` for each side present, or ''. */
+	border: { top: string; right: string; bottom: string; left: string };
+	radius: string;
+}
+
 export interface EngineEvents {
 	relocated: VisibleRange;
 	/**
@@ -195,5 +242,15 @@ export interface ReaderEngine {
 	rectOf(anchor: Anchor): DOMRect | null;
 	/** A Chapter's Words with their text, read from the Revision (it needn't be on screen). */
 	chapterText(chapterId: string): Promise<ChapterText>;
+	/**
+	 * Overview mode (P1-RDR-17): the current Chapter's pages as they're laid out now, or null in
+	 * scroll mode (no pages) or vertical writing. Lays nothing out: it measures the current layout,
+	 * so it never touches more than the current Chapter (§9.2).
+	 */
+	chapterPages(): ChapterPages | null;
+	/** What's on one of those pages, to draw it small; null once the Chapter or layout changed. */
+	drawPage(index: number): PageDrawing | null;
+	/** Shows one of those pages: its first Word becomes the first on screen. */
+	goToPage(index: number): Promise<void>;
 	on<E extends EngineEvent>(event: E, cb: (payload: EngineEvents[E]) => void): () => void;
 }

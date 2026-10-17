@@ -32,6 +32,8 @@
 		onattach?: () => void;
 		/** The selection is a glossary name the reader has met (P1-RDR-13): show its entry. */
 		onglossary?: () => void;
+		/** The selection is one Word of an English Book: look it up (P1-RDR-18). */
+		ondefine?: () => void;
 		onclose: () => void;
 	}
 
@@ -50,6 +52,7 @@
 		onremove,
 		onattach,
 		onglossary,
+		ondefine,
 		onclose
 	}: Props = $props();
 
@@ -156,6 +159,9 @@
 	<IconButton icon="edit_note" label={hasNote ? 'Edit note' : 'Add note'} onclick={onnote} />
 	<IconButton icon="content_copy" label="Copy" onclick={oncopy} />
 	<IconButton icon="share" label="Share quote" onclick={onshare} />
+	{#if ondefine}
+		<IconButton icon="dictionary" label="Define" onclick={ondefine} />
+	{/if}
 	{#if onglossary}
 		<IconButton icon="menu_book" label="In the glossary" onclick={onglossary} />
 	{/if}
@@ -176,6 +182,9 @@
 		justify-content: center;
 		align-items: center;
 		gap: var(--space-1);
+		/* Its own width, not what's left right of where it's placed: a fixed box shrinks to that,
+		   and the toolbar wrapped whenever it moved towards the right edge. */
+		width: max-content;
 		max-width: calc(100vw - 16px);
 		padding: var(--space-1) var(--space-2);
 		border-radius: 28px;

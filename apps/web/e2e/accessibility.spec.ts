@@ -139,6 +139,34 @@ for (const scheme of ['light', 'dark'] as const) {
 			await expectNoViolations(page);
 		});
 
+		test('the overview and the Define card have no axe violations (P1-RDR-17, P1-RDR-18)', async ({
+			page
+		}) => {
+			await openReader(page, 'book-alice');
+			await showChrome(page);
+			await page.getByTestId('page-label').click();
+			await expect(page.getByTestId('overview')).toBeVisible();
+			await expect(
+				page.getByTestId('overview-page').first().locator('.line').first()
+			).toBeAttached();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			await expect(page.getByTestId('overview')).toBeHidden();
+
+			await selectPhrase(page, 'tired');
+			await page.getByRole('button', { name: 'Define' }).click();
+			await expect(page.getByTestId('define-card')).toContainText('adjective');
+			await expectNoViolations(page);
+			await page.getByRole('button', { name: 'More meanings' }).click();
+			await expectNoViolations(page);
+			await page.keyboard.press('Escape');
+			// A Word it hasn't got: the offer to look it up online.
+			await selectPhrase(page, 'Alice');
+			await page.getByRole('button', { name: 'Define' }).click();
+			await expect(page.getByRole('link', { name: 'Look up on Wiktionary' })).toBeVisible();
+			await expectNoViolations(page);
+		});
+
 		test('the story so far and the glossary card have no axe violations (P1-RDR-13)', async ({
 			page
 		}) => {
