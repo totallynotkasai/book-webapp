@@ -25,6 +25,8 @@
 		onhighlight: (colour: HighlightColour) => void;
 		onnote: () => void;
 		oncopy: () => void;
+		/** Share the passage as a card (P1-RDR-16). */
+		onshare: () => void;
 		onremove: () => void;
 		/** Creator mode (P1-LAY-05): attach an Illustration to the selection. */
 		onattach?: () => void;
@@ -44,6 +46,7 @@
 		onhighlight,
 		onnote,
 		oncopy,
+		onshare,
 		onremove,
 		onattach,
 		onglossary,
@@ -152,6 +155,7 @@
 	<span class="divider" aria-hidden="true"></span>
 	<IconButton icon="edit_note" label={hasNote ? 'Edit note' : 'Add note'} onclick={onnote} />
 	<IconButton icon="content_copy" label="Copy" onclick={oncopy} />
+	<IconButton icon="share" label="Share quote" onclick={onshare} />
 	{#if onglossary}
 		<IconButton icon="menu_book" label="In the glossary" onclick={onglossary} />
 	{/if}

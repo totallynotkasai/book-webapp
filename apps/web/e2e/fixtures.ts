@@ -214,7 +214,7 @@ export async function showChrome(page: Page) {
 }
 
 /** axe at WCAG 2.2 AA (IMPLEMENTATION-PLAN.md §9): no violations on what's on screen now. */
-export async function expectNoViolations(page: Page) {
+export async function expectNoViolations(page: Page, options: { exclude?: string[] } = {}) {
 	// Contrast is measured on the settled page: a dialog fading in is half transparent. Endless
 	// animations (progress indicators) don't count.
 	await page.waitForFunction(
@@ -227,9 +227,15 @@ export async function expectNoViolations(page: Page) {
 		undefined,
 		{ timeout: 5_000 }
 	);
-	const results = await new AxeBuilder({ page })
-		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-		.analyze();
+	let axe = new AxeBuilder({ page }).withTags([
+		'wcag2a',
+		'wcag2aa',
+		'wcag21a',
+		'wcag21aa',
+		'wcag22aa'
+	]);
+	for (const selector of options.exclude ?? []) axe = axe.exclude(selector);
+	const results = await axe.analyze();
 	const summary = results.violations.map(
 		(v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`
 	);

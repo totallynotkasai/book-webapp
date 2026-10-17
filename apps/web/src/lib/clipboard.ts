@@ -23,3 +23,18 @@ export async function copyText(text: string): Promise<boolean> {
 		}
 	}
 }
+
+/**
+ * Copies a PNG (a quote card, P1-RDR-16). Chromium and Safari take images through the async
+ * Clipboard API; where it's missing or refused there's no fallback, and the caller offers a
+ * download instead.
+ */
+export async function copyImage(png: Blob): Promise<boolean> {
+	try {
+		if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) return false;
+		await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+		return true;
+	} catch {
+		return false;
+	}
+}

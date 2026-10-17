@@ -112,6 +112,33 @@ for (const scheme of ['light', 'dark'] as const) {
 			await expectNoViolations(page);
 		});
 
+		test('custom colours and share quote have no axe violations (P1-UI-04, P1-RDR-16)', async ({
+			page
+		}) => {
+			await openReader(page, 'book-alice');
+			await showChrome(page);
+			await page.getByRole('button', { name: 'Reading preferences' }).click();
+			await page.getByRole('tab', { name: 'Theme' }).click();
+			await page.getByRole('radio', { name: 'Custom', exact: true }).click();
+			await page.getByRole('button', { name: 'Cream on forest green' }).click();
+			await expectNoViolations(page);
+			// A pair below AA, with its warning: the sample shows that pair on purpose, as a picture.
+			const text = page.getByRole('textbox', { name: 'Text colour', exact: true });
+			await text.fill('#3d6b50');
+			await text.press('Enter');
+			await expect(page.getByRole('group', { name: 'Contrast warning' })).toBeVisible();
+			await expectNoViolations(page, { exclude: ['[data-testid="custom-colours-sample"]'] });
+			await page.keyboard.press('Escape');
+
+			await selectPhrase(page, 'Alice was beginning to get very tired');
+			await page.getByRole('button', { name: 'Share quote' }).click();
+			const dialog = page.getByRole('dialog', { name: 'Share quote' });
+			await expect(dialog.getByTestId('quote-card')).toBeVisible();
+			await expectNoViolations(page);
+			await dialog.getByRole('radio', { name: 'Text' }).click();
+			await expectNoViolations(page);
+		});
+
 		test('the story so far and the glossary card have no axe violations (P1-RDR-13)', async ({
 			page
 		}) => {

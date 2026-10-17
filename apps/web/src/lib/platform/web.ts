@@ -5,6 +5,7 @@ import type {
 	LifecycleAdapter,
 	Platform,
 	ShareAdapter,
+	ShareContent,
 	SystemBarsAdapter
 } from './types';
 import { webAudio } from './web-audio';
@@ -40,14 +41,28 @@ export const webFiles: FilesAdapter = {
 	}
 };
 
+function shareData({ title, text, url, file }: ShareContent): ShareData {
+	return {
+		...(title && { title }),
+		...(text && { text }),
+		...(url && { url }),
+		...(file && { files: [file] })
+	};
+}
+
 export const webShare: ShareAdapter = {
 	get supported() {
 		return typeof navigator.share === 'function';
 	},
+	canShare(content) {
+		if (typeof navigator.share !== 'function') return false;
+		// Files need Web Share Level 2, which `canShare` tells apart; without it, text always goes.
+		return content.file ? navigator.canShare?.(shareData(content)) === true : true;
+	},
 	async share(content) {
-		if (typeof navigator.share !== 'function') return 'unsupported';
+		if (!this.canShare(content)) return 'unsupported';
 		try {
-			await navigator.share(content);
+			await navigator.share(shareData(content));
 			return 'shared';
 		} catch {
 			return 'cancelled';

@@ -202,10 +202,18 @@ export interface ShareContent {
 	title?: string;
 	text?: string;
 	url?: string;
+	/** A picture sent with the text, such as a quote card (P1-RDR-16). */
+	file?: File;
 }
 
+/**
+ * The device's share sheet: Android's through the Share plugin; on the web the Web Share API,
+ * which phones' browsers have (with files) and most desktop ones don't.
+ */
 export interface ShareAdapter {
 	readonly supported: boolean;
+	/** Whether `share` can send this here; a picture needs files in the Web Share API. */
+	canShare(content: ShareContent): boolean;
 	share(content: ShareContent): Promise<'shared' | 'cancelled' | 'unsupported'>;
 }
 
