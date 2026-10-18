@@ -112,6 +112,13 @@ export const readerPreferencesSchema = z.object({
 	 * and stops collecting. On by default (D-040). Global only: a Book's override is ignored.
 	 */
 	readingStats: z.boolean().catch(true),
+	/**
+	 * Other readers' comments, as a count beside each paragraph that has some (P1-COM-03). Off by
+	 * default. Per Book only (D-044): a global value is ignored (`BOOK_ONLY_PREFERENCES`).
+	 */
+	comments: z.boolean().catch(false),
+	/** Passages many readers highlighted, underlined faintly (P1-COM-04). Off; per Book only. */
+	popularHighlights: z.boolean().catch(false),
 	/** The Bookmark Design new Placed Bookmarks use; the default design when unset (P1-STO-03). */
 	bookmarkDesignProductId: z.string().min(1).optional().catch(undefined)
 });
@@ -130,6 +137,32 @@ export type ReaderPreferencesPatch = Partial<
 export const defaultReaderPreferences: ReaderPreferences = Object.freeze(
 	readerPreferencesSchema.parse({})
 );
+
+/**
+ * Preferences a reader sets for one Book at a time (D-044): other readers' comments and popular
+ * highlights. They live in a Book's override, but don't make it a Book with its own settings
+ * ("This book only"), and resetting a Book's settings keeps them.
+ */
+export const BOOK_ONLY_PREFERENCES = ['comments', 'popularHighlights'] as const;
+export type BookOnlyPreference = (typeof BOOK_ONLY_PREFERENCES)[number];
+
+/** A stored layer without the per-Book-only fields: the global one, or a Book's other settings. */
+export function withoutBookOnly(layer: unknown): Record<string, unknown> {
+	if (!isPlainObject(layer)) return {};
+	const rest = { ...layer };
+	for (const key of BOOK_ONLY_PREFERENCES) delete rest[key];
+	return rest;
+}
+
+/** Just the per-Book-only fields of a Book's override. */
+export function bookOnlyOf(layer: unknown): Partial<Pick<ReaderPreferences, BookOnlyPreference>> {
+	if (!isPlainObject(layer)) return {};
+	const kept: Partial<Pick<ReaderPreferences, BookOnlyPreference>> = {};
+	for (const key of BOOK_ONLY_PREFERENCES) {
+		if (typeof layer[key] === 'boolean') kept[key] = layer[key];
+	}
+	return kept;
+}
 
 function objectOrEmpty(value: unknown): unknown {
 	return isPlainObject(value) ? value : {};

@@ -129,6 +129,11 @@ export const bookSettingsSchema = z.object({
 	contentWarnings: z.array(z.string().trim().min(1).max(60)).max(12),
 	communityPolicy: communityPolicySchema,
 	communityAi: communityAiSchema,
+	/**
+	 * Readers may comment on its paragraphs (P1-COM-03, D-044); on by default. Off hides every
+	 * comment and stops new ones; they're kept, so turning it on again brings them back.
+	 */
+	readerComments: z.boolean(),
 	/** Its Chapters come out over time. */
 	isSerial: z.boolean(),
 	/**

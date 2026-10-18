@@ -1,6 +1,9 @@
 import {
+	bookOnlyOf,
 	mergePreferencesPatch,
 	resolvePreferences,
+	withoutBookOnly,
+	type BookOnlyPreference,
 	type ReaderPreferences,
 	type ReaderPreferencesPatch
 } from '@book/core';
@@ -10,19 +13,22 @@ import { getStores } from '$lib/services';
  * Reactive Reader Preferences (docs/DESIGN.md §9.4), persisted through `Stores`: global ones, and
  * per-Book overrides for the Book open in the reader ("This book only", P1-RDR-04). Writes are
  * local-first: the UI changes at once and the save never blocks it (plan §8).
+ *
+ * Other readers' comments and popular highlights are set for one Book at a time (D-044): they're
+ * kept in its override, but don't count as the Book having settings of its own.
  */
 class PreferencesState {
 	#stored = $state<ReaderPreferencesPatch>({});
 	#bookId = $state<string | null>(null);
 	#bookPatch = $state<ReaderPreferencesPatch | undefined>(undefined);
 	/** The global preferences (the app's theme, and every Book without overrides). */
-	current = $derived<ReaderPreferences>(resolvePreferences(this.#stored));
+	current = $derived<ReaderPreferences>(resolvePreferences(withoutBookOnly(this.#stored)));
 	/** The open Book's effective preferences: global, then its overrides. */
-	forBook = $derived<ReaderPreferences>(resolvePreferences(this.#stored, this.#bookPatch));
-	/** True when the open Book has overrides of its own. */
-	bookHasOverrides = $derived(
-		this.#bookPatch !== undefined && Object.keys(this.#bookPatch).length > 0
+	forBook = $derived<ReaderPreferences>(
+		resolvePreferences(withoutBookOnly(this.#stored), this.#bookPatch)
 	);
+	/** True when the open Book has overrides of its own ("This book only"). */
+	bookHasOverrides = $derived(Object.keys(withoutBookOnly(this.#bookPatch)).length > 0);
 	loaded = $state(false);
 	#loading: Promise<void> | undefined;
 
@@ -69,13 +75,27 @@ class PreferencesState {
 		await stores.preferences.save($state.snapshot(this.#bookPatch)!, bookId);
 	}
 
-	/** "Reset to my defaults" for the open Book. */
+	/** Other readers' comments or popular highlights, for the open Book only (D-044). */
+	async updateBookOnly(changes: Partial<Pick<ReaderPreferences, BookOnlyPreference>>) {
+		await this.updateBook(changes);
+	}
+
+	/**
+	 * "Reset to my defaults" for the open Book. Its comments and popular highlights stay as they
+	 * are: they're not among the settings it shares with other Books.
+	 */
 	async resetBook() {
 		const bookId = this.#bookId;
 		if (!bookId) return;
-		this.#bookPatch = undefined;
+		const kept = bookOnlyOf($state.snapshot(this.#bookPatch));
 		const stores = await getStores();
-		await stores.preferences.clear(bookId);
+		if (Object.keys(kept).length) {
+			this.#bookPatch = kept;
+			await stores.preferences.save(kept, bookId);
+		} else {
+			this.#bookPatch = undefined;
+			await stores.preferences.clear(bookId);
+		}
 	}
 }
 

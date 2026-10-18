@@ -78,6 +78,8 @@ const bookRecord = z.object({
 	nextWordId: z.number().int().positive().default(1),
 	communityPolicy: communityPolicySchema.default('closed'),
 	communityAi: communityAiSchema.default('allowed'),
+	/** Readers may comment on its paragraphs (P1-COM-03, D-044); the author can turn it off. */
+	readerComments: z.boolean().default(true),
 	/** Static path of the Book's EPUB, processed by text-pipeline on first open (plan §4.3). */
 	epubUrl: z.string().nullable().default(null),
 	listingState: listingStateSchema,
@@ -289,6 +291,41 @@ const reviewRecord = z.object({
 	createdAt: z.iso.datetime()
 });
 
+/** A seeded comment or reply's words (P1-COM-03): written for the demo. */
+const seedCommentFields = {
+	id,
+	/** A Persona (then `authorName` is theirs) or another reader. */
+	userId: id,
+	authorName: z.string().trim().min(1).max(60),
+	text: z.string().trim().min(1).max(2000),
+	spoilers: z.boolean().default(false),
+	createdAt: z.iso.datetime()
+};
+
+/**
+ * Other readers' comments (P1-COM-03), each on a passage of a Chapter: its Words as they're
+ * written, found in the text the first time the Chapter's comments are read.
+ */
+const commentRecord = z.object({
+	...seedCommentFields,
+	bookId: id,
+	chapterId: id,
+	passage: z.string().trim().min(1),
+	replies: z.array(z.object(seedCommentFields)).default([])
+});
+
+/**
+ * Popular highlights (P1-COM-04): `readers` other readers, none of them Personas, each highlighted
+ * this passage. Each entry's readers are different people, so overlapping entries add up.
+ */
+const popularHighlightRecord = z.object({
+	id,
+	bookId: id,
+	chapterId: id,
+	passage: z.string().trim().min(1),
+	readers: z.number().int().positive().max(500)
+});
+
 export const seedSchema = z.object({
 	/** Bump when the seed changes; a different version re-seeds the simulated backend. */
 	version: z.number().int().positive(),
@@ -308,7 +345,9 @@ export const seedSchema = z.object({
 	ratings: z.array(ratingRecord).default([]),
 	follows: z.array(followRecord).default([]),
 	stories: z.array(storyRecord).default([]),
-	reviews: z.array(reviewRecord).default([])
+	reviews: z.array(reviewRecord).default([]),
+	comments: z.array(commentRecord).default([]),
+	popularHighlights: z.array(popularHighlightRecord).default([])
 });
 
 export type Seed = z.infer<typeof seedSchema>;
@@ -327,6 +366,8 @@ export type StoredFileRef = z.infer<typeof storedFileRef>;
 export type RatingRecord = z.infer<typeof ratingRecord> & { id: string; createdAt: string };
 export type FollowRecord = z.infer<typeof followRecord> & { id: string; createdAt: string };
 export type SeedStoryRecord = z.infer<typeof storyRecord>;
+export type SeedCommentRecord = z.infer<typeof commentRecord>;
+export type SeedPopularHighlightRecord = z.infer<typeof popularHighlightRecord>;
 
 export class SeedError extends Error {
 	constructor(readonly problems: string[]) {
@@ -491,6 +532,28 @@ export function parseSeed(raw: unknown): Seed {
 				`reviews.${i}.userId: "${r.userId}" is a Persona; seeded reviews are other readers'`
 			);
 		}
+	});
+
+	const personaNames = new Map(seed.personas.map((p) => [p.user.id, p.user.displayName]));
+	const commentIds = seed.comments.flatMap((c) => [c.id, ...c.replies.map((r) => r.id)]);
+	for (const dup of duplicates(commentIds)) problems.push(`comments: duplicate id "${dup}"`);
+	seed.comments.forEach((c, i) => {
+		if (!books.has(c.bookId)) problems.push(`comments.${i}.bookId: no book "${c.bookId}"`);
+		for (const [path, writer] of [
+			[`comments.${i}`, c],
+			...c.replies.map((r, j) => [`comments.${i}.replies.${j}`, r] as const)
+		] as const) {
+			const name = personaNames.get(writer.userId);
+			if (name !== undefined && name !== writer.authorName) {
+				problems.push(`${path}.authorName: "${writer.userId}" is the Persona "${name}"`);
+			}
+		}
+	});
+	for (const dup of duplicates(seed.popularHighlights.map((h) => h.id))) {
+		problems.push(`popularHighlights: duplicate id "${dup}"`);
+	}
+	seed.popularHighlights.forEach((h, i) => {
+		if (!books.has(h.bookId)) problems.push(`popularHighlights.${i}.bookId: no book "${h.bookId}"`);
 	});
 
 	seed.flags.forEach((f, i) => {

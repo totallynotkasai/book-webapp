@@ -25,6 +25,7 @@ import { describeOpinionsContract } from './opinions';
 import { describeCommunityContract } from './community';
 import { describeReleasesContract } from './releases';
 import { describeStudioContract, type StudioFixtures } from './studio';
+import { describeTogetherContract } from './together';
 
 /** Must return a freshly seeded, independent backend on every call, signed in as the default. */
 export type MakeBackend = (context: { clock: ManualClock }) => Promise<Backend>;
@@ -400,6 +401,13 @@ export function describeBackendContract(
 			clock: () => clock,
 			personas: () => personas,
 			conforms: (module, method, value) => conforms(module as never, method as never, value)
+		});
+
+		describeTogetherContract({
+			backend: () => backend,
+			personas: () => personas,
+			conforms: (module, method, value) => conforms(module as never, method as never, value),
+			fixtures: options.studio
 		});
 
 		if (options.studio) {

@@ -80,6 +80,18 @@ Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 
 
 ---
 
+## Community
+
+| ID | Item | Deferred from | Why deferred, and what brings it back |
+|---|---|---|---|
+| COM-01 | **Edit a comment or reply:** change its words or its spoilers mark after posting | P1-COM-03 | In the PoC a writer deletes and writes again (D-044), which keeps moderation simple: what was reported is what's there. Brought back if testers ask for it |
+| COM-02 | **Hear about replies:** an inbox message when someone replies to your comment, muted per Book | P1-COM-03 | Not in the plan; the PoC inbox carries moderation, releases and sale alerts. Brought back with Phase 6's notifications |
+| COM-03 | **Comments whose passage has gone:** when a new Revision removes the text a comment was on, show it somewhere (the end of its Chapter) and tell its writer, as orphaned Illustrations tell their creator | P1-COM-03 | The PoC keeps such a comment but doesn't show it (D-044). Brought back with Phase 6's comments on the server |
+| COM-04 | **Readers' own highlights in popular highlights**, and whether readers opt in or out of being counted | P1-COM-04 | The PoC's counts are seeded and a reader's highlights stay on their device (§6.3, §10.5). Needs Phase 2's sync and a privacy decision: Phase 6 |
+| COM-05 | **Comments outside the text:** how many each Chapter has in Contents, or a Book's most discussed passages | P1-COM-03 | Not in the plan, and counts ahead of the reader need Invariant 6 thought through. Brought back if the PoC review shows comments are used |
+
+---
+
 ## Android
 
 | ID | Item | Deferred from | Why deferred, and what brings it back |

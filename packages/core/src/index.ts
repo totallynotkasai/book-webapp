@@ -13,4 +13,5 @@ export * from './studio';
 export * from './community';
 export * from './story';
 export * from './reviews';
+export * from './together';
 export * from './dictionary';

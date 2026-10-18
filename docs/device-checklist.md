@@ -99,6 +99,17 @@ The **Emulator** column has the results from 16 October 2026 (owner build, `book
 | A Word the dictionary hasn't got offers "Look up on Wiktionary", which opens the browser at that Word | Long-press "Dinah" in "(Dinah was the cat.)", Define, then the link | ✓ (Chrome opened) | ☐ |
 | Android's own text menu still offers its own options (Copy, Share, any dictionary app) beside the toolbar | Long-press a Word | ☐ | ☐ |
 
+## Readers together (Phase 1.20)
+
+| Check | How | Emulator | Phone |
+|---|---|---|---|
+| **Comments are off until you turn them on:** no counts in the text; then a count after each commented paragraph, easy to hit with a thumb, and a tap opens its comments | *Alice* Chapter I: Reading preferences → Readers → Readers' comments; tap the count after the first paragraph | Web E2E (390 px) | ☐ |
+| Reply with the on-screen keyboard: the sheet's Reply and Post buttons stay in reach | In the sheet, Reply under Priya N.'s comment | ☐ | ☐ |
+| **Comment from a long-press:** select a few Words; the toolbar has Comment (the speech bubble with a plus), which opens the paragraph's comments with your passage quoted | Long-press "sleepy", drag a handle, Comment | ☐ | ☐ |
+| **Popular highlights** are a faint dotted line, visible but quiet in light, sepia and dark | Reading preferences → Readers → Popular highlights; Theme → each mode | Web E2E (light, dark) | ☐ |
+| A tap on an underlined Word says "17 readers highlighted this", and doesn't turn the page | Tap "pictures" in "without pictures or conversations" | ☐ | ☐ |
+| The counts don't shift the page as you read: turning pages back and forth lands where it did | Turn three pages on and back | ☐ | ☐ |
+
 ## Page curl (Phase 1.21)
 
 | Check | How | Emulator | Phone |
@@ -155,6 +166,7 @@ Settings → Accessibility → TalkBack on. Swipe right and left to move, double
 | Contents and notes | Chapters, Notes and Bookmarks tabs; a chapter opens it | ☐ |
 | Select text and add a note (TalkBack's reading controls → text selection) | Note it if this is hard: it decides how notes work for screen-reader users | ☐ |
 | The page number under the scrubber (Phase 1.19) | "Page 1 of 22 in this chapter. Show the chapter's pages"; in the overview each page reads "Page 3 of 22", then its first words | ☐ |
+| With Readers' comments on (Phase 1.20) | After the first paragraph: "5 comments on this paragraph, button"; double-tap opens them, each comment reading its writer, day and words | ☐ |
 
 ### Desktop screen reader
 

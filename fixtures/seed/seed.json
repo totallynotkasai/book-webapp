@@ -1,5 +1,5 @@
 {
-	"version": 10,
+	"version": 11,
 	"defaultPersonaId": "reader",
 	"personas": [
 		{
@@ -1238,6 +1238,199 @@
 			"spoilers": false,
 			"progression": 0.7,
 			"createdAt": "2026-10-04T10:00:00.000Z"
+		}
+	],
+	"comments": [
+		{
+			"id": "comment-alice-bank",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "Alice was beginning to get very tired of sitting by her sister on the bank",
+			"userId": "seed-reader-1",
+			"authorName": "Priya N.",
+			"text": "Every time I start this book I think: same, Alice. Same.",
+			"createdAt": "2026-09-29T08:12:00.000Z",
+			"replies": [
+				{
+					"id": "reply-alice-bank-1",
+					"userId": "user-illustrator",
+					"authorName": "Ink & Quill",
+					"text": "That opening is why the riverbank is the first picture in my pack. Nothing happens, and it’s lovely.",
+					"createdAt": "2026-09-30T19:40:00.000Z"
+				},
+				{
+					"id": "reply-alice-bank-2",
+					"userId": "seed-reader-2",
+					"authorName": "Tom Baxter",
+					"text": "Try it with the narration on. That long first sentence has a rhythm you miss reading it in your head.",
+					"createdAt": "2026-10-02T21:05:00.000Z"
+				}
+			]
+		},
+		{
+			"id": "comment-alice-pictures",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "and what is the use of a book, thought Alice, without pictures or conversations?",
+			"userId": "user-illustrator",
+			"authorName": "Ink & Quill",
+			"text": "Speaking as someone who draws for books: hear, hear.",
+			"createdAt": "2026-10-01T10:00:00.000Z",
+			"replies": [
+				{
+					"id": "reply-alice-pictures-1",
+					"userId": "seed-reader-4",
+					"authorName": "Ellie R.",
+					"text": "This line should be on the front of the app.",
+					"createdAt": "2026-10-01T12:30:00.000Z"
+				}
+			]
+		},
+		{
+			"id": "comment-alice-antipathies",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "The Antipathies, I think",
+			"userId": "seed-reader-6",
+			"authorName": "Sasha K.",
+			"text": "She means the Antipodes, of course. Carroll loves a child half-remembering a grand word.",
+			"createdAt": "2026-10-03T17:20:00.000Z",
+			"replies": [
+				{
+					"id": "reply-alice-antipathies-1",
+					"userId": "seed-reader-2",
+					"authorName": "Tom Baxter",
+					"text": "Look “antipathies” up with Define: the real meaning is half the joke.",
+					"createdAt": "2026-10-04T08:45:00.000Z"
+				}
+			]
+		},
+		{
+			"id": "comment-alice-bats",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "Do cats eat bats?",
+			"userId": "seed-reader-2",
+			"authorName": "Tom Baxter",
+			"text": "My daughter asks me this every bedtime now. Thanks, Lewis.",
+			"createdAt": "2026-10-05T20:10:00.000Z"
+		},
+		{
+			"id": "comment-alice-late",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "Oh my ears and whiskers, how late it’s getting!",
+			"userId": "user-author",
+			"authorName": "Wren Ashdown",
+			"text": "Writing a serial, I think about this Rabbit a lot. Every chapter: late again.",
+			"createdAt": "2026-10-06T09:30:00.000Z"
+		},
+		{
+			"id": "comment-alice-drink-me",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "round the neck of the bottle was a paper label, with the words “DRINK ME,” beautifully printed on it in large letters",
+			"userId": "seed-reader-1",
+			"authorName": "Priya N.",
+			"text": "Enjoy this bottle: it’s the first of many size changes, and the Caterpillar has strong opinions about all of them.",
+			"spoilers": true,
+			"createdAt": "2026-10-07T14:00:00.000Z",
+			"replies": [
+				{
+					"id": "reply-alice-drink-me-1",
+					"userId": "user-illustrator",
+					"authorName": "Ink & Quill",
+					"text": "No spoilers from me, but Tenniel’s picture of this moment is perfect.",
+					"createdAt": "2026-10-07T18:25:00.000Z"
+				}
+			]
+		},
+		{
+			"id": "comment-ledger-flame",
+			"bookId": "book-lamplighters-ledger",
+			"chapterId": "text/chapter-1.xhtml",
+			"passage": "Then the wick caught, and a small gold stubborn flame stood up inside the glass as if it had been waiting all day to be asked.",
+			"userId": "user-author",
+			"authorName": "Wren Ashdown",
+			"text": "This is the sentence the whole book grew from. Thank you for reading it.",
+			"createdAt": "2026-10-02T09:00:00.000Z",
+			"replies": [
+				{
+					"id": "reply-ledger-flame-1",
+					"userId": "seed-reader-1",
+					"authorName": "Priya N.",
+					"text": "It shows. I read this paragraph three times.",
+					"createdAt": "2026-10-02T13:15:00.000Z"
+				}
+			]
+		},
+		{
+			"id": "comment-ledger-cobb",
+			"bookId": "book-lamplighters-ledger",
+			"chapterId": "text/chapter-1.xhtml",
+			"passage": "Mister Cobb, who was seventy-three, and now her",
+			"userId": "seed-reader-9",
+			"authorName": "Callum",
+			"text": "Two lamplighters in the whole city. I’m already worried about Mister Cobb.",
+			"createdAt": "2026-10-03T22:40:00.000Z"
+		}
+	],
+	"popularHighlights": [
+		{
+			"id": "popular-alice-impossible",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "Alice had begun to think that very few things indeed were really impossible",
+			"readers": 23
+		},
+		{
+			"id": "popular-alice-impossible-longer",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "so many out-of-the-way things had happened lately, that Alice had begun to think that very few things indeed were really impossible",
+			"readers": 6
+		},
+		{
+			"id": "popular-alice-pictures",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "and what is the use of a book, thought Alice, without pictures or conversations?",
+			"readers": 17
+		},
+		{
+			"id": "popular-alice-advice",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "She generally gave herself very good advice, (though she very seldom followed it)",
+			"readers": 12
+		},
+		{
+			"id": "popular-alice-respectable",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "Why, there’s hardly enough of me left to make one respectable person!",
+			"readers": 8
+		},
+		{
+			"id": "popular-alice-bats",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-1.htm.xhtml",
+			"passage": "Do cats eat bats?",
+			"readers": 3
+		},
+		{
+			"id": "popular-alice-curiouser",
+			"bookId": "book-alice",
+			"chapterId": "8761230412384829988_11-h-2.htm.xhtml",
+			"passage": "Curiouser and curiouser!",
+			"readers": 31
+		},
+		{
+			"id": "popular-ledger-flame",
+			"bookId": "book-lamplighters-ledger",
+			"chapterId": "text/chapter-1.xhtml",
+			"passage": "a small gold stubborn flame stood up inside the glass as if it had been waiting all day to be asked",
+			"readers": 9
 		}
 	]
 }

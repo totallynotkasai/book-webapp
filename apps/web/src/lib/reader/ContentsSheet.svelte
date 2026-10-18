@@ -5,6 +5,8 @@
 		BookmarkDesignDto,
 		HighlightColour,
 		PlacedBookmark,
+		PopularHighlightDto,
+		RangeAnchor,
 		TocEntry
 	} from '@book/core';
 	import type { StoryAt } from '@book/domain';
@@ -51,6 +53,14 @@
 		storyHidden?: boolean;
 		/** A Chapter's title, as the contents name it. */
 		titleOf?: (chapterId: string) => string;
+		/**
+		 * Popular highlights the reader has reached, most highlighted first (P1-COM-04), while
+		 * they're on for this Book; and the fewest readers one needs.
+		 */
+		popular?: PopularHighlightDto[];
+		popularMin?: number;
+		/** A passage's Words as the page has them, punctuation and all. */
+		passageText?: (anchor: RangeAnchor) => string;
 	}
 
 	let {
@@ -75,7 +85,10 @@
 		story,
 		storyAt = null,
 		storyHidden = false,
-		titleOf = () => ''
+		titleOf = () => '',
+		popular,
+		popularMin,
+		passageText = (anchor) => anchor.quote.exact
 	}: Props = $props();
 
 	// The story so far loads the first time its tab is opened (new reader features load on first use).
@@ -256,6 +269,31 @@
 												'colour' in r ? onremovenote(r) : onremovebookmark(r as PlacedBookmark)}
 										/>
 									</div>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{/if}
+				{#if popular}
+					<section class="group" aria-labelledby="popular-heading" data-testid="popular-list">
+						<h3 id="popular-heading">Popular highlights</h3>
+						<p class="hint">
+							Passages {popularMin ? `at least ${popularMin}` : 'many'} other readers highlighted, up
+							to where you’ve read. Most highlighted first.
+						</p>
+						{#if !popular.length}
+							<p class="hint">None yet in what you’ve read.</p>
+						{/if}
+						<ul>
+							{#each popular as p (`${p.anchor.startOrdinal}-${p.anchor.endOrdinal}`)}
+								<li class="item">
+									<button type="button" class="row note" onclick={() => jump(p.anchor)}>
+										<span class="where">{titleAt(p.anchor.startOrdinal)}</span>
+										<span class="quote">{passageText(p.anchor)}</span>
+										<span class="readers"
+											><Icon name="ink_highlighter" size={16} />{p.readers} readers</span
+										>
+									</button>
 								</li>
 							{/each}
 						</ul>
@@ -468,6 +506,14 @@
 	.where {
 		color: var(--md-sys-color-primary);
 		font-size: var(--md-sys-typescale-label-medium-size);
+	}
+
+	.readers {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		color: var(--md-sys-color-on-surface-variant);
+		font-size: var(--md-sys-typescale-body-small-size);
 	}
 
 	.actions {

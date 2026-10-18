@@ -59,32 +59,40 @@
 		illustration_pack: 'Illustration pack',
 		audio_track: 'Narration',
 		creator: 'Creator',
-		review: 'Review'
+		review: 'Review',
+		comment: 'Comment'
 	} as const;
+
+	/** Readers' own words: a review (P1-STO-07), or a comment or reply (P1-COM-03). */
+	const readersWords = (type: keyof typeof targetLabels) => type === 'review' || type === 'comment';
 
 	/**
 	 * What a moderator can do: content can be relabelled, hidden and removed, an account
-	 * suspended; a reader's review (P1-STO-07) approved, hidden (its writer still sees it),
+	 * suspended; a reader's review or comment approved, hidden (its writer still sees it),
 	 * removed, or its writer warned.
 	 */
 	function actionsFor(type: keyof typeof targetLabels) {
-		if (type === 'review') {
+		if (readersWords(type)) {
 			return ACTIONS.filter((a) => ['approve', 'hide', 'remove', 'warn'].includes(a.action)).map(
 				(a) =>
 					a.action === 'hide'
 						? { ...a, help: 'Hide it from other readers; its writer still sees it.' }
 						: a.action === 'remove'
-							? { ...a, help: 'Delete it.' }
+							? {
+									...a,
+									help: type === 'comment' ? 'Delete it, and any replies to it.' : 'Delete it.'
+								}
 							: a.action === 'warn'
 								? { ...a, help: 'Tell its writer, change nothing else.' }
-								: { ...a, help: 'It’s fine. A hidden review shows again.' }
+								: { ...a, help: `It’s fine. A hidden ${type} shows again.` }
 			);
 		}
 		return ACTIONS.filter((a) => type !== 'creator' || !a.content);
 	}
 
 	/** Who hears the outcome. */
-	const told = (type: keyof typeof targetLabels) => (type === 'review' ? 'reviewer' : 'creator');
+	const told = (type: keyof typeof targetLabels) =>
+		type === 'review' ? 'reviewer' : type === 'comment' ? 'commenter' : 'creator';
 
 	const stateLabels: Record<string, string> = {
 		draft: 'Draft',
@@ -162,13 +170,13 @@
 				<h2 id="what-heading">What fired</h2>
 				<p>{d.flag.details}</p>
 				<dl>
-					<dt>{d.target.type === 'review' ? 'Written by' : 'Creator'}</dt>
+					<dt>{readersWords(d.target.type) ? 'Written by' : 'Creator'}</dt>
 					<dd>{d.target.creatorName || '—'}</dd>
 					{#if d.target.bookTitle}
 						<dt>For</dt>
 						<dd>{d.target.bookTitle}</dd>
 					{/if}
-					{#if d.target.type !== 'creator' && d.target.type !== 'review'}
+					{#if d.target.type !== 'creator' && !readersWords(d.target.type)}
 						<dt>AI label</dt>
 						<dd>
 							{#if d.target.aiUse && d.target.aiUse !== 'none'}<AiLabel
@@ -190,7 +198,7 @@
 
 			{#if d.target.excerpt}
 				<section class="card" aria-labelledby="review-heading">
-					<h2 id="review-heading">The review</h2>
+					<h2 id="review-heading">The {d.target.type === 'comment' ? 'comment' : 'review'}</h2>
 					<p class="excerpt" data-testid="flag-excerpt">{d.target.excerpt}</p>
 				</section>
 			{/if}
