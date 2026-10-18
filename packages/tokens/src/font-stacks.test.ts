@@ -14,3 +14,10 @@ describe('font stacks', () => {
 		expect(fontStacks.publisher).toBeNull();
 	});
 });
+
+describe('fonts.css', () => {
+	it('has a value for every declaration scripts/write-fonts-css.mjs writes', () => {
+		const css = readFileSync(new URL('./fonts.css', import.meta.url), 'utf8');
+		expect(css).not.toMatch(/:\s*undefined\b/);
+	});
+});

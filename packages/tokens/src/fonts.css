@@ -226,7 +226,6 @@
 	font-display: swap;
 	font-weight: 400;
 	src: url('../../../node_modules/@fontsource/opendyslexic/files/opendyslexic-latin-400-normal.woff2') format('woff2');
-	unicode-range: undefined;
 }
 
 @font-face {
@@ -235,7 +234,6 @@
 	font-display: swap;
 	font-weight: 400;
 	src: url('../../../node_modules/@fontsource/opendyslexic/files/opendyslexic-latin-400-italic.woff2') format('woff2');
-	unicode-range: undefined;
 }
 
 @font-face {
@@ -244,7 +242,6 @@
 	font-display: swap;
 	font-weight: 700;
 	src: url('../../../node_modules/@fontsource/opendyslexic/files/opendyslexic-latin-700-normal.woff2') format('woff2');
-	unicode-range: undefined;
 }
 
 @font-face {
@@ -253,5 +250,4 @@
 	font-display: swap;
 	font-weight: 700;
 	src: url('../../../node_modules/@fontsource/opendyslexic/files/opendyslexic-latin-700-italic.woff2') format('woff2');
-	unicode-range: undefined;
 }

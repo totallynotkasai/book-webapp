@@ -25,6 +25,9 @@ afterEach(() => {
 });
 
 describe('the reading fonts under `npm run dev`', () => {
+	// A real dev server transforms on demand: alone this takes ~3.6 s, but under the full `npm test`
+	// run it went past Vitest's 5 s default on the owner's PC, so it gets more room.
+	const DEV_SERVER_TIMEOUT = 30_000;
 	let server: ViteDevServer;
 	let origin: string;
 
@@ -40,21 +43,25 @@ describe('the reading fonts under `npm run dev`', () => {
 		origin = `http://127.0.0.1:${(server.httpServer!.address() as AddressInfo).port}`;
 		const asset = (await server.ssrLoadModule('@book/tokens/fonts.css?url')) as { default: string };
 		fontsCss.url = asset.default;
-	});
+	}, DEV_SERVER_TIMEOUT);
 
 	afterAll(async () => {
 		await server?.close();
 	});
 
-	it('gets the @font-face rules, not the JavaScript module Vite serves for the stylesheet', async () => {
-		const css = await readingFontFaces(origin);
-		expect(css).not.toContain('import.meta.hot');
-		expect(css).toMatch(/@font-face\s*\{\s*font-family: 'Literata';/);
-		// Absolute, since the Book frames are blob documents, and served by the dev server.
-		const literata = /url\("([^"]+\/literata-latin-wght-normal\.woff2)"\)/.exec(css)?.[1];
-		expect(literata?.startsWith(`${origin}/`)).toBe(true);
-		expect((await fetch(literata!)).status).toBe(200);
-	});
+	it(
+		'gets the @font-face rules, not the JavaScript module Vite serves for the stylesheet',
+		async () => {
+			const css = await readingFontFaces(origin);
+			expect(css).not.toContain('import.meta.hot');
+			expect(css).toMatch(/@font-face\s*\{\s*font-family: 'Literata';/);
+			// Absolute, since the Book frames are blob documents, and served by the dev server.
+			const literata = /url\("([^"]+\/literata-latin-wght-normal\.woff2)"\)/.exec(css)?.[1];
+			expect(literata?.startsWith(`${origin}/`)).toBe(true);
+			expect((await fetch(literata!)).status).toBe(200);
+		},
+		DEV_SERVER_TIMEOUT
+	);
 });
 
 describe('the reading fonts in a build', () => {
