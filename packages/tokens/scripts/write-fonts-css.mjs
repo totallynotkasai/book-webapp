@@ -66,7 +66,8 @@ for (const font of FONTS) {
 				'\tfont-display: swap;',
 				`\tfont-weight: ${weight};`,
 				`\tsrc: url('../../../node_modules/${font.pkg}/files/${src}') format('${format}');`,
-				`\tunicode-range: ${range};`,
+				// OpenDyslexic's Fontsource CSS gives no range: the face then covers every character.
+				...(range ? [`\tunicode-range: ${range};`] : []),
 				'}'
 			);
 		}
