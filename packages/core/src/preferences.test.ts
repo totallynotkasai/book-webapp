@@ -76,7 +76,7 @@ describe('resolvePreferences', () => {
 		const resolved = resolvePreferences({
 			fontScale: 99,
 			theme: { mode: 'high-contrast', seedColor: 'teal' },
-			pageTurn: 'curl',
+			pageTurn: 'flip',
 			layout: 'overview',
 			narration: 'loud',
 			unknownField: true

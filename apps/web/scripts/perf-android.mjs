@@ -1,12 +1,13 @@
 // P1-QA-01 on a real Android WebView: the DESIGN.md §12.3 reader budgets measured inside the
 // installed app over the DevTools protocol (the app's WebView is inspectable, capacitor.config.ts).
 //
-//   node scripts/perf-android.mjs [--fresh] [--cpu 4] [--dev]
+//   node scripts/perf-android.mjs [--fresh] [--cpu 4] [--dev] [--curl]
 //
 //   --fresh   clears the app's data first, so the open is cold. This DELETES everything the app
 //             keeps on that device (notes, bookmarks, imported books): use it on a test device.
 //   --cpu N   slows the WebView's main thread N times, as the Playwright spec does on desktop.
 //   --dev     measures the debug app (…bookpoc.dev) instead of the tester app.
+//   --curl    also measures page turns with the page curl (P1-RDR-19): first frame and frame rate.
 //
 // The device is ANDROID_SERIAL, or the only one connected. Measures the cold open of Alice (from
 // the tap on its cover to its first page), opening a cached Chapter, page turns and re-layout.
@@ -18,6 +19,7 @@ import { _android as android } from '@playwright/test';
 
 const args = process.argv.slice(2);
 const fresh = args.includes('--fresh');
+const curl = args.includes('--curl');
 const cpu = args.includes('--cpu') ? Number(args[args.indexOf('--cpu') + 1]) : 1;
 const appId = `io.github.totallynotkasai.bookpoc${args.includes('--dev') ? '.dev' : ''}`;
 
@@ -102,6 +104,61 @@ const turns = await page.evaluate(() => window.__turns);
 console.log(
 	`Page turns over 16 ms: ${turns.length} of 10 (${turns.map(Math.round).join(', ') || 'none'}; budget 100 ms)`
 );
+
+if (curl) {
+	// The page curl (P1-RDR-19): the same turns with Curl chosen, and every frame while it's on
+	// screen (budget: 60 fps).
+	await page.keyboard.press('Escape');
+	await page.getByRole('button', { name: 'More reading options' }).click();
+	await page.getByRole('menuitem', { name: 'Reading preferences' }).click();
+	await page.getByRole('tab', { name: 'Page' }).click();
+	await page
+		.getByRole('radiogroup', { name: 'Page turns' })
+		.getByRole('radio', { name: 'Curl' })
+		.click();
+	await page.keyboard.press('Escape');
+	await sleep(1500);
+	await page.evaluate(() => {
+		window.__turns = [];
+		window.__frames = [];
+		let last = 0;
+		const frame = (now) => {
+			const on = document.querySelector('canvas[data-page-curl]')?.style.visibility === 'visible';
+			if (on && last) window.__frames.push(now - last);
+			last = on ? now : 0;
+			requestAnimationFrame(frame);
+		};
+		requestAnimationFrame(frame);
+	});
+	for (let i = 0; i < 10; i++) {
+		await page.keyboard.press('ArrowRight');
+		await sleep(1000);
+	}
+	const { curlTurns, frames } = await page.evaluate(() => ({
+		curlTurns: window.__turns,
+		frames: window.__frames
+	}));
+	const sorted = [...frames].sort((a, b) => a - b);
+	const p = (q) =>
+		Math.round(sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0);
+	console.log(
+		`Curled turns over 16 ms: ${curlTurns.length} of 10 (${curlTurns.map(Math.round).join(', ') || 'none'}; budget 100 ms)`
+	);
+	console.log(
+		`Curl frames: ${frames.length}, interval p50 ${p(0.5)} ms, p95 ${p(0.95)} ms, ${frames.filter((ms) => ms > 1000 / 60 + 4).length} over 20.7 ms (budget 60 fps)`
+	);
+	// Back to the slide, so the rest is measured as before.
+	await page.keyboard.press('Escape');
+	await page.getByRole('button', { name: 'More reading options' }).click();
+	await page.getByRole('menuitem', { name: 'Reading preferences' }).click();
+	await page.getByRole('tab', { name: 'Page' }).click();
+	await page
+		.getByRole('radiogroup', { name: 'Page turns' })
+		.getByRole('radio', { name: 'Slide' })
+		.click();
+	await page.keyboard.press('Escape');
+	await sleep(500);
+}
 
 // Re-layout after a text size change: to the last change of the visible range.
 const relayouts = [];

@@ -111,7 +111,8 @@ export interface TypographySettings {
 /** Concrete colours for the reading surface: the reader's frames can't see the app's CSS. */
 export type ReaderThemeTokens = Record<`--${string}`, string>;
 
-export type PageTurn = 'none' | 'slide' | 'fade';
+/** `curl` (P1-RDR-19) curls the page like paper; it slides where the device can't draw it. */
+export type PageTurn = 'none' | 'slide' | 'fade' | 'curl';
 
 export interface EngineOptions {
 	layout: LayoutMode;

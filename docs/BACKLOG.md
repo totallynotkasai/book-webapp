@@ -43,6 +43,7 @@ Suggested order when picked up: IOS-01, IOS-02, IOS-04, IOS-05, then the rest.
 | IOS-16 | The sleep timer on an iPhone: iOS ignores an audio element's `volume`, so narration stops on time but doesn't fade out; and with the screen locked the WebView's timer may not run until the native player of IOS-04 counts it, as Android's does | P1-LAY-09 | Comes with IOS-04 (native narration on iOS) |
 | IOS-17 | Share quote on an iPhone: WKWebView's Web Share API with the card as a file (iOS 15+), copying the picture, and the card's reading fonts on the canvas | P1-RDR-16 | Needs a real iPhone; Safari on an iPhone uses the same web code |
 | IOS-18 | Define's "Look up on Wiktionary" in the iPhone app: a `target="_blank"` link from WKWebView should open Safari, as it opens Chrome from Android's WebView | P1-RDR-18 | Needs a real iPhone; Capacitor's iOS WebView may need the Browser plugin for links out |
+| IOS-19 | The page curl on an iPhone: WKWebView's WebGL, its frame rate and memory with the page pictures, and a drag back from the left edge against iOS's own swipe-back gesture | P1-RDR-19 | Needs a real iPhone; Playwright's WebKit runs the curl's specs |
 
 Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 4).
 
@@ -56,6 +57,7 @@ Mobile purchasing rules for iOS are tracked separately as OPEN-05 (before Phase 
 | RDR-04 | **Define a phrase:** "rabbit hole", "a cappella", "well-known": Open English WordNet's phrases and hyphenated entries (about 90,000 of its 160,000) | P1-RDR-18 | Define looks up one Word (the plan's UX notes), and the tokeniser splits at spaces and hyphens, so the app's copy keeps only single Words (D-043). Brought back if readers select phrases and miss it |
 | RDR-05 | **Dictionaries in other languages:** Define for a Book in French, Spanish and so on | P1-RDR-18 | Open English WordNet is English, so Define shows only in English Books (and those that don't say). Brought back with the first non-English Book a tester reads, with a dictionary chosen as D-043 chose this one |
 | RDR-06 | **The whole dictionary for offline web reading:** on the web a piece of the dictionary downloads the first time a Word in it is looked up, so offline it has only the pieces read that session | P1-RDR-18 | The Android app carries all of it; the web build has no offline support at all yet (Phase 6's offline downloads). Brought back with them |
+| RDR-07 | **Everything on the page curl's picture of a page:** a styled first letter (drop cap) in its own font, inline SVG drawings (not pictures) and video frames, and bullets in a list style other than the common ones (disc, circle, square, numbers, letters, Roman numerals). Without them, on a page that has one the curl's first frame differs there for a moment | P1-RDR-19 | The picture is drawn from what the page computed (Invariant 10); these come from generated content or need the element itself. Gutenberg's *Alice* has a drop-cap rule but no paragraph uses it, and no other Book read so far has any of them. Brought back with the first Book that does |
 
 ---
 

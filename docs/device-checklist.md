@@ -110,6 +110,18 @@ The **Emulator** column has the results from 16 October 2026 (owner build, `book
 | A tap on an underlined Word says "17 readers highlighted this", and doesn't turn the page | Tap "pictures" in "without pictures or conversations" | ☐ | ☐ |
 | The counts don't shift the page as you read: turning pages back and forth lands where it did | Turn three pages on and back | ☐ | ☐ |
 
+## Page curl (Phase 1.21)
+
+| Check | How | Emulator | Phone |
+|---|---|---|---|
+| **Curl is a fourth page turn:** a tap at the side curls the page away over the next one, its back showing its own text faintly; it's smooth, and the next page is there underneath | Reading preferences → Page → Page turns → Curl; tap the right edge a few times | ✓ (`book_compact` at 200%: the next page under the curl) | ☐ |
+| **The curl follows a finger:** drag a page sideways from anywhere; the corner nearest the finger follows it, up and down too; let go past a quarter of the way and it turns, early and it settles back (the page number doesn't change) | Drag from the middle of the page towards the left edge, and a short drag | ✓ (`adb` swipes: the curl followed; a short one settled back, the page unchanged) | ☐ |
+| Dragging the other way brings the previous page back over this one | Drag from the left part of the page towards the right | ✓ | ☐ |
+| At 200% text it still curls, and the page it reveals is the next one | Reading preferences → Text → Text size 200% | ✓ | ☐ |
+| **Spread mode on a tablet:** the right page turns over onto the left like a book's leaf; the new right page lies under it | A tablet (or the phone in landscape, if it's 1024 px wide or more) | Web E2E (no tablet AVD) | ☐ |
+| **Reduced motion: the curl is gone**, and pages turn at once | Android Settings → Accessibility → Remove animations; back in the app, turn a page | ☐ (a system setting) | ☐ |
+| Frames hold 60 fps while it curls | `node apps/web/scripts/perf-android.mjs --dev --curl` | ✓ (264 frames in ten turns, 94% within 20.7 ms; 32–56 ms to the first frame) | ☐ |
+
 ## Android behaviour
 
 | Check | How | Emulator | Phone |
