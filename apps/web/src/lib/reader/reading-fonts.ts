@@ -11,7 +11,9 @@ export function readingFontFaces(): Promise<string> {
 	css ??= (async () => {
 		try {
 			const base = new URL(fontsCssUrl, location.href);
-			const text = await (await fetch(base)).text();
+			// Asked for as a stylesheet: Vite's dev server answers a plain fetch of a .css URL with
+			// its JavaScript module, and only a `text/css` request with the CSS (as for a <link>).
+			const text = await (await fetch(base, { headers: { Accept: 'text/css' } })).text();
 			return text.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g, (_, _q, ref: string) => {
 				return `url("${new URL(ref, base).href}")`;
 			});
