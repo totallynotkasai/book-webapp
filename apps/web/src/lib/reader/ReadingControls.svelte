@@ -140,11 +140,14 @@
 				options={[
 					{ value: 'none', label: 'None' },
 					{ value: 'slide', label: 'Slide' },
-					{ value: 'fade', label: 'Fade' }
+					{ value: 'fade', label: 'Fade' },
+					{ value: 'curl', label: 'Curl' }
 				]}
 			/>
 			{#if reducedMotion}
 				<p class="hint">Your device asks for reduced motion, so pages turn without animation.</p>
+			{:else if prefs.pageTurn === 'curl'}
+				<p class="hint">Pages curl like paper. On a touch screen, drag a page to turn it.</p>
 			{/if}
 		</div>
 		<Switch

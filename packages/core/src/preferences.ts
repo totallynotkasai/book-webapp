@@ -91,7 +91,8 @@ export const readerPreferencesSchema = z.object({
 	justify: z.boolean().catch(false),
 	hyphenate: z.boolean().catch(false),
 	theme: z.preprocess(objectOrEmpty, themeSchema),
-	pageTurn: z.enum(['none', 'slide', 'fade']).catch('slide'),
+	/** `curl`: the page curl (P1-RDR-19), an optional page turn. */
+	pageTurn: z.enum(['none', 'slide', 'fade', 'curl']).catch('slide'),
 	illustrations: z.enum(illustrationModes).catch('popup'),
 	/** Dim everything but the paragraph being read (P1-RDR-11). */
 	focusMode: z.boolean().catch(false),
