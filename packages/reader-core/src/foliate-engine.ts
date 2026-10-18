@@ -14,6 +14,8 @@ import {
 	type RevisionManifest
 } from '@book/core';
 import { ChapterContent } from './content';
+import type { CurlTurn, PageCurl } from './curl';
+import { dragCommits, dragPose, easeOut } from './curl-geometry';
 import { drawPage, pageStarts, type PageGeometry } from './pages';
 import { BASE_CSS, MARGINS, themeCss, typographyCss } from './styles';
 import { isSqueezed, TABLE_ROW, tableOfRow, tableRow, tableView } from './tables';
@@ -70,6 +72,35 @@ interface Paginator extends HTMLElement {
 	/** A page's (or spread's) width along the flow. */
 	readonly size: number;
 	readonly scrolled: boolean;
+	/** On the Book's first page, or its last: there's nothing to turn to. */
+	readonly atStart: boolean;
+	readonly atEnd: boolean;
+}
+
+/** A turn that's curling (P1-RDR-19): the curl on screen, and the paginator's move under it. */
+interface CurlMove {
+	turn: CurlTurn;
+	dir: 1 | -1;
+	/** The paginator's move, and the relocation it causes. */
+	moved: Promise<void>;
+	/** Where the reader was, to settle back to. */
+	from: VisibleRange | null;
+	/** Holds the move's relocation until the curl has played (see #holder). */
+	holder: object;
+}
+
+/** A finger on the page while the curl is on (P1-RDR-19). */
+interface CurlTouch {
+	id: number;
+	start: { x: number; y: number; t: number };
+	last: { x: number; y: number; t: number };
+	/** Along x, in px/ms, smoothed. */
+	velocity: number;
+	dir?: 1 | -1;
+	/** Set once the drag has become a turn. */
+	move?: Promise<CurlMove | null>;
+	/** No curl: a long press, a selection, or the end of the Book. */
+	ignored?: boolean;
 }
 
 /** A Chapter's pages as overview mode measured them (P1-RDR-17). */
@@ -97,6 +128,8 @@ function settle(): Promise<void> {
 		);
 	});
 }
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** A box in top-level coordinates (the frame sits inside foliate's shadow DOM). */
 function toTop(rect: DOMRect, doc: Document): DOMRect {
@@ -131,6 +164,8 @@ export class FoliateEngine implements ReaderEngine {
 	#layout: LayoutMode = 'paginated-single';
 	#pageTurn: PageTurn = 'slide';
 	#decorations = new Map<string, Decoration[]>();
+	/** What each group last held, so setting the same again isn't a change (page curl). */
+	#decorationKeys = new Map<string, string>();
 	#figures: FigureInjection[] = [];
 	#tableButton: EngineOptions['tableButton'];
 	#listeners: Listeners = {
@@ -160,6 +195,28 @@ export class FoliateEngine implements ReaderEngine {
 	#linking = false;
 	/** The pages overview mode last measured (P1-RDR-17), until the Chapter or layout changes. */
 	#pages: MeasuredPages | null = null;
+	/** The DOM range the paginator last said was visible (what the curl pictures). */
+	#visibleDom: Range | null = null;
+	/** The page curl (P1-RDR-19), loaded when the reader first chooses it; null if it can't draw. */
+	#curl: PageCurl | null = null;
+	#curlModule: typeof import('./curl') | null = null;
+	#curlLoading: Promise<void> | null = null;
+	#curlTouch: CurlTouch | null = null;
+	/** The paginator's last move under a curl, until it's ready for another (it locks briefly). */
+	#paginatorBusy: Promise<void> | null = null;
+	/** Counts changes to what's on screen; a picture prepared at one version is good until the next. */
+	#pageVersion = 0;
+	#prepared: { snapshot: import('./snapshot').PageSnapshot; version: number } | null = null;
+	#abort = new AbortController();
+	/**
+	 * The curled turn whose relocation is waiting, and the relocation. A turn tells the app where
+	 * it went once its curl has played (as the slide does once it has slid), so the app's own work
+	 * on a new page never holds up the curl's frames; and a turn a finger settles back never
+	 * happened at all.
+	 */
+	#holder: object | null = null;
+	#held: VisibleRange | null = null;
+	#warmTimer: ReturnType<typeof setTimeout> | undefined;
 
 	#emit<E extends EngineEvent>(event: E, payload: EngineEvents[E]) {
 		for (const cb of this.#listeners[event]) cb(payload);
@@ -224,6 +281,16 @@ export class FoliateEngine implements ReaderEngine {
 			const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
 			void this.#onLoad(doc, index);
 		});
+		this.#watchCurlTouches(el, () => null);
+		// A new window size lays the pages out again: a curl in progress ends.
+		window.addEventListener(
+			'resize',
+			() => {
+				this.#endCurl();
+				this.#pageChanged();
+			},
+			{ signal: this.#abort.signal }
+		);
 
 		paginator.open({
 			dir: this.#manifest.dir,
@@ -249,6 +316,10 @@ export class FoliateEngine implements ReaderEngine {
 
 	destroy(): void {
 		this.#destroyed = true;
+		this.#abort.abort();
+		clearTimeout(this.#warmTimer);
+		this.#curl?.destroy();
+		this.#curl = null;
 		this.#paginator?.destroy();
 		this.#paginator?.remove();
 		this.#content?.release();
@@ -345,6 +416,11 @@ export class FoliateEngine implements ReaderEngine {
 		});
 		doc.addEventListener('keydown', (event) => this.#emit('keydown', event));
 		this.#watchPinch(doc);
+		const win = doc.defaultView;
+		if (win) this.#watchCurlTouches(win, () => win.frameElement?.getBoundingClientRect() ?? null);
+		// A picture arriving changes the page without moving it.
+		doc.addEventListener('load', () => this.#pageChanged(), true);
+		this.#pageChanged();
 	}
 
 	/** Pinch and Ctrl+wheel change the text size rather than zooming the page (§4.1). */
@@ -537,6 +613,8 @@ export class FoliateEngine implements ReaderEngine {
 	// ---- position ----
 
 	async #onRelocate(detail: RelocateDetail) {
+		this.#visibleDom = detail.range;
+		this.#pageChanged();
 		const current = this.#current();
 		if (!current || this.#destroyed) return;
 		const map = await this.#map(current.doc, detail.index);
@@ -582,7 +660,8 @@ export class FoliateEngine implements ReaderEngine {
 		};
 		this.#linking = false;
 		this.#lastRelocateAt = performance.now();
-		this.#emit('relocated', this.#visible);
+		if (this.#holder) this.#held = this.#visible;
+		else this.#emit('relocated', this.#visible);
 		this.#flushWaiters();
 	}
 
@@ -643,6 +722,8 @@ export class FoliateEngine implements ReaderEngine {
 	async goTo(target: Anchor | { progression: number } | { chapterId: string }): Promise<void> {
 		const paginator = this.#paginator;
 		if (!paginator) return;
+		// A jump never curls: any turn still curling ends where it is.
+		this.#endCurl();
 		let ordinal: number | null = null;
 		let index: number;
 		if ('chapterId' in target) {
@@ -684,6 +765,19 @@ export class FoliateEngine implements ReaderEngine {
 	async #turn(dir: 1 | -1) {
 		const paginator = this.#paginator;
 		if (!paginator) return;
+		if (this.#pageTurn === 'curl') {
+			await this.#loadCurl();
+			if (this.#curlUsable()) {
+				const move = await this.#beginCurl(dir);
+				if (move === 'still') return;
+				if (move) {
+					// The app hears where the turn went once the curl has played, or is cut short.
+					void move.turn.play(dir > 0 ? 1 : 0).then(() => this.#release(true, move.holder));
+					await move.moved;
+					return;
+				}
+			}
+		}
 		const fade = this.#pageTurn === 'fade' && this.#host;
 		if (fade) {
 			this.#host!.style.transition = 'opacity 120ms ease';
@@ -766,11 +860,13 @@ export class FoliateEngine implements ReaderEngine {
 
 	async setLayout(mode: LayoutMode): Promise<void> {
 		if (mode === this.#layout) return;
+		this.#endCurl();
 		await this.#keepPosition(() => this.#applyLayoutAttributes(mode));
 	}
 
 	async setTypography(t: TypographySettings): Promise<void> {
 		this.#typography = t;
+		this.#endCurl();
 		await this.#keepPosition(() => {
 			this.#applyStyles();
 			this.#applyLayoutAttributes(this.#layout);
@@ -779,19 +875,420 @@ export class FoliateEngine implements ReaderEngine {
 
 	setTheme(tokens: ReaderThemeTokens): void {
 		this.#theme = tokens;
+		this.#endCurl();
+		this.#pageChanged();
 		this.#applyStyles();
 	}
 
 	setPageTurn(turn: PageTurn): void {
 		this.#pageTurn = turn;
-		if (turn === 'slide') this.#paginator?.setAttribute('animated', '');
+		if (turn !== 'curl') this.#endCurl();
+		else void this.#loadCurl();
+		this.#applyAnimated();
+	}
+
+	/**
+	 * foliate-js's own slide: for Slide, and for Curl where the curl can't draw (no WebGL), so a
+	 * turn still moves. The curl turns the paginator without it.
+	 */
+	#applyAnimated() {
+		const slide = this.#pageTurn === 'slide' || (this.#pageTurn === 'curl' && !this.#curl?.usable);
+		if (slide) this.#paginator?.setAttribute('animated', '');
 		else this.#paginator?.removeAttribute('animated');
+	}
+
+	// ---- page curl (P1-RDR-19) ----
+
+	/** Loads the curl the first time it's chosen (its own chunk, §12.3). */
+	#loadCurl(): Promise<void> {
+		this.#curlLoading ??= (async () => {
+			try {
+				const module = await import('./curl');
+				if (this.#destroyed || !this.#host) return;
+				this.#curlModule = module;
+				this.#curl = module.PageCurl.create(this.#host);
+			} catch (e) {
+				console.warn('The page curl couldn’t load; pages slide instead.', e);
+			}
+			this.#applyAnimated();
+			this.#warmCurl();
+		})();
+		return this.#curlLoading;
+	}
+
+	/**
+	 * Whether a turn now can curl: the reader chose it, the device draws it, and there are pages
+	 * (not when scrolling, nor in vertical writing). Reduced motion turns it off too (Invariant
+	 * 12), as the app already does.
+	 */
+	#curlUsable(): boolean {
+		const p = this.#paginator;
+		const current = this.#current();
+		if (this.#pageTurn !== 'curl' || !this.#curl?.usable || !p || p.scrolled || !current) {
+			return false;
+		}
+		if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
+		const win = current.doc.defaultView;
+		return !!win && !win.getComputedStyle(current.doc.body).writingMode.startsWith('vertical');
+	}
+
+	/** Whether the page shows as a spread: two columns to a page. */
+	#spreadShown(doc: Document): boolean {
+		const p = this.#paginator;
+		const win = doc.defaultView;
+		if (!p || !win || this.#layout !== 'paginated-spread') return false;
+		const cs = win.getComputedStyle(doc.documentElement);
+		const column = parseFloat(cs.columnWidth);
+		const gap = parseFloat(cs.columnGap);
+		if (!(column > 0)) return false;
+		return Math.round(p.size / (column + (gap || 0))) >= 2;
+	}
+
+	#rtl(doc: Document): boolean {
+		const win = doc.defaultView;
+		return (
+			doc.body.dir === 'rtl' ||
+			doc.documentElement.dir === 'rtl' ||
+			(!!win && win.getComputedStyle(doc.body).direction === 'rtl')
+		);
+	}
+
+	/**
+	 * Turns the page under a curl: pictures what's on screen, moves the paginator at once, then
+	 * shows the curl over it (DESIGN.md §4.1). The move's relocation waits for the curl (see
+	 * #holder). 'still' when the paginator didn't move (it was still settling the last turn, or
+	 * there's nothing to turn to); null when the curl couldn't start, so the turn goes on
+	 * without it.
+	 */
+	async #beginCurl(dir: 1 | -1): Promise<CurlMove | 'still' | null> {
+		const p = this.#paginator;
+		const curl = this.#curl;
+		const module = this.#curlModule;
+		const host = this.#host;
+		const current = this.#current();
+		if (!p || !curl || !module || !host || !current) return null;
+		if (dir > 0 ? p.atEnd : p.atStart) return 'still';
+		// The paginator ignores a turn while it settles the last one: no picture for nothing.
+		if (this.#paginatorBusy) return 'still';
+		const area = host.getBoundingClientRect();
+		if (area.width < 1 || area.height < 1) return null;
+		const layout = this.#spreadShown(current.doc) ? 'spread' : 'single';
+		const rtl = this.#rtl(current.doc);
+		const page = p.page;
+		const prepared = this.#prepared;
+		let before;
+		if (
+			prepared?.version === this.#pageVersion &&
+			curl.ready(prepared.snapshot) &&
+			prepared.snapshot.width === area.width &&
+			prepared.snapshot.height === area.height
+		) {
+			// Pictured while the reader read, and nothing has changed since.
+			before = prepared.snapshot;
+		} else {
+			try {
+				before = await this.#captureReady(curl, {
+					doc: current.doc,
+					visible: this.#visibleDom,
+					area
+				});
+			} catch (e) {
+				console.warn(e);
+				return null;
+			}
+		}
+		this.#prepared = null;
+		// Waiting for a font, the reader may have moved on.
+		if (this.#current()?.doc !== current.doc || p.page !== page || this.#destroyed) return null;
+		const from = this.#visible;
+		// The last turn's relocation, if it's still waiting, goes first.
+		this.#release(true);
+		const holder = {};
+		this.#holder = holder;
+		this.#held = null;
+		const relocated = this.#nextRelocate();
+		// Without the paginator's own slide: the curl is the animation.
+		p.removeAttribute('animated');
+		const moving = dir > 0 ? p.next() : p.prev();
+		const busy = (this.#paginatorBusy = moving.finally(() => {
+			if (this.#paginatorBusy === busy) this.#paginatorBusy = null;
+		}));
+		// Within a Chapter the paginator has moved by now; into another, it's loading it.
+		if (p.page === page && this.#current()?.index === current.index) {
+			this.#release(false, holder);
+			await moving;
+			return 'still';
+		}
+		const moved = Promise.all([moving, relocated]).then(() => undefined);
+		const inChapter =
+			this.#current()?.index === current.index && p.page >= 1 && p.page <= p.pages - 2;
+		const scene = {
+			layout,
+			dir,
+			rtl,
+			width: area.width,
+			height: area.height,
+			spine: area.width / 2,
+			before,
+			after: null
+		} as import('./curl').CurlScene;
+		let turn: CurlTurn;
+		const arriving = () => {
+			const now = this.#current();
+			return now && curl.capture({ doc: now.doc, visible: this.#visibleDom, area });
+		};
+		if (!module.needsAfter(layout, dir)) {
+			// Forward on a single page: the real page turned to shows through as it curls away.
+			turn = curl.start(scene);
+		} else {
+			if (inChapter) scene.after = arriving();
+			if (!scene.after || scene.after.fontsPending) {
+				// The next Chapter is still loading, or the page turned to needs a font first: the
+				// old page stays in view meanwhile.
+				const cover = curl.cover(before, area.width, area.height);
+				await moved;
+				if (scene.after?.fontsPending) await Promise.race([scene.after.fontsPending, wait(400)]);
+				if (cover.done || this.#destroyed || !(scene.after = arriving())) {
+					cover.end();
+					this.#release(true, holder);
+					return null;
+				}
+			}
+			turn = curl.start(scene);
+		}
+		performance.mark('page-curl:start');
+		return { turn, dir, moved, from, holder };
+	}
+
+	/**
+	 * A picture of what's on screen; drawn again once its fonts have loaded, if any hadn't (it
+	 * would show in a fallback font). Rarely waits: the fonts load before the first turn.
+	 */
+	async #captureReady(
+		curl: PageCurl,
+		source: Parameters<PageCurl['capture']>[0]
+	): Promise<import('./snapshot').PageSnapshot> {
+		const snapshot = curl.capture(source);
+		if (!snapshot.fontsPending) return snapshot;
+		await Promise.race([snapshot.fontsPending, wait(400)]);
+		return curl.capture(source);
+	}
+
+	/** Lets held relocations through: the turn was committed (or never moved). */
+	#release(emit: boolean, holder?: object) {
+		if (holder && holder !== this.#holder) return;
+		this.#holder = null;
+		const held = this.#held;
+		this.#held = null;
+		if (emit && held) this.#emit('relocated', held);
+	}
+
+	/** Ends any curl at once (a jump, a new layout or theme): the real page shows. */
+	#endCurl() {
+		this.#pageChanged();
+		this.#curl?.stop();
+		this.#curlTouch = null;
+		// A turn a finger was holding: the paginator has moved, so the app hears where to.
+		this.#release(true);
+	}
+
+	/**
+	 * Settles a held turn back: the curl lies flat again, then the paginator returns under it
+	 * without telling anyone (no relocation), and the overlay goes.
+	 */
+	async #settleBack(move: CurlMove) {
+		const p = this.#paginator;
+		await move.turn.play(move.dir > 0 ? 0 : 1, this.#curlModule?.CURL_MS, easeOut, true);
+		await move.moved;
+		if (p && !this.#destroyed) {
+			const back = this.#nextRelocate();
+			await (move.dir > 0 ? p.prev() : p.next());
+			await back;
+			this.#visible = move.from;
+		}
+		this.#release(false, move.holder);
+		move.turn.end();
+		this.#applyAnimated();
+	}
+
+	/**
+	 * A finger on the page while the curl is on: a sideways drag anywhere lifts the page and the
+	 * curl follows it (D-045); let go and it turns over or settles back. Taps still reach the
+	 * page (tap zones, links, Words). Two fingers are a pinch, left to the pinch handler. The
+	 * paginator's own swipe never sees these touches.
+	 */
+	#watchCurlTouches(target: EventTarget, frame: () => DOMRect | null) {
+		const point = (touch: Touch) => {
+			const f = frame();
+			return { x: touch.clientX + (f?.left ?? 0), y: touch.clientY + (f?.top ?? 0) };
+		};
+		const options = { capture: true, passive: false } as const;
+		target.addEventListener(
+			'touchstart',
+			(e) => {
+				const event = e as TouchEvent;
+				if (event.touches.length > 1) {
+					// A second finger: a pinch. A drag in progress settles back.
+					void this.#dropTouch(false);
+					return;
+				}
+				if (!this.#curlUsable() || this.#curlTouch?.move) return;
+				event.stopPropagation();
+				const touch = event.changedTouches[0]!;
+				const at = { ...point(touch), t: event.timeStamp };
+				this.#curlTouch = { id: touch.identifier, start: at, last: at, velocity: 0 };
+			},
+			options
+		);
+		target.addEventListener(
+			'touchmove',
+			(e) => {
+				const event = e as TouchEvent;
+				const state = this.#curlTouch;
+				if (!state || event.touches.length > 1) return;
+				const touch = [...event.changedTouches].find((t) => t.identifier === state.id);
+				if (!touch) return;
+				event.stopPropagation();
+				event.preventDefault();
+				if (state.ignored) return;
+				const at = { ...point(touch), t: event.timeStamp };
+				const dt = Math.max(1, at.t - state.last.t);
+				state.velocity = state.velocity * 0.4 + ((at.x - state.last.x) / dt) * 0.6;
+				state.last = at;
+				if (!state.move) this.#startDrag(state, event);
+				else void state.move.then((move) => move && this.#dragTo(move, state));
+			},
+			options
+		);
+		const end = (e: Event) => {
+			const event = e as TouchEvent;
+			const state = this.#curlTouch;
+			if (!state) return;
+			if (![...event.changedTouches].some((t) => t.identifier === state.id)) return;
+			event.stopPropagation();
+			void this.#dropTouch(event.type === 'touchend');
+		};
+		target.addEventListener('touchend', end, options);
+		target.addEventListener('touchcancel', end, options);
+	}
+
+	/** Becomes a turn once the finger has clearly moved sideways (not a tap, not a long press). */
+	#startDrag(state: CurlTouch, event: TouchEvent) {
+		const dx = state.last.x - state.start.x;
+		const dy = state.last.y - state.start.y;
+		if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.2) {
+			if (Math.hypot(dx, dy) > 24) state.ignored = true;
+			return;
+		}
+		const current = this.#current();
+		const selected = current && !current.doc.getSelection()?.isCollapsed;
+		if (selected || event.timeStamp - state.start.t > 600) {
+			state.ignored = true;
+			return;
+		}
+		const rtl = current ? this.#rtl(current.doc) : false;
+		const dir: 1 | -1 = dx < 0 !== rtl ? 1 : -1;
+		state.dir = dir;
+		state.move = this.#beginCurl(dir).then((move) => {
+			if (move === 'still' || !move) {
+				state.ignored = true;
+				return null;
+			}
+			if (this.#curlTouch === state) this.#dragTo(move, state);
+			return move;
+		});
+	}
+
+	#dragTo(move: CurlMove, state: CurlTouch) {
+		if (move.turn.done || !this.#curl) return;
+		const { scene } = move.turn;
+		const area = this.#host!.getBoundingClientRect();
+		const local = (p: { x: number; y: number }) => {
+			const x = p.x - area.left;
+			return { x: scene.rtl ? scene.width - x : x, y: p.y - area.top };
+		};
+		const sheet = this.#curl.sheetOf(scene);
+		move.turn.set(dragPose(sheet, local(state.start), local(state.last), move.dir));
+	}
+
+	/** The finger lifted (or a second one landed): finish the turn, or settle it back. */
+	async #dropTouch(lifted: boolean) {
+		const state = this.#curlTouch;
+		this.#curlTouch = null;
+		if (!state?.move) return;
+		const move = await state.move;
+		if (!move || move.turn.done) {
+			if (move) this.#release(true, move.holder);
+			return;
+		}
+		const velocity = move.turn.scene.rtl ? -state.velocity : state.velocity;
+		const commit = lifted && dragCommits(move.turn.progress, velocity, move.dir);
+		if (!commit) return this.#settleBack(move);
+		const played = move.turn.play(move.dir > 0 ? 1 : 0, this.#curlModule?.CURL_MS, easeOut);
+		void played.then(() => this.#release(true, move.holder));
+		await move.moved;
+		this.#applyAnimated();
+		await played;
+	}
+
+	/**
+	 * Something on screen changed (a turn, a highlight, the theme, a picture loading): a picture
+	 * prepared for the next turn is out of date, and a new one is drawn once the page has been
+	 * still for half a second. Not while narration moves its highlight Word by Word: the turn
+	 * then draws its own.
+	 */
+	#pageChanged() {
+		this.#pageVersion++;
+		this.#warmCurl();
+	}
+
+	/**
+	 * Pictures the page and uploads it while the reader reads (PageCurl.prepare), so a turn
+	 * starts with nothing to draw. It also loads the fonts a curl needs before the first turn: a
+	 * picture drawn before then would use a fallback font, so it's drawn again once they load.
+	 */
+	#warmCurl(delay = 500) {
+		if (this.#pageTurn !== 'curl' || !this.#curl) return;
+		clearTimeout(this.#warmTimer);
+		this.#warmTimer = setTimeout(() => {
+			const current = this.#current();
+			const host = this.#host;
+			if (!current || !host || !this.#curlUsable()) return;
+			// Not while a turn plays or holds its relocation: once it's done.
+			if (this.#curl?.turning || this.#holder) return this.#warmCurl(200);
+			const version = this.#pageVersion;
+			try {
+				const snapshot = this.#curl!.prepare({
+					doc: current.doc,
+					visible: this.#visibleDom,
+					area: host.getBoundingClientRect()
+				});
+				if (snapshot.fontsPending) {
+					this.#prepared = null;
+					void snapshot.fontsPending.then(() => this.#warmCurl(0));
+				} else this.#prepared = { snapshot, version };
+			} catch {
+				// Only a head start: the turn draws its own picture.
+				this.#prepared = null;
+			}
+		}, delay);
 	}
 
 	// ---- decorations and figures ----
 
 	setDecorations(group: string, items: Decoration[]): void {
 		this.#decorations.set(group, items);
+		// The same decorations again (the app's effects re-run) change nothing on the page.
+		const key = items
+			.map(
+				(d) =>
+					`${d.id} ${d.style} ${d.color ?? ''} ${d.anchor.revisionId} ${d.anchor.startOrdinal} ${d.anchor.endOrdinal}`
+			)
+			.join('|');
+		if (this.#decorationKeys.get(group) !== key) {
+			this.#decorationKeys.set(group, key);
+			this.#pageChanged();
+		}
 		const current = this.#current();
 		const map = current && this.#maps.get(current.doc);
 		if (current && map) this.#paintDecorations(current.doc, map);
@@ -962,6 +1459,7 @@ export class FoliateEngine implements ReaderEngine {
 		const current = this.#current();
 		const map = current && this.#maps.get(current.doc);
 		if (!current || !map) return;
+		this.#endCurl();
 		// New figures change the pages: lay out again around the first visible Word.
 		void this.#keepPosition(() => {
 			this.#placeFigures(current.doc, map);
@@ -970,6 +1468,7 @@ export class FoliateEngine implements ReaderEngine {
 	}
 
 	relayout(change: () => void | Promise<void>): Promise<void> {
+		this.#endCurl();
 		return this.#keepPosition(async () => {
 			await change();
 			// The paginator notices size changes itself; this makes sure it happens now.
@@ -1015,6 +1514,8 @@ export class FoliateEngine implements ReaderEngine {
 			const squeezed = isSqueezed(table);
 			if (squeezed && !row) table.before(tableRow(doc, button));
 			else if (!squeezed && row) row.remove();
+			else continue;
+			this.#pageChanged();
 		}
 	}
 

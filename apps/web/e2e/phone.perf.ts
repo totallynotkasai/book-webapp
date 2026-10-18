@@ -3,6 +3,7 @@ import { silentNarration } from './audio';
 import { bigEpub } from './books';
 import {
 	expect,
+	openPreferences,
 	openReader,
 	settled,
 	showChrome,
@@ -30,7 +31,10 @@ test.use({
 	viewport: { width: 412, height: 915 },
 	deviceScaleFactor: 2.625,
 	hasTouch: true,
-	fixedClock: false
+	fixedClock: false,
+	// An Android phone, as the page curl sees it (it draws without multisampling there, D-045).
+	userAgent:
+		'Mozilla/5.0 (Linux; Android 14; SM-A155F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36'
 });
 
 async function throttle(page: Page, network = false): Promise<CDPSession> {
@@ -213,6 +217,93 @@ test('page turn, input to first frame (< 100 ms)', async ({ page }, testInfo) =>
 	const samples = [...reported, ...Array(Math.max(0, 12 - reported.length)).fill(16)];
 	record(testInfo, 'page turn', JSON.stringify(stats(samples)), '100 ms');
 	expect(stats(samples).p95).toBeLessThan(100);
+});
+
+test('page curl: input to first frame (< 100 ms), holding 60 fps', async ({ page }, testInfo) => {
+	await openReader(page, 'book-alice');
+	await openPreferences(page, 'Page');
+	await page
+		.getByRole('radiogroup', { name: 'Page turns' })
+		.getByRole('radio', { name: 'Curl' })
+		.click();
+	await page.keyboard.press('Escape');
+	await settled(page);
+	const cdp = await throttle(page);
+	// Event Timing, as for a plain turn: the curl's first frame is drawn in the key's own task
+	// (the paginator moves, the curl starts over it), so it's in the next paint. And every frame
+	// while the curl is on screen, from the page's own frame clock.
+	await page.evaluate(() => {
+		const w = window as unknown as { __turns: number[]; __frames: number[] };
+		w.__turns = [];
+		w.__frames = [];
+		new PerformanceObserver((list) => {
+			for (const entry of list.getEntries()) {
+				if (entry.name === 'keydown') w.__turns.push(entry.duration);
+			}
+		}).observe({
+			type: 'event',
+			durationThreshold: 16,
+			buffered: false
+		} as PerformanceObserverInit);
+		const curl = () => document.querySelector<HTMLElement>('canvas[data-page-curl]');
+		let last = 0;
+		const frame = (now: number) => {
+			const on = curl()?.style.visibility === 'visible';
+			if (on && last) w.__frames.push(now - last);
+			last = on ? now : 0;
+			requestAnimationFrame(frame);
+		};
+		requestAnimationFrame(frame);
+	});
+	const turnPages = async (n: number) => {
+		await page.evaluate(() => {
+			const w = window as unknown as { __turns: number[]; __frames: number[] };
+			w.__turns = [];
+			w.__frames = [];
+		});
+		for (let i = 0; i < n; i++) {
+			await page.keyboard.press('ArrowRight');
+			await page.waitForTimeout(900);
+		}
+		return page.evaluate(() => {
+			const w = window as unknown as { __turns: number[]; __frames: number[] };
+			return { turns: w.__turns, frames: w.__frames };
+		});
+	};
+	const slow = (frames: number[]) => frames.filter((ms) => ms > 1000 / 60 + 4).length;
+	const slowed = await turnPages(12);
+	const samples = [...slowed.turns, ...Array(Math.max(0, 12 - slowed.turns.length)).fill(16)];
+	// Where a turn's time goes: picturing the page (while the reader reads, mostly), uploading
+	// it, drawing a frame.
+	for (const step of ['capture', 'upload', 'draw']) {
+		const ms = await page.evaluate(
+			(name) => performance.getEntriesByName(`page-curl:${name}`).map((e) => e.duration),
+			step
+		);
+		record(testInfo, `page curl: ${step}`, JSON.stringify(stats(ms)), '-');
+	}
+	record(testInfo, 'page curl: input to first frame', JSON.stringify(stats(samples)), '100 ms');
+	record(
+		testInfo,
+		'page curl: frame intervals',
+		`${JSON.stringify(stats(slowed.frames))}, ${slow(slowed.frames)} of ${slowed.frames.length} over 20.7 ms`,
+		'60 fps (not checked when slowed)'
+	);
+	// The frame rate is checked at full speed: headless Chromium draws WebGL with SwiftShader, on
+	// the CPU the slowdown slows, where a phone draws it on its GPU (at a quarter of the pixels the
+	// slowed curl holds 60 fps too). The Android app's figures come from scripts/perf-android.mjs
+	// --curl (the plan's Phase 1.21 notes).
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+	const full = await turnPages(6);
+	record(
+		testInfo,
+		'page curl: frame intervals at 1×',
+		`${JSON.stringify(stats(full.frames))}, ${slow(full.frames)} of ${full.frames.length} over 20.7 ms`,
+		'60 fps'
+	);
+	expect(slowed.frames.length).toBeGreaterThan(12 * 10);
+	expect(stats(samples).p95).toBeLessThan(100);
+	expect(stats(full.frames).p95).toBeLessThan(1000 / 60 + 4);
 });
 
 test('re-layout after a typography change, first visible Word kept (< 300 ms)', async ({
