@@ -31,7 +31,10 @@ test.use({
 	viewport: { width: 412, height: 915 },
 	deviceScaleFactor: 2.625,
 	hasTouch: true,
-	fixedClock: false
+	fixedClock: false,
+	// An Android phone, as the page curl sees it (it draws without multisampling there, D-045).
+	userAgent:
+		'Mozilla/5.0 (Linux; Android 14; SM-A155F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36'
 });
 
 async function throttle(page: Page, network = false): Promise<CDPSession> {
@@ -286,10 +289,10 @@ test('page curl: input to first frame (< 100 ms), holding 60 fps', async ({ page
 		`${JSON.stringify(stats(slowed.frames))}, ${slow(slowed.frames)} of ${slowed.frames.length} over 20.7 ms`,
 		'60 fps (not checked when slowed)'
 	);
-	// The frame rate is checked at full speed. Headless Chromium draws WebGL with SwiftShader and
-	// composites it in software, a cost that grows with the canvas's pixels and with the CPU
-	// slowdown, where a phone composites on its GPU; at a quarter of the pixels the slowed curl
-	// holds 60 fps. The Android app's figure is in docs/perf (scripts/perf-android.mjs).
+	// The frame rate is checked at full speed: headless Chromium draws WebGL with SwiftShader, on
+	// the CPU the slowdown slows, where a phone draws it on its GPU (at a quarter of the pixels the
+	// slowed curl holds 60 fps too). The Android app's figures come from scripts/perf-android.mjs
+	// --curl (the plan's Phase 1.21 notes).
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 	const full = await turnPages(6);
 	record(

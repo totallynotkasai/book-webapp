@@ -14,6 +14,10 @@ import {
 // animation frames to look at a turn frame by frame. Its page-turn budget at phone speed is in
 // phone.perf.ts; in the Android app, in docs/device-checklist.md.
 
+// Many screenshots of a WebGL canvas: Playwright's WebKit takes 15–20 s a test here, so twice the
+// usual time for a busy machine.
+test.describe.configure({ timeout: 60_000 });
+
 const overlay = (page: Page) => page.locator('canvas[data-page-curl]');
 const stage = (page: Page) => page.locator('.stage');
 
@@ -167,12 +171,10 @@ test.describe('the page curl (P1-RDR-19)', () => {
 
 		await holdFrames(page);
 		await page.keyboard.press('ArrowRight');
-		// The page has turned under the curl: the reader is on the next page already, one page on.
 		await expect(overlay(page)).toHaveCSS('visibility', 'visible');
-		await expect.poll(async () => (await visibleWords(page)).first).toBeGreaterThan(before.last);
-		const turnedTo = await visibleWords(page);
-		expect(turnedTo.first).toBeLessThanOrEqual(before.last + 2);
 		const firstFrame = await shot(page);
+		// The app hears where the turn went once the curl has played, as with the slide.
+		expect(await visibleWords(page)).toEqual(before);
 
 		// Half-way: the free edge's side shows the page turned to, the real one, and no other.
 		await step(page, 16);
@@ -180,7 +182,9 @@ test.describe('the page curl (P1-RDR-19)', () => {
 		const halfway = await shot(page, strip);
 		for (let i = 0; i < 6; i++) await step(page, 100);
 		await expect(overlay(page)).toHaveCSS('visibility', 'hidden');
-		expect(await visibleWords(page)).toEqual(turnedTo);
+		// One page on.
+		await expect.poll(async () => (await visibleWords(page)).first).toBeGreaterThan(before.last);
+		expect((await visibleWords(page)).first).toBeLessThanOrEqual(before.last + 2);
 		// Its first frame is the page that was there.
 		await looksLike(page, firstFrame, pageBefore, await shot(page));
 		await looksLike(page, halfway, await shot(page, strip), stripBefore);
@@ -204,8 +208,6 @@ test.describe('the page curl (P1-RDR-19)', () => {
 		await holdFrames(page);
 		await page.keyboard.press('ArrowLeft');
 		await expect(overlay(page)).toHaveCSS('visibility', 'visible');
-		await expect.poll(async () => (await visibleWords(page)).last).toBeLessThan(here.first);
-		const previous = await visibleWords(page);
 		const firstFrame = await shot(page);
 		for (let i = 0; i < 5; i++) await step(page, 90);
 		// The last frame before the curl goes, then the page itself: the same picture.
@@ -215,7 +217,7 @@ test.describe('the page curl (P1-RDR-19)', () => {
 		const pagePrevious = await shot(page);
 		await looksLike(page, firstFrame, pageHere, pagePrevious);
 		await looksLike(page, landing, pagePrevious, pageHere);
-		expect(await visibleWords(page)).toEqual(previous);
+		await expect.poll(async () => (await visibleWords(page)).last).toBeLessThan(here.first);
 	});
 
 	test('a tap at the side curls the page too; a jump never curls', async ({ page }) => {
@@ -230,7 +232,7 @@ test.describe('the page curl (P1-RDR-19)', () => {
 		await expect(overlay(page)).toHaveCSS('visibility', 'visible');
 		for (let i = 0; i < 8; i++) await step(page, 80);
 		await expect(overlay(page)).toHaveCSS('visibility', 'hidden');
-		expect((await visibleWords(page)).first).toBeGreaterThan(before.last);
+		await expect.poll(async () => (await visibleWords(page)).first).toBeGreaterThan(before.last);
 
 		// The Contents sheet's jump goes straight there.
 		await releaseFrames(page);
@@ -260,7 +262,7 @@ test.describe('the page curl (P1-RDR-19)', () => {
 		const firstFrame = await shot(page);
 		for (let i = 0; i < 8; i++) await step(page, 80);
 		await expect(overlay(page)).toHaveCSS('visibility', 'hidden');
-		expect((await visibleWords(page)).first).toBeGreaterThan(before.last);
+		await expect.poll(async () => (await visibleWords(page)).first).toBeGreaterThan(before.last);
 		await looksLike(page, firstFrame, pageBefore, await shot(page));
 	});
 
