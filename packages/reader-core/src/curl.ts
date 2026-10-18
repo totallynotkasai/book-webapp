@@ -155,6 +155,8 @@ export class PageCurl {
 	#next = 0;
 	/** The picture prepared ahead of a turn (see prepare). */
 	#prepared: PageSnapshot | null = null;
+	/** Whether a frame has been drawn yet (see prepare). */
+	#warmed = false;
 	#turn: CurlTurn | null = null;
 	#frame = 0;
 	#lost = false;
@@ -166,7 +168,10 @@ export class PageCurl {
 		canvas.dataset.pageCurl = '';
 		canvas.style.cssText =
 			'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;visibility:hidden;contain:strict';
-		const renderer = CurlRenderer.create(canvas);
+		// Multisampled edges, except on Android: there it costs fill rate on cheap phones (and in
+		// the emulator, two frames in three), and at a phone's density its smoothing hardly shows.
+		// Elsewhere it's cheap, and Playwright's WebKit shows a WebGL canvas only with it.
+		const renderer = CurlRenderer.create(canvas, !/Android/i.test(navigator.userAgent));
 		if (!renderer) return null;
 		return new PageCurl(host, canvas, renderer);
 	}
@@ -238,7 +243,32 @@ export class PageCurl {
 	 */
 	prepare(source: Omit<CaptureSource, 'dpr'>): PageSnapshot {
 		const snapshot = this.capture(source);
-		if (this.usable) this.#texture(snapshot);
+		if (this.usable) {
+			const texture = this.#texture(snapshot);
+			// The first time, a frame is drawn out of sight too: the GPU finishes building the
+			// shaders on their first use, which would otherwise hold up the first turn.
+			if (!this.#warmed && !this.#turn) {
+				this.#warmed = true;
+				const { width, height } = snapshot;
+				const sheet = { x0: 0, x1: width, height };
+				this.#renderer.resize(width, height, Math.min(MAX_DPR, globalThis.devicePixelRatio || 1));
+				this.#renderer.draw(
+					{
+						sheet,
+						axis: curlAxis(sheet, playedPose(sheet, 0.3), false),
+						front: texture,
+						back: { kind: 'through', ink: INK },
+						under: [{ texture, x0: 0, x1: width / 2 }],
+						paper: snapshot.paper,
+						dark: snapshot.dark,
+						mirror: false,
+						shadow: 1
+					},
+					[width, height]
+				);
+				this.#renderer.clear();
+			}
+		}
 		this.#prepared = snapshot;
 		return snapshot;
 	}
@@ -310,8 +340,9 @@ export class PageCurl {
 		this.#turn?.end();
 		const turn = new CurlTurn(this, scene);
 		this.#turn = turn;
-		this.#paint(turn);
+		// Shown before it's drawn: WebKit drops a frame drawn into a hidden canvas.
 		this.#canvas.style.visibility = 'visible';
+		this.#paint(turn);
 		return turn;
 	}
 

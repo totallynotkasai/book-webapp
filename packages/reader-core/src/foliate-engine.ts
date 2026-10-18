@@ -85,6 +85,8 @@ interface CurlMove {
 	moved: Promise<void>;
 	/** Where the reader was, to settle back to. */
 	from: VisibleRange | null;
+	/** Holds the move's relocation until the curl has played (see #holder). */
+	holder: object;
 }
 
 /** A finger on the page while the curl is on (P1-RDR-19). */
@@ -162,6 +164,8 @@ export class FoliateEngine implements ReaderEngine {
 	#layout: LayoutMode = 'paginated-single';
 	#pageTurn: PageTurn = 'slide';
 	#decorations = new Map<string, Decoration[]>();
+	/** What each group last held, so setting the same again isn't a change (page curl). */
+	#decorationKeys = new Map<string, string>();
 	#figures: FigureInjection[] = [];
 	#tableButton: EngineOptions['tableButton'];
 	#listeners: Listeners = {
@@ -204,8 +208,13 @@ export class FoliateEngine implements ReaderEngine {
 	#pageVersion = 0;
 	#prepared: { snapshot: import('./snapshot').PageSnapshot; version: number } | null = null;
 	#abort = new AbortController();
-	/** While a finger holds a turn, relocations wait: a turn settled back never happened. */
-	#holding = false;
+	/**
+	 * The curled turn whose relocation is waiting, and the relocation. A turn tells the app where
+	 * it went once its curl has played (as the slide does once it has slid), so the app's own work
+	 * on a new page never holds up the curl's frames; and a turn a finger settles back never
+	 * happened at all.
+	 */
+	#holder: object | null = null;
 	#held: VisibleRange | null = null;
 	#warmTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -651,7 +660,7 @@ export class FoliateEngine implements ReaderEngine {
 		};
 		this.#linking = false;
 		this.#lastRelocateAt = performance.now();
-		if (this.#holding) this.#held = this.#visible;
+		if (this.#holder) this.#held = this.#visible;
 		else this.#emit('relocated', this.#visible);
 		this.#flushWaiters();
 	}
@@ -759,10 +768,11 @@ export class FoliateEngine implements ReaderEngine {
 		if (this.#pageTurn === 'curl') {
 			await this.#loadCurl();
 			if (this.#curlUsable()) {
-				const move = await this.#beginCurl(dir, false);
+				const move = await this.#beginCurl(dir);
 				if (move === 'still') return;
 				if (move) {
-					void move.turn.play(dir > 0 ? 1 : 0);
+					// The app hears where the turn went once the curl has played, or is cut short.
+					void move.turn.play(dir > 0 ? 1 : 0).then(() => this.#release(true, move.holder));
 					await move.moved;
 					return;
 				}
@@ -945,12 +955,12 @@ export class FoliateEngine implements ReaderEngine {
 
 	/**
 	 * Turns the page under a curl: pictures what's on screen, moves the paginator at once, then
-	 * shows the curl over it (DESIGN.md §4.1). `hold` keeps the move's relocation back until the
-	 * turn is committed (a finger may settle it back). 'still' when the paginator didn't move (it
-	 * was still settling the last turn, or there's nothing to turn to); null when the curl couldn't
-	 * start, so the turn goes on without it.
+	 * shows the curl over it (DESIGN.md §4.1). The move's relocation waits for the curl (see
+	 * #holder). 'still' when the paginator didn't move (it was still settling the last turn, or
+	 * there's nothing to turn to); null when the curl couldn't start, so the turn goes on
+	 * without it.
 	 */
-	async #beginCurl(dir: 1 | -1, hold: boolean): Promise<CurlMove | 'still' | null> {
+	async #beginCurl(dir: 1 | -1): Promise<CurlMove | 'still' | null> {
 		const p = this.#paginator;
 		const curl = this.#curl;
 		const module = this.#curlModule;
@@ -991,10 +1001,11 @@ export class FoliateEngine implements ReaderEngine {
 		// Waiting for a font, the reader may have moved on.
 		if (this.#current()?.doc !== current.doc || p.page !== page || this.#destroyed) return null;
 		const from = this.#visible;
-		if (hold) {
-			this.#holding = true;
-			this.#held = null;
-		}
+		// The last turn's relocation, if it's still waiting, goes first.
+		this.#release(true);
+		const holder = {};
+		this.#holder = holder;
+		this.#held = null;
 		const relocated = this.#nextRelocate();
 		// Without the paginator's own slide: the curl is the animation.
 		p.removeAttribute('animated');
@@ -1004,7 +1015,7 @@ export class FoliateEngine implements ReaderEngine {
 		}));
 		// Within a Chapter the paginator has moved by now; into another, it's loading it.
 		if (p.page === page && this.#current()?.index === current.index) {
-			if (hold) this.#release(false);
+			this.#release(false, holder);
 			await moving;
 			return 'still';
 		}
@@ -1039,13 +1050,14 @@ export class FoliateEngine implements ReaderEngine {
 				if (scene.after?.fontsPending) await Promise.race([scene.after.fontsPending, wait(400)]);
 				if (cover.done || this.#destroyed || !(scene.after = arriving())) {
 					cover.end();
+					this.#release(true, holder);
 					return null;
 				}
 			}
 			turn = curl.start(scene);
 		}
 		performance.mark('page-curl:start');
-		return { turn, dir, moved, from };
+		return { turn, dir, moved, from, holder };
 	}
 
 	/**
@@ -1063,8 +1075,9 @@ export class FoliateEngine implements ReaderEngine {
 	}
 
 	/** Lets held relocations through: the turn was committed (or never moved). */
-	#release(emit: boolean) {
-		this.#holding = false;
+	#release(emit: boolean, holder?: object) {
+		if (holder && holder !== this.#holder) return;
+		this.#holder = null;
 		const held = this.#held;
 		this.#held = null;
 		if (emit && held) this.#emit('relocated', held);
@@ -1093,8 +1106,7 @@ export class FoliateEngine implements ReaderEngine {
 			await back;
 			this.#visible = move.from;
 		}
-		this.#holding = false;
-		this.#held = null;
+		this.#release(false, move.holder);
 		move.turn.end();
 		this.#applyAnimated();
 	}
@@ -1177,7 +1189,7 @@ export class FoliateEngine implements ReaderEngine {
 		const rtl = current ? this.#rtl(current.doc) : false;
 		const dir: 1 | -1 = dx < 0 !== rtl ? 1 : -1;
 		state.dir = dir;
-		state.move = this.#beginCurl(dir, true).then((move) => {
+		state.move = this.#beginCurl(dir).then((move) => {
 			if (move === 'still' || !move) {
 				state.ignored = true;
 				return null;
@@ -1206,15 +1218,15 @@ export class FoliateEngine implements ReaderEngine {
 		if (!state?.move) return;
 		const move = await state.move;
 		if (!move || move.turn.done) {
-			if (this.#holding) this.#release(true);
+			if (move) this.#release(true, move.holder);
 			return;
 		}
 		const velocity = move.turn.scene.rtl ? -state.velocity : state.velocity;
 		const commit = lifted && dragCommits(move.turn.progress, velocity, move.dir);
 		if (!commit) return this.#settleBack(move);
 		const played = move.turn.play(move.dir > 0 ? 1 : 0, this.#curlModule?.CURL_MS, easeOut);
+		void played.then(() => this.#release(true, move.holder));
 		await move.moved;
-		this.#release(true);
 		this.#applyAnimated();
 		await played;
 	}
@@ -1241,8 +1253,9 @@ export class FoliateEngine implements ReaderEngine {
 		this.#warmTimer = setTimeout(() => {
 			const current = this.#current();
 			const host = this.#host;
-			if (!current || !host || !this.#curlUsable() || this.#holding) return;
-			if (this.#curl?.turning) return this.#warmCurl(200);
+			if (!current || !host || !this.#curlUsable()) return;
+			// Not while a turn plays or holds its relocation: once it's done.
+			if (this.#curl?.turning || this.#holder) return this.#warmCurl(200);
 			const version = this.#pageVersion;
 			try {
 				const snapshot = this.#curl!.prepare({
@@ -1265,7 +1278,17 @@ export class FoliateEngine implements ReaderEngine {
 
 	setDecorations(group: string, items: Decoration[]): void {
 		this.#decorations.set(group, items);
-		this.#pageChanged();
+		// The same decorations again (the app's effects re-run) change nothing on the page.
+		const key = items
+			.map(
+				(d) =>
+					`${d.id} ${d.style} ${d.color ?? ''} ${d.anchor.revisionId} ${d.anchor.startOrdinal} ${d.anchor.endOrdinal}`
+			)
+			.join('|');
+		if (this.#decorationKeys.get(group) !== key) {
+			this.#decorationKeys.set(group, key);
+			this.#pageChanged();
+		}
 		const current = this.#current();
 		const map = current && this.#maps.get(current.doc);
 		if (current && map) this.#paintDecorations(current.doc, map);

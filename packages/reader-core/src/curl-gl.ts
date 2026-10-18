@@ -156,6 +156,28 @@ void main() {
 	vQ = q;
 }`;
 
+/**
+ * A band of the page beside the axis, `uBand` (distances past it) wide and as long as the page
+ * is big: where the roll's shadow falls, so the shadow is worked out only there.
+ */
+const BAND_VERTEX = `
+attribute vec2 aGrid;
+uniform vec2 uSize;
+uniform vec2 uNormal;
+uniform float uAxis;
+uniform vec2 uBand;
+uniform float uMirror;
+varying vec2 vQ;
+void main() {
+	vec2 along = vec2(-uNormal.y, uNormal.x);
+	float reach = length(uSize) * 1.5;
+	vec2 q = uNormal * (uAxis + mix(uBand.x, uBand.y, aGrid.x)) + along * mix(-reach, reach, aGrid.y);
+	vec2 xy = q;
+	if (uMirror > 0.5) xy.x = uSize.x - xy.x;
+	gl_Position = vec4(xy.x / uSize.x * 2.0 - 1.0, 1.0 - xy.y / uSize.y * 2.0, 0.999, 1.0);
+	vQ = q;
+}`;
+
 /** A page lying still under the sheet. */
 const UNDER_FRAGMENT = `
 precision highp float;
@@ -240,17 +262,18 @@ export class CurlRenderer {
 	#sheet!: WebGLProgram;
 	#under!: WebGLProgram;
 	#shadow!: WebGLProgram;
+	#band!: WebGLProgram;
 	#sheetGrid!: ReturnType<typeof grid>;
 	#quad!: ReturnType<typeof grid>;
 	#uniforms = new Map<WebGLProgram, Map<string, WebGLUniformLocation | null>>();
 	#textures: WebGLTexture[] = [];
 
 	/** Null when the device has no WebGL: the turn then slides instead. */
-	static create(canvas: HTMLCanvasElement): CurlRenderer | null {
+	static create(canvas: HTMLCanvasElement, antialias: boolean): CurlRenderer | null {
 		const gl = canvas.getContext('webgl', {
 			alpha: true,
 			premultipliedAlpha: true,
-			antialias: false,
+			antialias,
 			depth: true,
 			stencil: false,
 			preserveDrawingBuffer: false
@@ -281,6 +304,7 @@ export class CurlRenderer {
 		this.#sheet = compile(gl, vertex(SHEET_VERTEX), fragment(SHEET_FRAGMENT));
 		this.#under = compile(gl, vertex(QUAD_VERTEX), fragment(UNDER_FRAGMENT));
 		this.#shadow = compile(gl, vertex(QUAD_VERTEX), fragment(SHADOW_FRAGMENT));
+		this.#band = compile(gl, vertex(BAND_VERTEX), fragment(SHADOW_FRAGMENT));
 		this.#sheetGrid = grid(gl, 96, 96);
 		this.#quad = grid(gl, 1, 1);
 		this.#uniforms.clear();
@@ -372,13 +396,27 @@ export class CurlRenderer {
 			gl.drawElements(gl.TRIANGLES, this.#quad.count, gl.UNSIGNED_SHORT, 0);
 		}
 
-		// The curl's shadow over them, and over the real page showing through.
+		// The curl's shadow over them, and over the real page showing through: only where it can
+		// fall, so a frame shades as few pixels as it can (cheap phones, §12.3). Beside the roll…
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-		gl.useProgram(this.#shadow);
-		this.#common(this.#shadow, f, size);
-		gl.uniform2f(this.#u(this.#shadow, 'uSpan'), 0, size[0]);
+		const radius = Math.max(f.axis.radius, 0.5);
+		gl.useProgram(this.#band);
+		this.#common(this.#band, f, size);
+		gl.uniform2f(
+			this.#u(this.#band, 'uBand'),
+			0,
+			radius * 1.9 + (f.sheet.x1 - f.sheet.x0) * 0.05 + 2
+		);
 		gl.drawElements(gl.TRIANGLES, this.#quad.count, gl.UNSIGNED_SHORT, 0);
+		// …and, in a spread, on the other page, where the turned-over part comes to land (on the
+		// sheet itself, its own shader adds that shadow).
+		if (f.sheet.x0 > 0) {
+			gl.useProgram(this.#shadow);
+			this.#common(this.#shadow, f, size);
+			gl.uniform2f(this.#u(this.#shadow, 'uSpan'), 0, f.sheet.x0);
+			gl.drawElements(gl.TRIANGLES, this.#quad.count, gl.UNSIGNED_SHORT, 0);
+		}
 
 		// The sheet.
 		gl.disable(gl.BLEND);
